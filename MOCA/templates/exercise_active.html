@@ -1,11 +1,227 @@
 {% extends 'base.html' %}
 {% block header %}{% endblock %}
 {% block extra_head %}
+<meta name="referrer" content="no-referrer">
 <link rel="stylesheet" href="/static/css/exercise.css">
+<style>
+  /* Custom styles to match the user screenshot precisely */
+  .exercise-active-screen {
+    background: linear-gradient(160deg, #55A5E5 0%, #7BD9C5 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 20px;
+  }
+
+  .active-hero-card {
+    border-radius: 28px;
+    background: rgba(255, 255, 255, 0.94);
+    padding: 20px 24px !important;
+    text-align: center;
+    box-shadow: 0 16px 34px rgba(21, 68, 103, 0.16);
+    margin-bottom: 16px;
+  }
+
+  .active-placeholder-card {
+    border-radius: 28px;
+    background: rgba(255, 255, 255, 0.94);
+    padding: 24px 20px !important;
+    text-align: center;
+    box-shadow: 0 16px 34px rgba(21, 68, 103, 0.16);
+    margin-bottom: 16px;
+  }
+
+  .active-motion {
+    margin: 20px auto 10px !important;
+    height: 90px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 18px;
+  }
+
+  .active-motion span {
+    width: 46px;
+    border-radius: 999px;
+    background: #8EE6D6;
+    animation: exercisePulse 1.1s ease-in-out infinite;
+    display: inline-block;
+  }
+
+  .active-motion span:nth-child(1) { height: 48px; }
+  .active-motion span:nth-child(2) { height: 78px; animation-delay: 0.12s; }
+  .active-motion span:nth-child(3) { height: 58px; animation-delay: 0.24s; }
+
+  @keyframes exercisePulse {
+    50% { transform: translateY(-14px); background: #0A68B3; }
+  }
+
+  /* Demo control styling to match screenshot */
+  .demo-section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #4A5C70;
+    margin: 15px 0 8px;
+    text-align: center;
+  }
+
+  .demo-btn-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  /* Type buttons: White outline by default, Blue filled when active */
+  .btn-type {
+    background: #fff;
+    border: 1.5px solid #005EA8;
+    color: #005EA8;
+    padding: 6px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    min-width: 72px;
+    transition: all 0.2s ease;
+  }
+
+  .btn-type.active {
+    background: #005EA8;
+    color: #fff;
+  }
+
+  /* Phase buttons: White outline by default, Coral filled when active */
+  .btn-phase {
+    background: #fff;
+    border: 1.5px solid #FF877E;
+    color: #FF877E;
+    padding: 6px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .btn-phase.active {
+    background: #FF877E;
+    color: #fff;
+  }
+
+  .divider-dotted {
+    border-top: 1px dashed #cbd5e1;
+    margin: 15px 0;
+  }
+
+  .bgm-playing-text {
+    font-size: 13px;
+    font-weight: 700;
+    color: #005EA8;
+    margin-top: 12px;
+  }
+
+  .notice-text {
+    font-size: 11px;
+    font-weight: 700;
+    color: #6b7280;
+    margin-top: 15px;
+    text-align: center;
+  }
+
+  /* Slider container and seek bar */
+  .slider-container {
+    width: 85%;
+    margin: 10px auto 0;
+  }
+
+  .audio-slider {
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 99px;
+    background: #cbd5e1;
+    outline: none;
+  }
+
+  .audio-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #005EA8;
+    cursor: pointer;
+  }
+
+  .slider-time-text {
+    font-size: 13px;
+    color: #6b7280;
+    font-weight: 700;
+    margin-top: 8px;
+    text-align: center;
+  }
+
+  /* Interactive cues box (For phase-specific guidance) */
+  .interactive-cue-box {
+    margin: 12px 0 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #1A2B3C;
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.02);
+    border-radius: 12px;
+    padding: 8px 12px;
+    line-height: 1.4;
+  }
+
+  .interactive-feedback-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    background: #EBF3FC;
+    color: #4A90E2;
+    font-size: 11px;
+    font-weight: 800;
+    border-radius: 99px;
+    margin-bottom: 6px;
+  }
+
+
+
+  /* Repositioned Complete Button */
+  .exercise-fixed-cta {
+    background: transparent !important;
+    border-top: none !important;
+    padding: 0 16px 20px !important;
+  }
+
+  .exercise-primary-button {
+    width: 100%;
+    text-align: center;
+    font-weight: 800;
+    font-size: 20px;
+    padding: 16px;
+    border-radius: 16px;
+    background: #005EA8;
+    color: #fff;
+    display: block;
+    text-decoration: none;
+    box-shadow: 0 4px 10px rgba(0, 94, 168, 0.3);
+  }
+
+  .exercise-primary-button:hover {
+    background: #004d8a;
+  }
+</style>
 {% endblock %}
 
 {% block content %}
 <div class="exercise-screen exercise-active-screen" data-exercise-active>
+
   <header class="exercise-topbar">
     <a class="exercise-back" href="/exercise/today" aria-label="뒤로 가기">←</a>
     <h1>운동 진행</h1>
@@ -13,35 +229,108 @@
   </header>
 
   <main class="exercise-page active-page">
+    <!-- Top Motion Card -->
     <section class="active-hero-card">
-      <span class="active-mode">{{ exercise.today.type }}</span>
-      <h2>{{ exercise.today.exercise_name }}</h2>
-      <p>{{ exercise.today.sets }} · {{ exercise.today.set_duration }}</p>
-      <div class="active-motion" aria-hidden="true">
+      <div class="active-motion" id="activeMotionPulse" aria-hidden="true">
         <span></span>
         <span></span>
         <span></span>
       </div>
     </section>
 
+    <!-- Bottom Control Card -->
     <section class="active-placeholder-card">
-      <div class="active-timer" id="exerciseTimer">{{ exercise.today.duration_min }}:00</div>
-      <p>운동 진행 Placeholder</p>
-      <div class="active-progress">
-        <span id="exerciseProgress"></span>
+      <!-- Big Timer (phase remaining time) -->
+      <div class="active-timer" id="exerciseTimer" style="font-size: 52px; font-weight: 900; color: #005EA8;">20:00</div>
+      
+      <!-- Phase name -->
+      <h2 id="phaseNameLabel" style="font-size: 20px; font-weight: 900; margin-top: 10px; color: #1e293b;">1단계: 워밍업 (3분)</h2>
+      
+      <!-- Phase description -->
+      <p id="phaseDescLabel" style="font-size: 14px; color: #64748b; font-weight: 700; margin-top: 4px; line-height: 1.4;">
+        가벼운 제자리 걷기 및 관절 돌리기 (음악 리듬에 맞춰 진행)
+      </p>
+
+      <!-- Feedback Interaction Box (for sensor status and TTS texts) -->
+      <div style="margin-top: 12px;">
+        <span class="interactive-feedback-badge" id="sensorBadge">대기 중</span>
+        <div class="interactive-cue-box" id="sensorCueBox">
+          화면을 클릭하여 운동을 진행해 주세요.
+        </div>
       </div>
-      <small>현재는 UI 미리보기 화면입니다. 센서와 알고리즘은 연결하지 않았습니다.</small>
+      
+      <!-- Progress Bar -->
+      <div class="active-progress" style="margin-top: 15px; height: 12px; background: #E2E8F0; border-radius: 99px; overflow: hidden;">
+        <span id="exerciseProgress" style="width: 0%; display: block; height: 100%; background: #005EA8; transition: width 0.3s;"></span>
+      </div>
+      
+      <!-- BGM Playing Text -->
+      <div class="bgm-playing-text" id="bgmPlayingText">
+        재생 중인 배경음: A_1단계워밍업.mp3
+      </div>
+
+      <!-- Dotted Separator -->
+      <div class="divider-dotted"></div>
+
+      <!-- [시연용 테스트 유형 변경] -->
+      <div class="demo-section-title">[시연용 테스트 유형 변경]</div>
+      <div class="demo-btn-row">
+        <button class="btn-type active" id="btnTypeA" onclick="setExerciseType('A')">A 유형</button>
+        <button class="btn-type" id="btnTypeB" onclick="setExerciseType('B')">B 유형</button>
+        <button class="btn-type" id="btnTypeC" onclick="setExerciseType('C')">C 유형</button>
+        <button class="btn-type" id="btnTypeD" onclick="setExerciseType('D')">D 유형</button>
+      </div>
+
+      <!-- [시연용 단계 건너뛰기] -->
+      <div class="demo-section-title">[시연용 단계 건너뛰기]</div>
+      <div class="demo-btn-row">
+        <button class="btn-phase active" id="btnPhase1" onclick="jumpToPhase(1)">1단계(워밍업)</button>
+        <button class="btn-phase" id="btnPhase2" onclick="jumpToPhase(2)">2단계(강화)</button>
+        <button class="btn-phase" id="btnPhase3" onclick="jumpToPhase(3)">3단계(본운동)</button>
+        <button class="btn-phase" id="btnPhase4" onclick="jumpToPhase(4)">4단계(쿨다운)</button>
+      </div>
+
+      <!-- Dotted Separator -->
+      <div class="divider-dotted"></div>
+
+      <!-- [오디오 타임라인 점프] -->
+      <div class="demo-section-title">[오디오 타임라인 점프]</div>
+      <div class="slider-container">
+        <input type="range" class="audio-slider" id="timeSeekSlider" min="0" max="153" value="0" oninput="onSeekBarScrub(this.value)">
+      </div>
+      <div class="slider-time-text" id="seekTimeDisplay">0:00 / 2:33</div>
+
+      <!-- 가상 센서 신호 발생 버튼 -->
+      <button class="btn-type" style="width: 85%; margin: 12px auto 0; display: block; background: #eab308; color: #fff; border: none; padding: 10px; border-radius: 8px; font-weight: 800; box-shadow: 0 4px 10px rgba(234, 179, 8, 0.3);" onclick="triggerVirtualSensor()">
+        ⚡ 가상 센서 신호 발생 (동작 인식)
+      </button>
+
+      <div class="notice-text">
+        * 유형 변경 시 재생 오디오 및 단계별 TTS 시나리오가 즉시 바뀝니다.
+      </div>
     </section>
   </main>
 
+  <!-- Complete button at the very bottom -->
   <div class="exercise-fixed-cta">
-    <a class="exercise-primary-button" href="/exercise/complete">
+    <a class="exercise-primary-button" href="/exercise/complete" onclick="onCompleteExercise(event)">
       운동 완료하기
     </a>
   </div>
 </div>
+
+<audio id="bgmAudio" loop></audio>
+<audio id="effectAudio"></audio>
 {% endblock %}
 
 {% block scripts %}
+<script>
+  window.EXERCISE_DATA = {
+    type: "{{ exercise.today.type }}",
+    exerciseName: "{{ exercise.today.exercise_name }}",
+    sets: "{{ exercise.today.sets }}",
+    durationMin: {{ exercise.today.duration_min }}
+  };
+</script>
 <script src="/static/js/exercise.js"></script>
 {% endblock %}
