@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block header %}{% endblock %}
+
+{% block content %}
+<div class="result-screen">
+
+  <!-- 총점 카드 -->
+  <div class="result-hero card {% if score.mci.label == 0 %}result-normal{% else %}result-mci{% endif %}">
+    <p class="result-ver">{{ version }}</p>
+    {% if participant %}
+    <div class="result-meta">
+      {% if participant.education_label %}<span>{{ participant.education_label }}</span>{% endif %}
+      {% if participant.phone_last4 %}<span>전화번호 끝 {{ participant.phone_last4 }}</span>{% endif %}
+    </div>
+    {% endif %}
+    <div class="result-score-wrap">
+      <span class="result-score">{{ score.final_score }}</span>
+      <span class="result-max">/ 30</span>
+    </div>
+    <div class="result-badge {% if score.mci.label == 0 %}badge-normal{% else %}badge-mci{% endif %}">
+      {{ score.mci.interpretation }}
+    </div>
+    {% if score.education_correction %}
+    <p class="result-edu-note">* 교육연수 6년 이하 +1점 보정 포함</p>
+    {% endif %}
+  </div>
+
+  <!-- 섹션별 점수 -->
+  <div class="section-scores card">
+    <h3 class="section-title">항목별 점수</h3>
+
+    {% set section_info = [
+      ('trail_making', '길 만들기',     1),
+      ('drawing',      '그리기',        4),
+      ('naming',       '어휘력',        3),
+      ('memory',       '기억력',        5),
+      ('attention',    '주의력',        6),
+      ('language',     '언어',          3),
+      ('abstraction',  '추상력',        2),
+      ('orientation',  '지남력',        6),
+    ] %}
+
+    {% for key, label, max_score in section_info %}
+    {% set got = score.sections.get(key, 0) %}
+    <div class="score-row">
+      <span class="score-row-label">{{ label }}</span>
+      <div class="score-bar-wrap">
+        <div class="score-bar-fill" style="width: {{ (got / max_score * 100) | int }}%"></div>
+      </div>
+      <span class="score-row-val">{{ got }}<span class="score-row-max">/{{ max_score }}</span></span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- 기준 안내 -->
+  <div class="result-guide card-sm">
+    <strong>MCI 판정 기준:</strong> 23점 미만 시 MCI 의심<br>
+    <strong>원점수:</strong> {{ score.raw_score }}점
+    {% if score.education_correction %} + 교육 보정 {{ score.education_correction }}점{% endif %}
+    = <strong>{{ score.final_score }}점</strong>
+  </div>
+
+  <a class="btn btn-secondary btn-lg" href="/">다시 시작</a>
+
+</div>
+{% endblock %}

@@ -1,0 +1,249 @@
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            overscroll-behavior-y: contain;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            font-size: 32px;
+        }
+        .step-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        /* Custom Shadow for Senior UX Cards */
+        .senior-shadow {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.10);
+        }
+        /* Hide scrollbar but keep functionality */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "inverse-surface": "#1a324a",
+                      "on-tertiary-fixed-variant": "#7d2c1e",
+                      "on-primary-fixed": "#001c39",
+                      "on-tertiary-container": "#fffbff",
+                      "error-container": "#ffdad6",
+                      "tertiary": "#994030",
+                      "primary": "#005da7",
+                      "on-primary-fixed-variant": "#004883",
+                      "on-secondary-fixed": "#00201a",
+                      "surface-variant": "#d0e4ff",
+                      "on-error-container": "#93000a",
+                      "surface-tint": "#0060ac",
+                      "primary-fixed-dim": "#a4c9ff",
+                      "on-secondary-container": "#00705e",
+                      "tertiary-fixed-dim": "#ffb4a6",
+                      "secondary-fixed": "#9af3dc",
+                      "on-surface-variant": "#414751",
+                      "on-background": "#021d33",
+                      "tertiary-fixed": "#ffdad3",
+                      "surface-container-highest": "#d0e4ff",
+                      "on-primary-container": "#fdfcff",
+                      "background": "#f8f9ff",
+                      "secondary-fixed-dim": "#7ed7c1",
+                      "primary-fixed": "#d4e3ff",
+                      "error": "#ba1a1a",
+                      "surface-bright": "#f8f9ff",
+                      "surface-container-lowest": "#ffffff",
+                      "surface-container": "#e4efff",
+                      "on-surface": "#021d33",
+                      "on-secondary": "#ffffff",
+                      "tertiary-container": "#b85846",
+                      "on-tertiary-fixed": "#3f0300",
+                      "inverse-primary": "#a4c9ff",
+                      "primary-container": "#2976c7",
+                      "outline": "#717783",
+                      "on-primary": "#ffffff",
+                      "surface-container-low": "#eef4ff",
+                      "secondary-container": "#97f0da",
+                      "secondary": "#006b5a",
+                      "on-secondary-fixed-variant": "#005143",
+                      "surface": "#f8f9ff",
+                      "on-error": "#ffffff",
+                      "surface-container-high": "#dae9ff",
+                      "on-tertiary": "#ffffff",
+                      "outline-variant": "#c1c7d3",
+                      "surface-dim": "#c5dcfb",
+                      "inverse-on-surface": "#e9f1ff"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "1.5rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "stack-gap": "32px",
+                      "container-padding": "24px",
+                      "button-height-min": "80px",
+                      "safe-zone-bottom": "88px",
+                      "back-button-tap": "52px",
+                      "touch-target-min": "72px"
+              },
+              "fontFamily": {
+                      "body-lg": ["Noto Sans KR"],
+                      "headline-lg": ["Noto Sans KR"],
+                      "body-md": ["Noto Sans KR"],
+                      "label-md": ["Noto Sans KR"],
+                      "headline-md": ["Noto Sans KR"]
+              },
+              "fontSize": {
+                      "body-lg": ["28px", {"lineHeight": "48px", "fontWeight": "500"}],
+                      "headline-lg": ["40px", {"lineHeight": "60px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                      "body-md": ["24px", {"lineHeight": "40px", "fontWeight": "400"}],
+                      "label-md": ["20px", {"lineHeight": "28px", "letterSpacing": "0.02em", "fontWeight": "700"}],
+                      "headline-md": ["36px", {"lineHeight": "54px", "letterSpacing": "-0.01em", "fontWeight": "700"}]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col items-center selection:bg-primary-container selection:text-on-primary-container">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 left-0 w-full z-50 flex items-center px-container-padding h-[80px] bg-surface">
+<button aria-label="뒤로 가기" class="flex items-center justify-center w-back-button-tap h-back-button-tap active:scale-95 transition-transform duration-200">
+<span class="material-symbols-outlined text-on-surface" data-icon="arrow_back">arrow_back</span>
+<span class="font-label-md text-label-md ml-2">뒤로</span>
+</button>
+<div class="flex-1 flex justify-center mr-back-button-tap">
+<h1 class="font-headline-md text-headline-md text-primary">두근두근</h1>
+</div>
+</header>
+<!-- Content Canvas -->
+<main class="w-full max-w-2xl px-container-padding pt-[100px] pb-safe-zone-bottom flex flex-col gap-stack-gap">
+<!-- Step Indicator -->
+<div class="flex flex-col gap-2">
+<div class="flex items-center gap-3">
+<div class="step-dot bg-secondary"></div>
+<div class="step-dot bg-outline-variant"></div>
+<div class="step-dot bg-outline-variant"></div>
+<span class="font-label-md text-label-md text-secondary ml-2">1/3 단계</span>
+</div>
+<h2 class="font-headline-md text-headline-md text-[#243B53] mt-2">기본 정보를 입력해주세요</h2>
+<p class="font-body-md text-body-md text-[#6B7A8D]">간단하게 입력하시면 돼요 😊</p>
+</div>
+<!-- Form Section -->
+<section class="flex flex-col gap-8">
+<!-- Input 1: Name -->
+<div class="flex flex-col gap-4">
+<label class="font-label-md text-label-md text-on-surface-variant font-bold px-1" for="user-name">1. 성함</label>
+<div class="relative">
+<input class="w-full h-button-height-min px-6 bg-surface-container-lowest border-2 border-outline-variant rounded-xl text-[26px] focus:border-primary focus:ring-4 focus:ring-primary-fixed-dim outline-none transition-all duration-200 placeholder:text-outline-variant" id="user-name" placeholder="홍길동" type="text">
+</div>
+</div>
+<!-- Input 2: Birth Year Dropdown -->
+<div class="flex flex-col gap-4">
+<label class="font-label-md text-label-md text-on-surface-variant font-bold px-1" for="birth-year">2. 태어난 년도</label>
+<div class="relative">
+<select class="appearance-none w-full h-button-height-min px-6 bg-surface-container-lowest border-2 border-outline-variant rounded-xl text-[26px] focus:border-primary focus:ring-4 focus:ring-primary-fixed-dim outline-none transition-all duration-200 text-on-surface invalid:text-outline-variant" id="birth-year">
+<option disabled="" hidden="" selected="" value="">예) 1955</option>
+<option value="1960">1960년</option>
+<option value="1959">1959년</option>
+<option value="1958">1958년</option>
+<option value="1957">1957년</option>
+<option value="1956">1956년</option>
+<option value="1955">1955년</option>
+<option value="1954">1954년</option>
+<option value="1953">1953년</option>
+<option value="1952">1952년</option>
+<option value="1951">1951년</option>
+<option value="1950">1950년</option>
+</select>
+<div class="absolute inset-y-0 right-6 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline">expand_more</span>
+</div>
+</div>
+</div>
+<!-- Input 3: Gender Selection -->
+<div class="flex flex-col gap-4">
+<label class="font-label-md text-label-md text-on-surface-variant font-bold px-1">3. 성별</label>
+<div class="grid grid-cols-2 gap-4">
+<button class="flex items-center justify-center gap-3 h-button-height-min border-2 border-outline-variant rounded-xl text-body-md bg-surface-container-lowest active:scale-95 transition-all duration-200 senior-shadow" id="gender-male" onclick="selectGender('male')" type="button">
+<span class="text-3xl">👨</span>
+<span>남성</span>
+</button>
+<button class="flex items-center justify-center gap-3 h-button-height-min border-2 border-outline-variant rounded-xl text-body-md bg-surface-container-lowest active:scale-95 transition-all duration-200 senior-shadow" id="gender-female" onclick="selectGender('female')" type="button">
+<span class="text-3xl">👩</span>
+<span>여성</span>
+</button>
+</div>
+</div>
+<!-- Input 4: Guardian Contact -->
+<div class="flex flex-col gap-4">
+<label class="font-label-md text-label-md text-on-surface-variant font-bold px-1" for="guardian-phone">4. 보호자 연락처</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-6 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-outline" data-icon="call">call</span>
+</div>
+<input class="w-full h-button-height-min pl-16 pr-6 bg-surface-container-lowest border-2 border-outline-variant rounded-xl text-[26px] focus:border-primary focus:ring-4 focus:ring-primary-fixed-dim outline-none transition-all duration-200 placeholder:text-outline-variant" id="guardian-phone" placeholder="010-0000-0000" type="tel">
+</div>
+</div>
+</section>
+<!-- Footer Info -->
+<div class="flex flex-col items-center gap-4 mt-4">
+<button class="w-full h-button-height-min bg-primary text-on-primary rounded-xl font-headline-md text-[28px] senior-shadow active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                다음으로
+                <span class="material-symbols-outlined" data-icon="arrow_forward">arrow_forward</span>
+</button>
+<div class="flex items-center gap-2 text-outline mt-2">
+<span class="material-symbols-outlined text-[20px]" data-icon="lock" style="font-variation-settings: 'FILL' 1;">lock</span>
+<span class="font-label-md text-label-md">개인정보는 안전하게 보호됩니다</span>
+</div>
+</div>
+</main>
+<script>
+        function selectGender(gender) {
+            const maleBtn = document.getElementById('gender-male');
+            const femaleBtn = document.getElementById('gender-female');
+            
+            // Primary color selection from config: #005da7 (primary) or prompt's #4A90E2
+            const activeClass = ['bg-primary', 'text-white', 'border-primary'];
+            const inactiveClass = ['bg-surface-container-lowest', 'text-on-surface', 'border-outline-variant'];
+
+            if (gender === 'male') {
+                maleBtn.classList.add(...activeClass);
+                maleBtn.classList.remove(...inactiveClass);
+                femaleBtn.classList.add(...inactiveClass);
+                femaleBtn.classList.remove(...activeClass);
+            } else {
+                femaleBtn.classList.add(...activeClass);
+                femaleBtn.classList.remove(...inactiveClass);
+                maleBtn.classList.add(...inactiveClass);
+                maleBtn.classList.remove(...activeClass);
+            }
+        }
+
+        // Auto-format phone number
+        document.getElementById('guardian-phone').addEventListener('input', function (e) {
+            let x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,4})(\d{0,4})/);
+            e.target.value = !x[2] ? x[1] : x[1] + '-' + x[2] + (x[3] ? '-' + x[3] : '');
+        });
+    </script>
+</body></html>

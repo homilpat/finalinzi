@@ -1,0 +1,77 @@
+# Python cache / local runtime
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments / secrets
+.env
+.env.*
+venv/
+.venv/
+env/
+
+# Local tool state
+.agents/
+.claude/
+**/.agents/
+**/.claude/
+
+# Logs
+*.log
+app_log.txt
+server.log
+server.err.log
+
+# Local databases and generated data
+*.sqlite
+*.sqlite3
+*.db
+MOCA/data/
+MOCA_16Jun2026.csv
+MOCA/MOCA_16Jun2026.csv
+*.csv
+
+# Large model/checkpoint files
+*.pth
+*.pt
+*.ckpt
+*.h5
+*.hdf5
+*.keras
+*.joblib
+!MOCA/models/*.joblib
+MOCA/Clock Drawing Test.v6i.yolov8/
+
+# Local/browser/private files
+cookies.txt
+MOCA/cookies.txt
+*.exe
+
+# Generated render/temp outputs
+tmp_render/
+docx_render_check/
+MOCA/tmp_render/
+*.tmp
+~$*
+
+# Keep final project code/docs, but skip generated data/model outputs.
+final__2026/**
+!final__2026/
+!final__2026/README_FINAL_2026.md
+!final__2026/03_code/
+!final__2026/03_code/**
+final__2026/03_code/**/__pycache__/
+final__2026/03_code/**/*.pyc
+
+# Assessment source PDFs should not be uploaded unless explicitly cleared.
+MOCA/*.pdf
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

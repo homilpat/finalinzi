@@ -1,0 +1,40 @@
+{
+  "target": "DGI_le19_or_TUG_ge12",
+  "clinical_label_rule": "DGI <= 19 OR TUG >= 12",
+  "data": "Labwalks 10sec lab walking",
+  "model": "LogisticRegression L2 class_weight=balanced C=0.5",
+  "threshold_strategy": "nested_inner_oof_youden",
+  "threshold": 0.48978492988237443,
+  "n_subjects": 67,
+  "positive": 25,
+  "negative": 42,
+  "excluded_subjects": [
+    "CO024",
+    "FL020"
+  ],
+  "excluded_reason": "base_v_stride_regularity all NaN across all segments",
+  "features": [
+    "v_amp_pool_median",
+    "ml_amp_pool_iqr",
+    "base_v_stride_regularity",
+    "roll_amp_pool_iqr"
+  ],
+  "cv_metrics": {
+    "test_auc": 0.8304761904761905,
+    "test_sensitivity": 0.8,
+    "test_specificity": 0.7380952380952381,
+    "test_f1": 0.7142857142857143
+  },
+  "apparent_train_metrics": {
+    "auc": 0.8647619047619047,
+    "accuracy": 0.7910447761194029,
+    "sensitivity": 0.84,
+    "specificity": 0.7619047619047619,
+    "f1": 0.75,
+    "tn": 32,
+    "fp": 10,
+    "fn": 4,
+    "tp": 21,
+    "inner_oof_threshold_auc": 0.8342857142857143
+  }
+}

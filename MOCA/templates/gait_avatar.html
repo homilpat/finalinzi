@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block header %}{% endblock %}
+
+{% block content %}
+<section class="avatar-screen">
+  <div class="avatar-topbar">
+    <a href="/gait" aria-label="다시 측정">‹</a>
+    <div>
+      <span>Feature-driven walking model</span>
+      <strong>보행 아바타</strong>
+    </div>
+  </div>
+
+  <div class="avatar-stage-wrap">
+    <div class="walk-stage avatar-full-stage"
+         aria-label="보행 아바타"
+         style="--walk-speed: {{ gait.visual.animation_sec|default(1.0) }}s; --sway: {{ gait.visual.sway_px|default(8) }}px; --bob: {{ gait.visual.bob_px|default(6) }}px; --trunk-rot: {{ gait.visual.rotation_deg|default(10) }}deg; --stride: {{ gait.visual.stride_px|default(36) }}px;">
+      <div class="walk-grid"></div>
+      <div class="motion-road">
+        {% for i in range(9) %}<span></span>{% endfor %}
+      </div>
+      <div class="walk-depth depth-a"></div>
+      <div class="walk-depth depth-b"></div>
+      <div class="walk-floor"></div>
+      <div class="walk-shadow"></div>
+      <svg class="walk-figure reference-figure" viewBox="0 0 140 220" aria-hidden="true">
+        <g class="figure-body">
+          <circle class="figure-head" cx="70" cy="24" r="19"></circle>
+          <rect class="figure-neck" x="63" y="40" width="14" height="16" rx="7"></rect>
+          <rect class="figure-torso" x="50" y="55" width="40" height="70" rx="17"></rect>
+          <rect class="figure-pelvis" x="44" y="118" width="52" height="22" rx="12"></rect>
+        </g>
+        <g class="figure-arm left" transform="translate(45 64)">
+          <line x1="0" y1="0" x2="-11" y2="61"></line>
+          <animateTransform attributeName="transform" type="rotate" values="16 0 0;-12 0 0;16 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"></animateTransform>
+        </g>
+        <g class="figure-arm right" transform="translate(95 64)">
+          <line x1="0" y1="0" x2="11" y2="61"></line>
+          <animateTransform attributeName="transform" type="rotate" values="-12 0 0;16 0 0;-12 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"></animateTransform>
+        </g>
+        <g class="figure-leg left" transform="translate(58 136)">
+          <animateTransform attributeName="transform" type="translate" values="0 0;0 -3;0 4;0 -2;0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+          <animateTransform attributeName="transform" type="rotate" values="-5 0 0;-1 0 0;5 0 0;1 0 0;-5 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+          <line class="figure-thigh" x1="0" y1="0" x2="0" y2="48"></line>
+          <g class="figure-shin" transform="translate(0 48)">
+            <animateTransform attributeName="transform" type="rotate" values="5 0 0;-8 0 0;3 0 0;-5 0 0;5 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+            <line x1="0" y1="0" x2="0" y2="52"></line>
+            <ellipse class="figure-foot" cx="0" cy="56" rx="8" ry="5"></ellipse>
+          </g>
+        </g>
+        <g class="figure-leg right" transform="translate(82 136)">
+          <animateTransform attributeName="transform" type="translate" values="0 4;0 -2;0 0;0 -3;0 4" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+          <animateTransform attributeName="transform" type="rotate" values="5 0 0;1 0 0;-5 0 0;-1 0 0;5 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+          <line class="figure-thigh" x1="0" y1="0" x2="0" y2="48"></line>
+          <g class="figure-shin" transform="translate(0 48)">
+            <animateTransform attributeName="transform" type="rotate" values="3 0 0;-5 0 0;5 0 0;-8 0 0;3 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+            <line x1="0" y1="0" x2="0" y2="52"></line>
+            <ellipse class="figure-foot" cx="0" cy="56" rx="8" ry="5"></ellipse>
+          </g>
+        </g>
+      </svg>
+      <svg class="walk-figure user-figure" viewBox="0 0 140 220" aria-hidden="true">
+        <defs>
+          <linearGradient id="userTorsoGradient" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stop-color="#69E6FF"></stop>
+            <stop offset="100%" stop-color="#2477CB"></stop>
+          </linearGradient>
+          <linearGradient id="userHeadGradient" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stop-color="#2E7DD7"></stop>
+            <stop offset="100%" stop-color="#8BD5F8"></stop>
+          </linearGradient>
+        </defs>
+        <g class="figure-body">
+          <circle class="figure-head" cx="70" cy="24" r="21"></circle>
+          <rect class="figure-neck" x="62" y="42" width="16" height="17" rx="8"></rect>
+          <rect class="figure-torso" x="48" y="56" width="44" height="72" rx="18"></rect>
+          <rect class="figure-pelvis" x="42" y="121" width="56" height="24" rx="13"></rect>
+        </g>
+        <g class="figure-arm left" transform="translate(45 66)">
+          <line x1="0" y1="0" x2="-13" y2="66"></line>
+          <animateTransform attributeName="transform" type="rotate" values="20 0 0;5 0 0;-22 0 0;5 0 0;20 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+        </g>
+        <g class="figure-arm right" transform="translate(95 66)">
+          <line x1="0" y1="0" x2="13" y2="66"></line>
+          <animateTransform attributeName="transform" type="rotate" values="-22 0 0;5 0 0;20 0 0;5 0 0;-22 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+        </g>
+        <g class="figure-leg left" transform="translate(57 141)">
+          <animateTransform attributeName="transform" type="translate" values="0 0;0 -4;0 6;0 -2;0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+          <animateTransform attributeName="transform" type="rotate" values="-6 0 0;-2 0 0;7 0 0;2 0 0;-6 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+          <line class="figure-thigh" x1="0" y1="0" x2="0" y2="50"></line>
+          <g class="figure-shin" transform="translate(0 50)">
+            <animateTransform attributeName="transform" type="rotate" values="5 0 0;-7 0 0;3 0 0;-5 0 0;5 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+            <line x1="0" y1="0" x2="0" y2="54"></line>
+            <ellipse class="figure-foot" cx="0" cy="58" rx="10" ry="6"></ellipse>
+          </g>
+        </g>
+        <g class="figure-leg right" transform="translate(83 141)">
+          <animateTransform attributeName="transform" type="translate" values="0 6;0 -2;0 0;0 -4;0 6" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+          <animateTransform attributeName="transform" type="rotate" values="7 0 0;2 0 0;-6 0 0;-2 0 0;7 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+          <line class="figure-thigh" x1="0" y1="0" x2="0" y2="50"></line>
+          <g class="figure-shin" transform="translate(0 50)">
+            <animateTransform attributeName="transform" type="rotate" values="3 0 0;-5 0 0;5 0 0;-7 0 0;3 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+            <line x1="0" y1="0" x2="0" y2="54"></line>
+            <ellipse class="figure-foot" cx="0" cy="58" rx="10" ry="6"></ellipse>
+          </g>
+        </g>
+      </svg>
+      <div class="walk-axis axis-v">V</div>
+      <div class="walk-axis axis-ml">ML</div>
+      <div class="motion-label label-user">사용자</div>
+      <div class="motion-label label-ref">정상 reference</div>
+    </div>
+  </div>
+
+  <section class="avatar-overlay-card">
+    <div>
+      <span>예측 확률</span>
+      <strong>{{ '%.1f'|format(gait.probability * 100) }}%</strong>
+    </div>
+    <div>
+      <span>선택 구간</span>
+      <strong>{{ gait.window.start_offset_sec|default(0) }}초부터 10초</strong>
+    </div>
+  </section>
+
+  <section class="avatar-blend-strip">
+    <div><span>정상</span><strong>{{ gait.visual.normal_blend_pct|default(0) }}%</strong></div>
+    <div><span>좌우</span><strong>{{ gait.visual.lateral_blend_pct|default(0) }}%</strong></div>
+    <div><span>리듬</span><strong>{{ gait.visual.rhythm_blend_pct|default(0) }}%</strong></div>
+    <div><span>몸통</span><strong>{{ gait.visual.trunk_blend_pct|default(0) }}%</strong></div>
+  </section>
+
+  <a class="btn btn-primary btn-lg avatar-next-btn" href="/final-result?panel=gait">다음</a>
+</section>
+{% endblock %}

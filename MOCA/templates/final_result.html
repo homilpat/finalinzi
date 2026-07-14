@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% block header %}{% endblock %}
+
+{% block content %}
+<section class="final-screen">
+  <header class="design-header compact">
+    <a class="design-back-btn gait-back-link" href="/" aria-label="처음으로">
+      <span>‹</span>
+      <strong>처음</strong>
+    </a>
+    <h1>최종결과</h1>
+    <span class="design-header-spacer" aria-hidden="true"></span>
+  </header>
+
+  <section class="final-hero">
+    <p>통합 평가 결과</p>
+    <h2>인지점수와 신체점수를 함께 확인해요</h2>
+  </section>
+
+  <section class="care-type-card {% if care_type.ready %}type-{{ care_type.code|lower }}{% else %}is-waiting{% endif %}">
+    <div class="care-type-badge">{{ care_type.title }}</div>
+    <div>
+      <p>{{ care_type.name }}</p>
+      <h2>{{ care_type.summary }}</h2>
+      <div class="care-type-flags">
+        <span>인지기능 {{ care_type.cognitive_status }}{% if care_type.cognitive_flag is not none %} · {{ care_type.cognitive_flag }}/1{% endif %}</span>
+        <span>신체기능 {{ care_type.physical_status }}{% if care_type.physical_flag is not none %} · {{ care_type.physical_flag }}/1{% endif %}</span>
+      </div>
+      <strong>{{ care_type.focus }}</strong>
+    </div>
+  </section>
+
+  <nav class="final-tabs" aria-label="결과 선택">
+    <button type="button" class="{% if panel != 'gait' %}is-active{% endif %}" data-panel="cognitive">
+      인지점수 확인
+    </button>
+    <button type="button" class="{% if panel == 'gait' %}is-active{% endif %}" data-panel="gait">
+      신체점수 확인
+    </button>
+  </nav>
+
+  <section class="final-panel" id="cognitivePanel" {% if panel == 'gait' %}hidden{% endif %}>
+    {% if cognitive %}
+      {% set score = cognitive.score %}
+      <div class="final-score-card {% if score.mci.label == 0 %}is-normal{% else %}is-risk{% endif %}">
+        <span>{{ cognitive.version }}</span>
+        <strong>{{ score.final_score }}<small>/30</small></strong>
+        <em>{{ score.mci.interpretation }}</em>
+      </div>
+
+      {% set section_info = [
+        ('trail_making', '길 만들기', 1),
+        ('drawing', '시공간/실행', 4),
+        ('naming', '이름대기', 3),
+        ('memory', '기억', 5),
+        ('attention', '주의력', 6),
+        ('language', '언어', 3),
+        ('abstraction', '추상력', 2),
+        ('orientation', '지남력', 6)
+      ] %}
+      <div class="final-card">
+        <h3>영역별 점수</h3>
+        {% for key, label, max_score in section_info %}
+          {% set got = score.sections.get(key, 0) %}
+          <div class="final-score-row {% if got < max_score %}has-loss{% endif %}">
+            <span>{{ label }}</span>
+            <div><i style="width: {{ (got / max_score * 100) | int }}%"></i></div>
+            <strong>{{ got }}/{{ max_score }}</strong>
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="final-card">
+        <h3>확인 필요한 분야</h3>
+        <ul class="final-list">
+          {% for key, label, max_score in section_info %}
+            {% set got = score.sections.get(key, 0) %}
+            {% if got < max_score %}
+              <li><strong>{{ label }}</strong><span>{{ max_score - got }}점 감점 또는 확인 필요</span></li>
+            {% endif %}
+          {% endfor %}
+        </ul>
+      </div>
+
+      <div class="final-card">
+        <h3>내 응답 기록</h3>
+        <div class="answer-grid">
+          {% for key, value in cognitive.raw.items() %}
+            {% if value and key.endswith('_stt') %}
+              <div>
+                <span>{{ key.replace('_stt', '').replace('_', ' ') }}</span>
+                <strong>{{ value }}</strong>
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    {% else %}
+      <div class="final-empty">아직 인지평가 결과가 없습니다.</div>
+    {% endif %}
+  </section>
+
+  <section class="final-panel" id="gaitPanel" {% if panel != 'gait' %}hidden{% endif %}>
+    {% if gait %}
+      <div class="final-score-card {% if gait.prediction %}is-risk{% else %}is-normal{% endif %}">
+        <span>보행 모델</span>
+        <strong>{{ '%.1f'|format(gait.probability * 100) }}<small>%</small></strong>
+        <em>{{ gait.label }}</em>
+      </div>
+
+      <div class="gait-metrics-grid">
+        <div>
+          <span>발 들림/추진</span>
+          <strong>{{ gait.visual.step_lift_pct|default(0) }}%</strong>
+        </div>
+        <div>
+          <span>좌우 흔들림</span>
+          <strong>{{ gait.visual.lateral_sway_pct|default(0) }}%</strong>
+        </div>
+        <div>
+          <span>리듬 규칙성</span>
+          <strong>{{ gait.visual.rhythm_pct|default(0) }}%</strong>
+        </div>
+        <div>
+          <span>몸통 회전</span>
+          <strong>{{ gait.visual.trunk_rotation_pct|default(0) }}%</strong>
+        </div>
+      </div>
+
+      <div class="final-card">
+        <h3>문제 가능 feature</h3>
+        <ul class="final-list">
+          {% for item in gait.insights %}
+            <li class="{% if item.is_problem %}is-risk{% endif %}">
+              <strong>{{ item.label }}</strong>
+              <span>{{ item.message }} · {{ '%.3f'|format(item.value) }}{{ item.unit }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+
+      <div class="final-card">
+        <h3>모델 기여도</h3>
+        <p class="xai-note">현재는 로지스틱 회귀의 표준화 feature × 계수 기반 설명입니다. 최종 앱에서는 SHAP을 붙이면 더 정식 XAI로 표현할 수 있습니다.</p>
+        {% for item in gait.explainability %}
+          <div class="xai-row {{ item.direction }}">
+            <span>{{ item.label }}</span>
+            <div><i style="width: {{ item.width }}%"></i></div>
+            <strong>{% if item.direction == 'risk' %}위험 ↑{% else %}위험 ↓{% endif %}</strong>
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="final-card spectrum-card">
+        <h3>스펙트럼 설명</h3>
+        <div class="spectrum-preview" aria-hidden="true">
+          {% for i in range(32) %}<span style="height: {{ 20 + ((i * 17) % 58) }}%"></span>{% endfor %}
+        </div>
+        <p class="xai-note">스펙트로그램은 원신호의 시간-주파수 패턴을 보여주는 설명 보조 도구입니다. SHAP은 모델 판정에 feature가 얼마나 기여했는지 설명하는 XAI입니다.</p>
+      </div>
+    {% else %}
+      <div class="final-empty">아직 신체평가 결과가 없습니다.</div>
+    {% endif %}
+  </section>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const tabs = document.querySelectorAll('.final-tabs button');
+  const cognitivePanel = document.getElementById('cognitivePanel');
+  const gaitPanel = document.getElementById('gaitPanel');
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const isGait = tab.dataset.panel === 'gait';
+      tabs.forEach((item) => item.classList.toggle('is-active', item === tab));
+      cognitivePanel.hidden = isGait;
+      gaitPanel.hidden = !isGait;
+    });
+  });
+</script>
+{% endblock %}

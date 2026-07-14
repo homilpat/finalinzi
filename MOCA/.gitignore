@@ -1,0 +1,33 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# 대용량 모델 파일
+*.pth
+*.h5
+*.keras
+*.hdf5
+
+# 로그/임시
+app_log.txt
+*.log
+
+# 학습 데이터/내부용
+Clock Drawing Test.v6i.yolov8/
+data/
+MOCA_16Jun2026.csv
+
+# 배포 불필요 파일
+*.pdf
+*.docx
+INNORIX-EX-Agent.exe
+cookies.txt
+page_*.png
+references.md
+generate_doc.py
+generate_tts.py
+clock_cnn_train.py
+cube_cnn_train_v2.py
+cube_cnn_inference_v2.py
+clock_cnn_inference.py

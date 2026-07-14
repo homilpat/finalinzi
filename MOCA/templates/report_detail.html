@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block header %}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="/static/css/exercise.css">
+{% endblock %}
+
+{% block content %}
+<div class="exercise-screen report-detail-screen">
+  <header class="report-topbar">
+    <a class="exercise-back" href="{{ back_url or '/exercise/complete' }}" aria-label="뒤로 가기">←</a>
+    <div>
+      <h1>상세 리포트</h1>
+      <p>{{ exercise.report.date }}</p>
+    </div>
+  </header>
+
+  <main class="exercise-page report-page">
+    <section class="report-score-hero">
+      <div>
+        <p>종합 건강점수</p>
+        <strong>{{ exercise.report.total_score }}점</strong>
+        <span aria-label="{{ exercise.user.stars }}점">★★★★</span>
+      </div>
+      <div>
+        <p>지난주 대비</p>
+        <strong>▲ +{{ exercise.report.score_delta }}</strong>
+      </div>
+    </section>
+
+    <section class="report-chart-card">
+      <div class="report-section-title">
+        <strong>점수 변화</strong>
+        <span>최근 7일</span>
+        <em>오늘 {{ exercise.report.total_score }}점</em>
+      </div>
+      <div class="score-chart" aria-label="최근 7일 점수 변화 그래프">
+        <span class="chart-line"></span>
+        <span class="chart-dot"></span>
+      </div>
+    </section>
+
+    <section class="report-metric-grid">
+      <article class="metric-card blue">
+        <span>🧠</span>
+        <strong>인지 기능</strong>
+        <p>{{ exercise.report.cognitive_score }}점 <small>▲{{ exercise.report.cognitive_delta }}</small></p>
+        <div><span style="width: {{ exercise.report.cognitive_score }}%"></span></div>
+      </article>
+      <article class="metric-card green">
+        <span>🚶</span>
+        <strong>보행 기능</strong>
+        <p>{{ exercise.report.gait_score }}점 <small>▲{{ exercise.report.gait_delta }}</small></p>
+        <div><span style="width: {{ exercise.report.gait_score }}%"></span></div>
+      </article>
+      <article class="metric-card red">
+        <span>⏱</span>
+        <strong>운동량</strong>
+        <p>{{ exercise.report.exercise_minutes }}분</p>
+        <div><span style="width: {{ (exercise.report.exercise_minutes / exercise.report.exercise_goal_minutes * 100) | int }}%"></span></div>
+        <small>목표 {{ exercise.report.exercise_goal_minutes }}분</small>
+      </article>
+    </section>
+
+    <section class="report-summary-strip">
+      <div><strong>{{ exercise.attendance.present_days }}일</strong><span>출석</span></div>
+      <div><strong>{{ exercise.attendance.streak_days }}일</strong><span>연속</span></div>
+      <div><strong>{{ exercise.report.badges }}개</strong><span>배지</span></div>
+      <div><strong>{{ exercise.growth.tree_level }}</strong><span>나무</span></div>
+    </section>
+  </main>
+</div>
+{% endblock %}

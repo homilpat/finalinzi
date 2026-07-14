@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block header %}{% endblock %}
+
+{% block content %}
+<div class="waiting-screen">
+  <div class="waiting-icon">
+    <svg viewBox="0 0 80 80" width="80" fill="none">
+      <circle cx="40" cy="40" r="38" stroke="#4ECDB4" stroke-width="4"/>
+      <path d="M40 22 L40 40 L52 52" stroke="#4ECDB4" stroke-width="4"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <h2 class="waiting-title">잠시 기다려 주세요</h2>
+  <p class="waiting-desc">
+    기억 단어를 더 잘 떠올리기 위해<br>잠시 후 다시 확인합니다
+  </p>
+
+  <div class="waiting-timer-card card">
+    <div class="waiting-timer-num" id="waitNum">{{ wait_seconds }}</div>
+    <div class="waiting-timer-label">초 후 다음 검사로 이동합니다</div>
+    <div class="waiting-progress-bar">
+      <div class="waiting-progress-fill" id="waitFill" style="width:100%"></div>
+    </div>
+  </div>
+
+  <a href="/skip_to_delayed"
+    style="display:inline-block;margin-top:1.5rem;padding:0.5rem 1.2rem;font-size:0.85rem;
+           color:#aaa;background:none;border:1px solid #ddd;border-radius:8px;text-decoration:none;">
+    건너뛰기 (시연용)
+  </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const total  = {{ wait_seconds }};
+  let   remain = total;
+  const numEl  = document.getElementById('waitNum');
+  const fillEl = document.getElementById('waitFill');
+
+  const tick = setInterval(() => {
+    remain--;
+    numEl.textContent = remain;
+    fillEl.style.width = (remain / total * 100) + '%';
+    if (remain <= 0) {
+      clearInterval(tick);
+      fetch('/continue_wait', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' })
+        .then(r => r.json())
+        .then(d => { window.location.href = d.next === 'result' ? '/result' : '/item'; });
+    }
+  }, 1000);
+})();
+</script>
+{% endblock %}

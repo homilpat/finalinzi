@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block header %}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="/static/css/physical_measure.css">
+{% endblock %}
+
+{% block content %}
+<div class="physical-measure-screen" data-physical-measure>
+  <header class="physical-measure-header">
+    <a class="physical-measure-back" href="/physical/guide" aria-label="뒤로 가기">←</a>
+    <h1>두근두근</h1>
+    <span aria-hidden="true"></span>
+  </header>
+
+  <main class="physical-measure-main">
+    <section class="physical-measure-hero">
+      <span>보행 기능 검사</span>
+      <h2>{{ physical.title }}</h2>
+      <p>{{ physical.instruction }}</p>
+    </section>
+
+    <section class="physical-measure-card">
+      <div class="measure-ring" aria-label="측정 진행률">
+        <strong id="physicalMeasureCount">{{ physical.duration_seconds }}</strong>
+        <span>초</span>
+      </div>
+      <h3 id="physicalMeasureStatus">측정 준비 중</h3>
+      <p>현재는 UI 연결용 측정 화면입니다. 실제 센서 로직이 들어오면 이 화면에서 결과만 넘기면 됩니다.</p>
+      <div class="measure-progress">
+        <span id="physicalMeasureProgress"></span>
+      </div>
+    </section>
+  </main>
+
+  <div class="physical-measure-cta">
+    <button class="physical-measure-button" type="button" id="physicalMeasureCompleteBtn">
+      측정 완료
+    </button>
+  </div>
+</div>
+
+<script>
+  window.PHYSICAL_MEASURE_DATA = {{ physical | tojson }};
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/physical_measure.js"></script>
+{% endblock %}

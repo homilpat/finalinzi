@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% block header %}{% endblock %}
+
+{% block content %}
+<section class="guardian-screen">
+  <header class="design-header compact">
+    <a class="design-back-btn gait-back-link" href="/" aria-label="처음으로">
+      <span>‹</span>
+      <strong>처음</strong>
+    </a>
+    <h1>보호자모드</h1>
+    <span class="design-header-spacer" aria-hidden="true"></span>
+  </header>
+
+  <section class="guardian-hero">
+    <p>가족 모니터링</p>
+    <h2>평가 여부와 결과를 한 번에 확인해요</h2>
+  </section>
+
+  <section class="guardian-status-grid">
+    <article class="guardian-status-card {% if dashboard.cognitive_done %}is-done{% endif %}">
+      <span>인지평가</span>
+      <strong>{% if dashboard.cognitive_done %}완료{% else %}대기{% endif %}</strong>
+      <small>{% if dashboard.latest_cognitive %}{{ dashboard.latest_cognitive.completed_at or dashboard.latest_cognitive.started_at }}{% else %}아직 기록 없음{% endif %}</small>
+    </article>
+    <article class="guardian-status-card {% if dashboard.gait_done %}is-done{% endif %}">
+      <span>신체평가</span>
+      <strong>{% if dashboard.gait_done %}완료{% else %}대기{% endif %}</strong>
+      <small>{% if dashboard.gait_done %}보행 결과 저장됨{% else %}아직 보행 결과 없음{% endif %}</small>
+    </article>
+  </section>
+
+  <section class="guardian-actions">
+    <a class="guardian-action-card" href="/final-result?panel=cognitive">
+      <span>점수 확인</span>
+      <strong>인지점수와 신체점수 보기</strong>
+    </a>
+    <a class="guardian-action-card" href="/final-result?panel=gait">
+      <span>리포트 확인</span>
+      <strong>보행 feature와 설명 보기</strong>
+    </a>
+    <button class="guardian-action-card" type="button" id="cheerOpenBtn">
+      <span>응원하기</span>
+      <strong>응원 메시지 보내기</strong>
+    </button>
+  </section>
+
+  <section class="guardian-card">
+    <h3>최근 평가 기록</h3>
+    {% if dashboard.recent_assessments %}
+      <div class="guardian-timeline">
+        {% for item in dashboard.recent_assessments %}
+          <div>
+            <span>{{ item.member_code or 'ID 미정' }} · 전화번호 끝 {{ item.phone_last4 }}</span>
+            <strong>
+              {% if item.is_completed %}
+                MoCA {{ item.final_score }}/30
+              {% else %}
+                평가 진행 중
+              {% endif %}
+            </strong>
+            <small>{{ item.completed_at or item.started_at }}</small>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="guardian-empty">아직 저장된 평가 기록이 없습니다.</p>
+    {% endif %}
+  </section>
+
+  <section class="guardian-card">
+    <h3>응원 메시지</h3>
+    <div class="cheer-box" id="cheerBox" hidden>
+      <textarea id="cheerInput" maxlength="120" placeholder="예: 오늘도 천천히 잘 해냈어요. 같이 계속 해봐요!"></textarea>
+      <button class="btn btn-primary btn-lg" type="button" id="cheerSendBtn">응원 보내기</button>
+    </div>
+    <div class="cheer-list" id="cheerList">
+      {% if dashboard.cheers %}
+        {% for cheer in dashboard.cheers %}
+          <div><strong>{{ cheer.message }}</strong><span>{{ cheer.created_at }}</span></div>
+        {% endfor %}
+      {% else %}
+        <p class="guardian-empty">아직 보낸 응원이 없습니다.</p>
+      {% endif %}
+    </div>
+  </section>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const cheerOpenBtn = document.getElementById('cheerOpenBtn');
+  const cheerBox = document.getElementById('cheerBox');
+  const cheerInput = document.getElementById('cheerInput');
+  const cheerSendBtn = document.getElementById('cheerSendBtn');
+  const cheerList = document.getElementById('cheerList');
+
+  cheerOpenBtn.addEventListener('click', () => {
+    cheerBox.hidden = !cheerBox.hidden;
+    if (!cheerBox.hidden) cheerInput.focus();
+  });
+
+  cheerSendBtn.addEventListener('click', async () => {
+    const message = cheerInput.value.trim();
+    const res = await fetch('/guardian/cheer', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message}),
+    });
+    const data = await res.json();
+    if (!data.ok) return;
+    cheerInput.value = '';
+    cheerBox.hidden = true;
+    cheerList.innerHTML = `
+      <div><strong>${data.message}</strong><span>방금 전</span></div>
+    ` + cheerList.innerHTML;
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,205 @@
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed-dim": "#7ed7c1",
+                    "secondary": "#006b5a",
+                    "primary": "#005da7",
+                    "error": "#ba1a1a",
+                    "tertiary-container": "#b85846",
+                    "on-tertiary-fixed-variant": "#7d2c1e",
+                    "primary-fixed": "#d4e3ff",
+                    "on-surface-variant": "#414751",
+                    "on-secondary": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "surface-tint": "#0060ac",
+                    "outline": "#717783",
+                    "on-secondary-fixed-variant": "#005143",
+                    "tertiary-fixed-dim": "#ffb4a6",
+                    "secondary-container": "#97f0da",
+                    "primary-container": "#2976c7",
+                    "surface-container-highest": "#d0e4ff",
+                    "on-primary-fixed": "#001c39",
+                    "primary-fixed-dim": "#a4c9ff",
+                    "surface-variant": "#d0e4ff",
+                    "secondary-fixed": "#9af3dc",
+                    "on-primary-container": "#fdfcff",
+                    "on-surface": "#021d33",
+                    "on-error": "#ffffff",
+                    "inverse-primary": "#a4c9ff",
+                    "on-tertiary-container": "#fffbff",
+                    "on-error-container": "#93000a",
+                    "surface-container-high": "#dae9ff",
+                    "surface-container-low": "#eef4ff",
+                    "on-secondary-fixed": "#00201a",
+                    "on-secondary-container": "#00705e",
+                    "tertiary-fixed": "#ffdad3",
+                    "tertiary": "#994030",
+                    "surface-bright": "#f8f9ff",
+                    "background": "#f8f9ff",
+                    "surface-container": "#e4efff",
+                    "on-primary-fixed-variant": "#004883",
+                    "inverse-on-surface": "#e9f1ff",
+                    "on-tertiary": "#ffffff",
+                    "surface": "#f8f9ff",
+                    "on-background": "#021d33",
+                    "error-container": "#ffdad6",
+                    "on-tertiary-fixed": "#3f0300",
+                    "surface-dim": "#c5dcfb",
+                    "inverse-surface": "#1a324a",
+                    "surface-container-lowest": "#ffffff",
+                    "outline-variant": "#c1c7d3"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "2xl": "1rem",
+                    "3xl": "1.5rem",
+                    "card": "28px",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "button-height-min": "80px",
+                    "touch-target-min": "72px",
+                    "safe-zone-bottom": "88px",
+                    "container-padding": "24px",
+                    "stack-gap": "32px",
+                    "back-button-tap": "52px"
+            },
+            "fontFamily": {
+                    "body-lg": ["Noto Sans KR"],
+                    "label-md": ["Noto Sans KR"],
+                    "headline-lg": ["Noto Sans KR"],
+                    "body-md": ["Noto Sans KR"],
+                    "headline-md": ["Noto Sans KR"]
+            },
+            "fontSize": {
+                    "body-lg": ["28px", {"lineHeight": "48px", "fontWeight": "500"}],
+                    "label-md": ["20px", {"lineHeight": "28px", "letterSpacing": "0.02em", "fontWeight": "700"}],
+                    "headline-lg": ["40px", {"lineHeight": "60px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["24px", {"lineHeight": "40px", "fontWeight": "400"}],
+                    "headline-md": ["36px", {"lineHeight": "54px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "label-sm": ["18px", {"lineHeight": "24px", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f7fafc; height: 844px; overflow: hidden; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 48; }
+        .active-press:active { transform: scale(0.96); transition: transform 0.1s ease-out; }
+        .shadow-soft { box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .divider-v { width: 1px; background-color: #e2e8f0; height: 100%; }
+        @keyframes pulse-sensor { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .animate-pulse-sensor { animation: pulse-sensor 2s infinite; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="flex flex-col max-w-[390px] mx-auto relative shadow-2xl">
+<!-- TOP HEADER -->
+<header class="h-[90px] w-full bg-white flex items-center justify-between px-container-padding shadow-sm z-30">
+<button class="w-back-button-tap h-back-button-tap flex items-center justify-center active-press">
+<span class="material-symbols-outlined text-[42px] text-primary" style="font-weight: 700;">arrow_back</span>
+</button>
+<h1 class="text-[30px] font-bold text-[#243B53]">오늘의 운동</h1>
+<div class="px-4 py-1.5 bg-secondary-container text-on-secondary-container rounded-full text-[20px] font-bold">
+            C유형
+        </div>
+</header>
+<main class="flex-1 flex flex-col px-container-padding pt-6 gap-6 overflow-hidden">
+<!-- EXERCISE ILLUSTRATION CARD -->
+<section class="h-[280px] bg-white rounded-card shadow-soft overflow-hidden flex flex-row">
+<!-- LEFT ZONE -->
+<div class="w-[55%] p-6 flex flex-col justify-between items-center text-center">
+<div class="w-full aspect-square relative flex items-center justify-center mb-2">
+<img class="h-32 w-auto object-contain" data-alt="A friendly, high-quality flat 2D cartoon illustration of a cheerful Korean elderly man in his 70s with a warm smile, wearing bright athletic wear, energetically marching in place. The art style is modern and clean with soft gradients and optimistic bright colors like soft blue and warm orange. The background is simple and clean, emphasizing physical vitality and joy." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAXfcHvM3WJW1F2iqnjGxrtfFVFBg8lOH5A2yyacx-622--sEx0As97XDtmkm0yvjuvHvy-WgJ7dsa68y72CJZdNp4TLYNu-rCunGM9gy8hDDFm-Zm3evB9DlH1E3wAdAJMWritAUpQLadQiv7PVWFd0TxuDJ4ixrIdCxiVWDdg7HZMZKTlVleRdg6n3lRXkuPTJqqIciO5lTioSrQbxso9wlAwXPTs9afh747Xs9yBACwauAHvmqzsZEFknIsasZ7vX_DyTP116WJc">
+</div>
+<div>
+<h2 class="text-[26px] font-bold text-[#243B53] mb-1">제자리 걷기</h2>
+<p class="text-[20px] text-on-surface-variant">3세트 · 각 2분</p>
+</div>
+</div>
+<!-- VERTICAL DIVIDER -->
+<div class="w-[1px] bg-outline-variant/30 my-8"></div>
+<!-- RIGHT ZONE -->
+<div class="w-[45%] p-5 flex flex-col justify-between">
+<div class="space-y-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[36px] text-tertiary" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+<span class="text-[18px] text-on-surface-variant">오늘 미션</span>
+</div>
+<div class="space-y-1 pl-1">
+<p class="text-[22px] font-bold text-on-surface">걷기 +</p>
+<p class="text-[22px] font-bold text-on-surface">기억 게임</p>
+</div>
+<div class="inline-flex px-3 py-1 bg-secondary-container text-on-secondary-container rounded-xl text-[20px] font-bold">
+                        ⏱ 15분
+                    </div>
+</div>
+<div class="bg-secondary-container/40 p-3 rounded-2xl flex items-center gap-2">
+<span class="material-symbols-outlined text-[32px] text-secondary" style="font-variation-settings: 'FILL' 1;">military_tech</span>
+<p class="text-[18px] font-bold text-secondary leading-tight">3일 연속<br>도전 중!</p>
+</div>
+</div>
+</section>
+<!-- PHONE ATTACHMENT GUIDE CARD -->
+<section class="h-[130px] bg-[#FFF4F2] rounded-3xl border-l-[6px] border-[#FF8F7A] shadow-sm p-4 flex items-center gap-4">
+<div class="w-[80px] h-[100px] bg-white/50 rounded-xl flex items-center justify-center shrink-0">
+<img class="w-16 h-auto" data-alt="A clear, minimalist technical illustration showing a human figure's back view, specifically the lower back area. A smartphone is securely attached to the lumbar region with a fabric belt. The illustration uses clean lines and a soft color palette including coral and light grey to clearly demonstrate the correct placement for a motion sensor." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCiHutbXb5fg9uSO1zfRp8mRFVs4xeGN6gxIGkv14dwTFRH1zY0bRaQbu53UKhK2fplZEKH0wL-qfqmm63_O4VqKbKU06YlLClygxS3VoTzUxpX0FVy_gtvqtZHkPr50AOaVOZSsYFzdCnJILUpkc4QENMV8xU97pmEiHtbdzgv4vH_IilEqtryyd6Byjsvnmos66l0TQw_HUzPnfJwkiOa3QjhOV7KYLA4XviCzHl_sjp7kGcq3mh616HhlHz2lpm8p0De0r1w-NBl">
+</div>
+<div class="flex flex-col justify-center gap-0.5">
+<h3 class="text-[22px] font-bold text-[#FF8F7A]">운동 전 꼭 확인!</h3>
+<p class="text-[22px] text-[#243B53] leading-tight font-medium">허리 뒤쪽에 스마트폰을<br>고정해 주세요 📱</p>
+<p class="text-[18px] text-[#6B7A8D]">벨트나 밴드 이용 추천</p>
+</div>
+</section>
+<!-- START BUTTON & SENSOR STATUS -->
+<section class="mt-auto mb-6 flex flex-col items-center gap-4">
+<button class="w-full h-[88px] bg-primary text-white rounded-3xl flex items-center justify-center gap-3 shadow-lg active-press">
+<span class="material-symbols-outlined text-[40px]" style="font-variation-settings: 'FILL' 1;">play_arrow</span>
+<span class="text-[32px] font-bold">운동 시작하기</span>
+</button>
+<div class="flex items-center gap-2 animate-pulse-sensor">
+<span class="material-symbols-outlined text-[24px] text-[#6B7A8D]">sensors</span>
+<p class="text-[20px] text-[#6B7A8D] font-medium">허리 센서 연결 확인 중...</p>
+</div>
+</section>
+</main>
+<!-- BOTTOM SAFE ZONE -->
+<div class="h-[24px] w-full bg-transparent shrink-0"></div>
+<script>
+        // Simple micro-interaction for the start button
+        const startBtn = document.querySelector('button.bg-primary');
+        startBtn.addEventListener('click', () => {
+            const statusText = document.querySelector('.animate-pulse-sensor p');
+            const statusIcon = document.querySelector('.animate-pulse-sensor span');
+            
+            statusText.textContent = "연결이 완료되었습니다!";
+            statusText.classList.remove('text-[#6B7A8D]');
+            statusText.classList.add('text-secondary');
+            
+            statusIcon.textContent = "check_circle";
+            statusIcon.classList.remove('text-[#6B7A8D]');
+            statusIcon.classList.add('text-secondary');
+            
+            setTimeout(() => {
+                alert("운동을 시작합니다. 준비되셨나요?");
+            }, 300);
+        });
+    </script>
+</body></html>

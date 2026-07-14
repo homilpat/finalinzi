@@ -1,0 +1,286 @@
+{% extends 'base.html' %}
+{% block header %}{% endblock %}
+
+{% block content %}
+<section class="gait-screen">
+  <header class="design-header compact">
+    <a class="design-back-btn gait-back-link" href="/" aria-label="뒤로 가기">
+      <span>&larr;</span>
+      <strong>뒤로</strong>
+    </a>
+    <h1>신체평가</h1>
+    <span class="design-header-spacer" aria-hidden="true"></span>
+  </header>
+
+  <section class="gait-hero">
+    <div class="gait-hero-icon" aria-hidden="true">
+      <svg viewBox="0 0 72 72" fill="none">
+        <circle cx="36" cy="17" r="9" fill="white"/>
+        <path d="M26 32h20l7 25h-9l-4-14h-8l-4 14h-9l7-25z" fill="white"/>
+      </svg>
+    </div>
+    <p class="gait-kicker">신체평가</p>
+    <h2>보행 측정</h2>
+    <p>스마트폰을 허리에 고정한 상태로 안전하게 걸어주세요.</p>
+  </section>
+
+  <section class="gait-steps">
+    <div class="gait-step">
+      <strong>1</strong>
+      <span>스마트폰을 허리밴드에 단단히 고정</span>
+    </div>
+    <div class="gait-step">
+      <strong>2</strong>
+      <span>평소 속도로 20초 동안 멈추지 않고 걷기</span>
+    </div>
+    <div class="gait-step">
+      <strong>3</strong>
+      <span>아직 센서 연결 전이므로 아래 수동 feature 값으로 추론 확인</span>
+    </div>
+  </section>
+
+  <section class="gait-demo-card gait-measure-card">
+    <div class="gait-demo-heading">
+      <h3>20초 보행 측정</h3>
+      <p>시작 버튼을 누른 뒤 화면을 보지 말고 평소처럼 걸어주세요. 측정 중 멈추거나 방향을 크게 바꾸면 다시 측정해주세요.</p>
+    </div>
+
+    <div class="gait-live-measure" id="gaitLiveMeasure" hidden>
+      <div class="gait-measure-ring" aria-label="측정 남은 시간">
+        <strong id="gaitCountdown">20</strong>
+        <span>초</span>
+      </div>
+      <h3 id="gaitMeasureStatus">측정 진행 중</h3>
+      <p>현재는 UI 연결용 측정 화면입니다. 실제 센서 로직이 들어오면 이 화면에서 결과만 넘기면 됩니다.</p>
+      <div class="gait-measure-progress">
+        <span id="gaitMeasureProgress"></span>
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-lg" type="button" id="gaitMeasureBtn">
+      20초 측정 시작
+    </button>
+    <div class="gait-result" id="gaitResult" hidden></div>
+    <details class="gait-manual-panel">
+      <summary>수동 feature 값으로 추론 확인</summary>
+      <div class="gait-feature-grid">
+        <label>
+          수직 보행 출력
+          <input class="gait-feature-input" data-feature="v_amp_pool_median" type="number" step="0.0001" value="0.1263">
+        </label>
+        <label>
+          좌우 흔들림 변동성
+          <input class="gait-feature-input" data-feature="ml_amp_pool_iqr" type="number" step="0.0001" value="0.0458">
+        </label>
+        <label>
+          stride 규칙성
+          <input class="gait-feature-input" data-feature="base_v_stride_regularity" type="number" step="0.0001" value="0.8900">
+        </label>
+        <label>
+          몸통 회전 변동성
+          <input class="gait-feature-input" data-feature="roll_amp_pool_iqr" type="number" step="0.0001" value="14.2803">
+        </label>
+      </div>
+      <button class="btn btn-secondary btn-lg" type="button" id="gaitPredictBtn">
+        수동값으로 추론
+      </button>
+    </details>
+  </section>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const gaitMeasureBtn = document.getElementById('gaitMeasureBtn');
+  const gaitPredictBtn = document.getElementById('gaitPredictBtn');
+  const gaitResult = document.getElementById('gaitResult');
+
+  const COLLECTION_SEC = 20;
+  const SELECTED_WINDOW_SEC = 10;
+  const WINDOW_MS = SELECTED_WINDOW_SEC * 1000;
+  const WINDOW_STEP_MS = 1000;
+  let gaitSamples = [];
+
+  function percentile(values, p) {
+    if (!values.length) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    const index = (sorted.length - 1) * p;
+    const lower = Math.floor(index);
+    const upper = Math.ceil(index);
+    if (lower === upper) return sorted[lower];
+    return sorted[lower] + (sorted[upper] - sorted[lower]) * (index - lower);
+  }
+
+  function iqr(values) {
+    return percentile(values, 0.75) - percentile(values, 0.25);
+  }
+
+  function median(values) {
+    return percentile(values, 0.5);
+  }
+
+  function std(values) {
+    if (!values.length) return 0;
+    const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+    const variance = values.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / values.length;
+    return Math.sqrt(variance);
+  }
+
+  function detrend(values) {
+    const center = median(values);
+    return values.map((value) => value - center);
+  }
+
+  function strideRegularity(values) {
+    if (values.length < 20) return 0.5;
+    const centered = detrend(values);
+    const denom = centered.reduce((sum, value) => sum + value * value, 0) || 1;
+    const minLag = Math.max(4, Math.floor(values.length * 0.35));
+    const maxLag = Math.max(minLag + 1, Math.floor(values.length * 0.9));
+    let best = 0;
+    for (let lag = minLag; lag < maxLag; lag += 1) {
+      let num = 0;
+      for (let i = 0; i < centered.length - lag; i += 1) {
+        num += centered[i] * centered[i + lag];
+      }
+      best = Math.max(best, num / denom);
+    }
+    return Math.max(0, Math.min(1, best));
+  }
+
+  function extractFeatures(samples) {
+    const ax = detrend(samples.map((sample) => sample.ax));
+    const az = detrend(samples.map((sample) => sample.az));
+    const roll = detrend(samples.map((sample) => sample.roll));
+    const vAmp = az.map((value) => Math.abs(value));
+    const mlAmp = ax.map((value) => Math.abs(value));
+    return {
+      v_amp_pool_median: median(vAmp),
+      ml_amp_pool_iqr: iqr(mlAmp),
+      base_v_stride_regularity: strideRegularity(az),
+      roll_amp_pool_iqr: iqr(roll),
+    };
+  }
+
+  function scoreWindow(samples) {
+    const az = detrend(samples.map((sample) => sample.az));
+    const ax = detrend(samples.map((sample) => sample.ax));
+    const roll = detrend(samples.map((sample) => sample.roll));
+    const activity = std(az) + 0.5 * std(ax);
+    const regularity = strideRegularity(az);
+    const rollPenalty = Math.min(1.5, iqr(roll) / 120);
+    const sampleScore = Math.min(1, samples.length / 200);
+    return (regularity * 2.2) + Math.min(activity, 3) + sampleScore - rollPenalty;
+  }
+
+  function selectBestWindow(samples) {
+    if (!samples.length) return null;
+    const startMs = samples[0].t;
+    const endMs = samples[samples.length - 1].t;
+    let best = null;
+    for (let windowStart = startMs; windowStart + WINDOW_MS <= endMs + 1; windowStart += WINDOW_STEP_MS) {
+      const windowEnd = windowStart + WINDOW_MS;
+      const windowSamples = samples.filter((sample) => sample.t >= windowStart && sample.t <= windowEnd);
+      if (windowSamples.length < 80) continue;
+      const score = scoreWindow(windowSamples);
+      if (!best || score > best.score) {
+        best = {samples: windowSamples, score, startOffset: (windowStart - startMs) / 1000};
+      }
+    }
+    return best;
+  }
+
+  async function runPrediction(payload, windowInfo = null) {
+    gaitResult.hidden = false;
+    gaitResult.textContent = '紐⑤뜽???ㅽ뻾?섎뒗 以묒엯?덈떎...';
+    const requestPayload = {...payload};
+    if (windowInfo) {
+      requestPayload._window = {
+        protocol: 'structured_20s_best10',
+        start_offset_sec: Number(windowInfo.startOffset.toFixed(2)),
+        sample_count: windowInfo.samples.length,
+        quality_score: Number(windowInfo.score.toFixed(3)),
+        collected_sec: COLLECTION_SEC,
+        selected_sec: SELECTED_WINDOW_SEC,
+      };
+    }
+    const res = await fetch('/gait/predict', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(requestPayload),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      gaitResult.textContent = data.error || '異붾줎???ㅽ뙣?덉뒿?덈떎.';
+      return;
+    }
+    const pct = (data.probability * 100).toFixed(1);
+    const threshold = (data.threshold * 100).toFixed(1);
+    const windowText = windowInfo
+      ? `<span>?좏깮 援ш컙 ${windowInfo.startOffset.toFixed(0)}珥덈???10珥?쨌 ?섑뵆 ${windowInfo.samples.length}媛?/span>`
+      : '';
+    gaitResult.innerHTML = `
+      <strong>${data.label}</strong>
+      <span>?덉륫 ?뺣쪧 ${pct}% 쨌 湲곗?媛?${threshold}%</span>
+      ${windowText}
+    `;
+    window.location.href = data.redirect_url || '/final-result?panel=gait';
+  }
+
+  function handleMotion(event) {
+    const acc = event.accelerationIncludingGravity || event.acceleration || {};
+    const rotation = event.rotationRate || {};
+    gaitSamples.push({
+      t: performance.now(),
+      ax: Number(acc.x || 0),
+      ay: Number(acc.y || 0),
+      az: Number(acc.z || 0),
+      roll: Number(rotation.beta || rotation.gamma || 0),
+    });
+  }
+
+  gaitMeasureBtn.addEventListener('click', () => {
+    const live = document.getElementById('gaitLiveMeasure');
+    const countEl = document.getElementById('gaitCountdown');
+    const statusEl = document.getElementById('gaitMeasureStatus');
+    const progressEl = document.getElementById('gaitMeasureProgress');
+    let remain = COLLECTION_SEC;
+
+    gaitMeasureBtn.disabled = true;
+    gaitMeasureBtn.textContent = '측정 중...';
+    gaitResult.hidden = true;
+    if (live) live.hidden = false;
+
+    const render = () => {
+      if (countEl) countEl.textContent = remain;
+      if (statusEl) statusEl.textContent = remain > 0 ? '측정 진행 중' : '측정 완료';
+      if (progressEl) progressEl.style.width = `${Math.round(((COLLECTION_SEC - remain) / COLLECTION_SEC) * 100)}%`;
+    };
+
+    render();
+    const timer = window.setInterval(() => {
+      remain = Math.max(0, remain - 1);
+      render();
+      if (remain <= 0) {
+        window.clearInterval(timer);
+        if (progressEl) progressEl.style.width = '100%';
+        gaitMeasureBtn.disabled = false;
+        gaitMeasureBtn.textContent = '20초 다시 측정';
+        gaitResult.hidden = false;
+        gaitResult.innerHTML = `
+          <strong>20초 측정이 완료되었습니다</strong>
+          <span>아직 실제 센서 입력은 연결 전입니다. 아래 수동 feature 값으로 추론 확인을 눌러 모델 결과를 확인하세요.</span>
+        `;
+      }
+    }, 1000);
+  });
+
+  gaitPredictBtn.addEventListener('click', async () => {
+    const payload = {};
+    document.querySelectorAll('.gait-feature-input').forEach((input) => {
+      payload[input.dataset.feature] = input.value;
+    });
+    await runPrediction(payload);
+  });
+</script>
+{% endblock %}

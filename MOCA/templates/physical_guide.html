@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block header %}{% endblock %}
+
+{% block content %}
+<div class="physical-screen physical-guide-screen">
+  <header class="design-header physical-header">
+    <a class="design-back-btn physical-back-link" href="/" aria-label="뒤로 가기">
+      <span aria-hidden="true">←</span>
+      <strong>뒤로</strong>
+    </a>
+    <h1>두근두근</h1>
+    <span class="design-header-spacer" aria-hidden="true"></span>
+  </header>
+
+  <section class="physical-guide-main" aria-labelledby="physicalGuideTitle">
+    <span class="physical-pill">보행 기능 검사</span>
+    <h2 id="physicalGuideTitle">스마트폰을<br>등쪽 허리에 고정해주세요</h2>
+
+    <div class="physical-phone-card" aria-label="스마트폰 고정 안내">
+      <div class="physical-person-visual" aria-hidden="true">
+        <div class="physical-head"></div>
+        <div class="physical-hair"></div>
+        <div class="physical-body"></div>
+        <div class="physical-arm"></div>
+        <div class="physical-phone"></div>
+      </div>
+      <div class="physical-action-chip">허리에 폰을 붙이고 앞으로 걸어요</div>
+    </div>
+
+    <div class="physical-status-chip">
+      <span aria-hidden="true">📡</span>
+      <strong>센서 대기 중...</strong>
+    </div>
+
+    <div class="physical-info-card">
+      <strong>스마트폰을 허리 뒤쪽 중앙에 고정해주세요</strong>
+      <p>준비가 완료되면 안내가 있기 전까지 일자로 걸어주세요</p>
+    </div>
+  </section>
+
+  <div class="physical-fixed-cta">
+    <button class="physical-primary-btn" type="button" onclick="startPhysicalTest()">
+      <span aria-hidden="true">✓</span>
+      검사 시작하기
+    </button>
+  </div>
+</div>
+{% endblock %}

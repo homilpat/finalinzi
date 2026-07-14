@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block header %}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="/static/css/exercise.css">
+{% endblock %}
+
+{% block content %}
+<div class="exercise-screen exercise-today-screen">
+  <header class="exercise-topbar">
+    <a class="exercise-back" href="/?registered=1" aria-label="뒤로 가기">←</a>
+    <h1>오늘의 운동</h1>
+    <span aria-hidden="true"></span>
+  </header>
+
+  <main class="exercise-page">
+    <span class="exercise-type-pill">{{ exercise.today.type }}</span>
+
+    <section class="today-mission-card">
+      <p>{{ exercise.today.mission_title }}</p>
+      <h2>{{ exercise.today.mission }}</h2>
+      <span>⏱ 약 {{ exercise.today.duration_min }}분 소요</span>
+    </section>
+
+    <section class="today-exercise-card">
+      <div class="today-visual" aria-hidden="true">
+        <div class="room-window"></div>
+        <div class="walker-figure">
+          <span class="walker-head"></span>
+          <span class="walker-body"></span>
+          <span class="walker-arm left"></span>
+          <span class="walker-arm right"></span>
+          <span class="walker-leg left"></span>
+          <span class="walker-leg right"></span>
+        </div>
+      </div>
+      <h2>{{ exercise.today.exercise_name }}</h2>
+      <p>{{ exercise.today.sets }} · {{ exercise.today.set_duration }}</p>
+    </section>
+
+    <section class="exercise-alert-card">
+      <strong>ⓘ 운동 전 확인!</strong>
+      <p>{{ exercise.today.notice }}</p>
+    </section>
+  </main>
+
+  <div class="exercise-fixed-cta">
+    <a class="exercise-primary-button" href="/exercise/active">
+      <span aria-hidden="true">▶</span>
+      운동 시작하기
+    </a>
+  </div>
+</div>
+{% endblock %}

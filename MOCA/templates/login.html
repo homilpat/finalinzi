@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MoCA-K 접근 확인</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "Noto Sans KR", sans-serif;
+      background: #eef3fb;
+      color: #1a2b3c;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      padding: 28px 24px;
+      border-radius: 16px;
+      background: #fff;
+      box-shadow: 0 4px 24px rgba(74, 144, 226, 0.12);
+    }
+    h1 {
+      margin: 0 0 8px;
+      color: #2c3a4a;
+      font-size: 24px;
+      line-height: 1.25;
+    }
+    p {
+      margin: 0 0 20px;
+      color: #6b7c8d;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    .notice {
+      margin: 0 0 18px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #eaf9f3;
+      color: #285f50;
+      font-size: 14px;
+      line-height: 1.55;
+      font-weight: 600;
+    }
+    label {
+      display: block;
+      margin-bottom: 6px;
+      color: #2c3a4a;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    input {
+      width: 100%;
+      border: 2px solid #ebf3fc;
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 18px;
+      outline: none;
+      background: #f8fbff;
+    }
+    input:focus {
+      border-color: #4a90e2;
+      background: #fff;
+    }
+    .error {
+      margin: 12px 0 0;
+      color: #b42318;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    button {
+      width: 100%;
+      margin-top: 18px;
+      border: 0;
+      border-radius: 14px;
+      padding: 16px;
+      background: #4a90e2;
+      color: #fff;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button:active { transform: scale(0.98); }
+  </style>
+</head>
+<body>
+  <main class="login-card">
+    <h1>MoCA-K 접근 확인</h1>
+    <div class="notice">
+      개인적인 연구 및 시연용 프로토타입입니다. 수익 목적이 없습니다.
+    </div>
+    <p>공유받은 비밀번호를 입력해 주세요.</p>
+    <form method="post" action="{{ url_for('login') }}">
+      <input type="hidden" name="next" value="{{ next_url }}">
+      <label for="password">접속 비밀번호</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" autofocus required>
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+      <button type="submit">입장하기</button>
+    </form>
+  </main>
+</body>
+</html>

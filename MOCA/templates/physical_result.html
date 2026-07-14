@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+{% block header %}{% endblock %}
+
+{% block content %}
+<div class="physical-screen physical-result-screen" data-physical-result-page>
+  <header class="design-header physical-header physical-result-header">
+    <a class="design-back-btn physical-back-link physical-back-box" href="/physical/guide" aria-label="뒤로 가기">
+      <span aria-hidden="true">←</span>
+      <strong>뒤로</strong>
+    </a>
+    <h1>두근두근</h1>
+    <span class="design-header-spacer" aria-hidden="true"></span>
+  </header>
+
+  <section class="physical-result-hero" aria-labelledby="physicalResultTitle">
+    <h2 id="physicalResultTitle">분석 완료!</h2>
+  </section>
+
+  <section class="physical-type-card">
+    <p>어르신 건강 유형</p>
+    <div class="physical-type-row">
+      <strong id="physicalGaitType">-</strong>
+      <span id="physicalGaitLevel">결과 확인 중</span>
+    </div>
+    <div class="physical-type-note" id="physicalGaitMessage">
+      보행 결과를 불러오고 있습니다.
+    </div>
+  </section>
+
+  <section class="physical-score-list" aria-label="보행 검사 결과">
+    <article class="physical-score-card cognitive">
+      <div class="physical-score-label">
+        <span aria-hidden="true">⚙</span>
+        <strong>균형 점수</strong>
+      </div>
+      <div class="physical-score-value"><span id="physicalBalanceScore">-</span>점</div>
+      <div class="physical-score-bar"><span id="physicalBalanceBar"></span></div>
+    </article>
+
+    <article class="physical-score-card gait">
+      <div class="physical-score-label">
+        <span aria-hidden="true">🚶</span>
+        <strong>보행 기능</strong>
+      </div>
+      <div class="physical-score-value"><span id="physicalGaitScore">-</span>점</div>
+      <div class="physical-score-meta">
+        <span>속도 <strong id="physicalWalkingSpeed">-</strong> m/s</span>
+        <span>걸음 <strong id="physicalStepCount">-</strong>보</span>
+      </div>
+    </article>
+  </section>
+
+  <p class="physical-measured-at" id="physicalMeasuredAt">측정 시간 -</p>
+
+  <div class="physical-fixed-cta">
+    <!-- TODO: 통합 결과 화면 route가 준비되면 href를 /integrated/result 등 실제 경로로 교체 -->
+    <a class="physical-primary-btn" href="/">
+      결과 확인
+    </a>
+  </div>
+</div>
+{% endblock %}

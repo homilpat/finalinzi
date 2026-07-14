@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block header %}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="/static/css/exercise.css">
+{% endblock %}
+
+{% block content %}
+<div class="exercise-screen exercise-active-screen" data-exercise-active>
+  <header class="exercise-topbar">
+    <a class="exercise-back" href="/exercise/today" aria-label="뒤로 가기">←</a>
+    <h1>운동 진행</h1>
+    <span aria-hidden="true"></span>
+  </header>
+
+  <main class="exercise-page active-page">
+    <section class="active-hero-card">
+      <span class="active-mode">{{ exercise.today.type }}</span>
+      <h2>{{ exercise.today.exercise_name }}</h2>
+      <p>{{ exercise.today.sets }} · {{ exercise.today.set_duration }}</p>
+      <div class="active-motion" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </section>
+
+    <section class="active-placeholder-card">
+      <div class="active-timer" id="exerciseTimer">{{ exercise.today.duration_min }}:00</div>
+      <p>운동 진행 Placeholder</p>
+      <div class="active-progress">
+        <span id="exerciseProgress"></span>
+      </div>
+      <small>현재는 UI 미리보기 화면입니다. 센서와 알고리즘은 연결하지 않았습니다.</small>
+    </section>
+  </main>
+
+  <div class="exercise-fixed-cta">
+    <a class="exercise-primary-button" href="/exercise/complete">
+      운동 완료하기
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/exercise.js"></script>
+{% endblock %}
