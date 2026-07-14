@@ -62,8 +62,7 @@ _store = {}  # uid → { 'sess': MoCASession, 'raw': dict, 'location': str, 'sig
 _cnn_cube        = None   # (model, device) from cube_cnn_inference_v2.load_model
 _cnn_clock       = None   # dict: {'deepc': model, 'deeph': model, 'deepn': model}
 _cnn_clock_dev   = None   # torch.device
-_gait_model      = None
-_gait_metadata   = None
+_gait_models     = None
 
 GAIT_FEATURES = [
     "v_amp_pool_median",
@@ -71,34 +70,61 @@ GAIT_FEATURES = [
     "base_v_stride_regularity",
     "roll_amp_pool_iqr",
 ]
+GAIT_REQUIRED_FEATURES = [
+    "v_amp_pool_median",
+    "ml_amp_pool_iqr",
+    "roll_amp_pool_iqr",
+]
+GAIT_STRIDE_FEATURE = "base_v_stride_regularity"
+DEFAULT_STRIDE_REGULARITY = 0.80638318
 
 
-def _load_gait_model():
-    """Load the nested Youden gait model lazily for the physical assessment page."""
-    global _gait_model, _gait_metadata
-    if _gait_model is not None:
-        return _gait_model, _gait_metadata
-
-    model_path = os.path.join(app.root_path, "models", "gait_nested_youden.joblib")
-    metadata_path = os.path.join(app.root_path, "models", "gait_nested_youden_metadata.json")
+def _load_gait_artifact(model_name, metadata_name):
+    model_path = os.path.join(app.root_path, "models", model_name)
+    metadata_path = os.path.join(app.root_path, "models", metadata_name)
+    metadata = None
+    model = None
 
     if os.path.exists(metadata_path):
         with open(metadata_path, "r", encoding="utf-8") as f:
-            _gait_metadata = json.load(f)
+            metadata = json.load(f)
 
     if os.path.exists(model_path):
         try:
             import joblib
-            _gait_model = joblib.load(model_path)
+            model = joblib.load(model_path)
         except Exception as e:
             print(f"[gait model load error] {e}")
-            _gait_model = None
+            model = None
 
-    return _gait_model, _gait_metadata
+    return model, metadata
+
+
+def _load_gait_models():
+    """Load primary 4-feature and fallback 3-feature Youden gait models lazily."""
+    global _gait_models
+    if _gait_models is not None:
+        return _gait_models
+
+    primary_model, primary_metadata = _load_gait_artifact(
+        "gait_nested_youden.joblib",
+        "gait_nested_youden_metadata.json",
+    )
+    fallback_model, fallback_metadata = _load_gait_artifact(
+        "gait_three_feature_youden.joblib",
+        "gait_three_feature_youden_metadata.json",
+    )
+    _gait_models = {
+        "primary": {"model": primary_model, "metadata": primary_metadata},
+        "fallback": {"model": fallback_model, "metadata": fallback_metadata},
+    }
+    return _gait_models
 
 
 def _gait_model_summary():
-    model, metadata = _load_gait_model()
+    models = _load_gait_models()
+    model = models["primary"]["model"] or models["fallback"]["model"]
+    metadata = models["primary"]["metadata"] or models["fallback"]["metadata"]
     meta = metadata or {}
     return {
         "available": model is not None,
@@ -147,16 +173,6 @@ def _gait_feature_insights(features):
             "cut": 0.08,
         },
         {
-            "key": "base_v_stride_regularity",
-            "label": "보행 리듬 규칙성",
-            "value": _safe_float(features.get("base_v_stride_regularity")),
-            "unit": "",
-            "problem": "걸음 리듬이 불규칙한 패턴",
-            "ok": "걸음 리듬이 비교적 규칙적",
-            "risk_when": "low",
-            "cut": 0.72,
-        },
-        {
             "key": "roll_amp_pool_iqr",
             "label": "몸통 회전 안정성",
             "value": _safe_float(features.get("roll_amp_pool_iqr")),
@@ -167,11 +183,21 @@ def _gait_feature_insights(features):
             "cut": 18.0,
         },
     ]
+    if "base_v_stride_regularity" in features:
+        checks.insert(2, {
+            "key": "base_v_stride_regularity",
+            "label": "보행 리듬 규칙성",
+            "value": _safe_float(features.get("base_v_stride_regularity")),
+            "unit": "",
+            "problem": "걸음 리듬이 불규칙한 패턴",
+            "ok": "걸음 리듬이 비교적 규칙적",
+            "risk_when": "low",
+            "cut": 0.72,
+        })
     for item in checks:
         item["is_problem"] = item["value"] < item["cut"] if item["risk_when"] == "low" else item["value"] > item["cut"]
         item["message"] = item["problem"] if item["is_problem"] else item["ok"]
     return checks
-
 
 def _gait_explainability(model_artifact, features):
     names = model_artifact.get("features", GAIT_FEATURES)
@@ -215,7 +241,7 @@ def _clamp(value, low=0.0, high=1.0):
 def _gait_visual_profile(features):
     vertical = _safe_float(features.get("v_amp_pool_median"))
     lateral = _safe_float(features.get("ml_amp_pool_iqr"))
-    regularity = _safe_float(features.get("base_v_stride_regularity"))
+    regularity = _safe_float(features.get("base_v_stride_regularity", DEFAULT_STRIDE_REGULARITY))
     roll = _safe_float(features.get("roll_amp_pool_iqr"))
 
     step_lift = _clamp(vertical / 0.18)
@@ -707,30 +733,68 @@ def gait_page():
 
 @app.route('/gait/predict', methods=['POST'])
 def gait_predict():
-    model_artifact, metadata = _load_gait_model()
-    if model_artifact is None:
+    models = _load_gait_models()
+    primary_artifact = models["primary"]["model"]
+    fallback_artifact = models["fallback"]["model"]
+    if primary_artifact is None and fallback_artifact is None:
         return jsonify({'ok': False, 'error': '보행 평가 모델을 불러오지 못했습니다.'}), 503
 
     data = request.get_json(silent=True) or {}
-    values = []
+
+    def parse_feature(feature):
+        value = data.get(feature)
+        if value in (None, ""):
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    required_values = {feature: parse_feature(feature) for feature in GAIT_REQUIRED_FEATURES}
+    if any(value is None for value in required_values.values()):
+        return jsonify({'ok': False, 'error': '필수 보행 feature가 부족합니다. 다시 측정해 주세요.'}), 400
+
+    stride_value = parse_feature(GAIT_STRIDE_FEATURE)
+    if stride_value is None:
+        model_artifact = fallback_artifact
+        model_mode = "three_feature_fallback"
+        if model_artifact is None:
+            return jsonify({'ok': False, 'error': '보행 리듬 값이 없어 3개 feature 모델이 필요하지만 불러오지 못했습니다.'}), 503
+    else:
+        model_artifact = primary_artifact
+        model_mode = "four_feature_primary"
+        if model_artifact is None:
+            return jsonify({'ok': False, 'error': '4개 feature 보행 모델을 불러오지 못했습니다.'}), 503
+
+    model_features = model_artifact.get('features', GAIT_FEATURES)
+    feature_values = dict(required_values)
+    if GAIT_STRIDE_FEATURE in model_features:
+        feature_values[GAIT_STRIDE_FEATURE] = stride_value
+
     try:
-        for feature in model_artifact.get('features', GAIT_FEATURES):
-            values.append(float(data[feature]))
+        values = [float(feature_values[feature]) for feature in model_features]
     except (KeyError, TypeError, ValueError):
-        return jsonify({'ok': False, 'error': '4개 보행 feature 값을 모두 숫자로 입력해 주세요.'}), 400
+        return jsonify({'ok': False, 'error': '보행 feature 조합이 모델과 맞지 않습니다. 다시 측정해 주세요.'}), 400
 
     import pandas as pd
-    frame = pd.DataFrame([values], columns=model_artifact.get('features', GAIT_FEATURES))
+    frame = pd.DataFrame([values], columns=model_features)
     probability = float(model_artifact['pipeline'].predict_proba(frame)[:, 1][0])
     threshold = float(model_artifact.get('threshold', 0.5))
     prediction = int(probability >= threshold)
-    features = dict(zip(model_artifact.get('features', GAIT_FEATURES), values))
+    features = dict(zip(model_features, values))
+    default_strategy = (
+        'nested_inner_oof_youden'
+        if model_mode == "four_feature_primary"
+        else 'pooled_5fold_x100_oof_youden_three_feature_candidate'
+    )
+    threshold_strategy = model_artifact.get('threshold_strategy', default_strategy)
     gait_result = {
         'probability': probability,
         'threshold': threshold,
         'prediction': prediction,
         'label': '이동기능 저하 가능성' if prediction else '이동기능 정상 범위 가능성',
-        'threshold_strategy': model_artifact.get('threshold_strategy', 'nested_inner_oof_youden'),
+        'threshold_strategy': threshold_strategy,
+        'model_mode': model_mode,
         'features': features,
         'insights': _gait_feature_insights(features),
         'explainability': _gait_explainability(model_artifact, features),
@@ -745,7 +809,8 @@ def gait_predict():
         'threshold': threshold,
         'prediction': prediction,
         'label': '이동기능 저하 가능성' if prediction else '이동기능 정상 범위 가능성',
-        'threshold_strategy': model_artifact.get('threshold_strategy', 'nested_inner_oof_youden'),
+        'threshold_strategy': threshold_strategy,
+        'model_mode': model_mode,
         'redirect_url': url_for('gait_avatar_page'),
     })
 

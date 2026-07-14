@@ -14,13 +14,14 @@ Render uses the root `render.yaml`, with `rootDir: MOCA`.
 
 ## Current Applied Gait Model
 
-The web app currently loads:
+The web app currently uses a hybrid gait-model rule:
 
-- Model file: `MOCA/models/gait_nested_youden.joblib`
-- Metadata: `MOCA/models/gait_nested_youden_metadata.json`
-- Source validation script: `final__2026/03_code/03_validation/RUN_nested_domain4_oof_cv_final2026.py`
+- Primary model: `MOCA/models/gait_nested_youden.joblib`
+- Primary metadata: `MOCA/models/gait_nested_youden_metadata.json`
+- Fallback model: `MOCA/models/gait_three_feature_youden.joblib`
+- Fallback metadata: `MOCA/models/gait_three_feature_youden_metadata.json`
 
-Applied model summary:
+Primary 4-feature model summary:
 
 - Target: `DGI <= 19 OR TUG >= 12`
 - Data: LabWalks 10-second walking windows
@@ -37,12 +38,31 @@ Features used:
 - `base_v_stride_regularity`
 - `roll_amp_pool_iqr`
 
-Nested CV metrics:
+Primary nested CV metrics:
 
 - AUC: `0.830`
 - Sensitivity: `0.800`
 - Specificity: `0.738`
 - F1: `0.714`
+
+Fallback 3-feature model:
+
+- Used only when `base_v_stride_regularity` is missing.
+- Required features: `v_amp_pool_median`, `ml_amp_pool_iqr`, `roll_amp_pool_iqr`
+- Threshold strategy: `pooled_5fold_x100_oof_youden_three_feature_candidate`
+- Threshold: `0.4605355091838269`
+
+- AUC: `0.829`
+- Accuracy: `0.730`
+- Sensitivity: `0.789`
+- Specificity: `0.695`
+- F1: `0.686`
+
+Missing-value rule:
+
+- If all 4 features are present, use the primary 4-feature nested CV Youden model.
+- If only `base_v_stride_regularity` is missing, use the validated 3-feature fallback model.
+- If any of the other 3 required features are missing, ask the user to measure again.
 
 ## Current Demo Limitation
 
@@ -55,7 +75,7 @@ The intended service flow is:
 → select a stable 10-second walking window
 → Butterworth preprocessing
 → feature extraction
-→ Nested CV Youden gait model inference
+→ 4-feature Youden gait model inference, or 3-feature fallback when stride regularity is missing
 ```
 
 ## Care Type Logic
@@ -68,4 +88,3 @@ cognitive 0 / physical 1 -> B type, 신체관리형
 cognitive 1 / physical 0 -> C type, 통합관리형
 cognitive 1 / physical 1 -> D type, 인지관리형
 ```
-
