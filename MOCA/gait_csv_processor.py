@@ -16,6 +16,7 @@ REQUIRED_COLUMNS = {
 }
 GRAVITY_MPS2 = 9.80665
 TARGET_FS_HZ = 100.0
+TRIM_EDGE_SEC = 3.0
 
 
 def _find_header_line(text: str) -> int:
@@ -139,7 +140,11 @@ def _extract_window_features(window: pd.DataFrame, fs: float) -> dict[str, float
     }
 
 
-def extract_gait_features_from_csv(source, selected_window_sec: float = 10.0) -> dict:
+def extract_gait_features_from_csv(
+    source,
+    selected_window_sec: float = 10.0,
+    trim_edge_sec: float = TRIM_EDGE_SEC,
+) -> dict:
     df = load_gait_csv(source)
     observed_fs = _sampling_rate(df["Timestamp_ns"])
     df, duration_sec, fs = _resample_to_uniform_hz(df)
@@ -148,9 +153,15 @@ def extract_gait_features_from_csv(source, selected_window_sec: float = 10.0) ->
         raise ValueError(f"CSV is shorter than {selected_window_sec:.0f} seconds.")
 
     step_sec = 1.0
+    analysis_start_sec = trim_edge_sec
+    analysis_end_sec = duration_sec - trim_edge_sec
+    if analysis_end_sec - analysis_start_sec < selected_window_sec:
+        analysis_start_sec = 0.0
+        analysis_end_sec = duration_sec
+
     candidates = []
-    max_start = max(0.0, duration_sec - selected_window_sec)
-    for start in np.arange(0.0, max_start + 0.001, step_sec):
+    max_start = max(analysis_start_sec, analysis_end_sec - selected_window_sec)
+    for start in np.arange(analysis_start_sec, max_start + 0.001, step_sec):
         end = start + selected_window_sec
         window = df[(df["_elapsed_sec"] >= start) & (df["_elapsed_sec"] < end)]
         if len(window) < int(fs * selected_window_sec * 0.75):
@@ -186,6 +197,9 @@ def extract_gait_features_from_csv(source, selected_window_sec: float = 10.0) ->
         "window": {
             "protocol": "csv_20s_multi10_median",
             "aggregation": "median_features",
+            "trim_edge_sec": trim_edge_sec,
+            "analysis_start_sec": round(float(analysis_start_sec), 3),
+            "analysis_end_sec": round(float(analysis_end_sec), 3),
             "window_count": len(candidates),
             "window_step_sec": step_sec,
             "best_start_offset_sec": round(best["start_offset_sec"], 3),

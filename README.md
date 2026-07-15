@@ -78,6 +78,7 @@ CSV sensor ingestion is now supported for calibrated gait files:
 - Acceleration values are converted from `m/s^2` to `g` scale before feature extraction.
 - Gyroscope values are converted from `rad/s` to `deg/s` before `roll_amp_pool_iqr` extraction.
 - For the current waist-mounted portrait phone protocol, `Acc_Y` is treated as vertical, `Acc_X` as medio-lateral, and `Gyro_Clean_X` as roll.
+- The first and last `3` seconds are trimmed before 10-second window extraction to reduce start/stop, touch, and turn-around artifacts.
 - The server extracts multiple overlapping 10-second windows from the 20-second recording, takes the median feature values, and sends them through the same gait model rule.
 
 The intended service flow is:
