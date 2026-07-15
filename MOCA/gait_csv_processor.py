@@ -15,6 +15,7 @@ REQUIRED_COLUMNS = {
     "Gyro_Clean_Z",
 }
 GRAVITY_MPS2 = 9.80665
+TARGET_FS_HZ = 100.0
 
 
 def _find_header_line(text: str) -> int:
@@ -57,6 +58,33 @@ def _sampling_rate(timestamp_ns: pd.Series) -> float:
     if not np.isfinite(fs) or fs < 10:
         raise ValueError(f"Sampling rate is too low or invalid: {fs:.2f} Hz")
     return fs
+
+
+def _resample_to_uniform_hz(df: pd.DataFrame, target_fs: float = TARGET_FS_HZ) -> tuple[pd.DataFrame, float, float]:
+    start_ns = float(df["Timestamp_ns"].iloc[0])
+    elapsed = (df["Timestamp_ns"].to_numpy(dtype=float) - start_ns) / 1e9
+    duration_sec = float(elapsed[-1])
+    if duration_sec <= 0:
+        raise ValueError("CSV duration is invalid.")
+
+    step = 1.0 / target_fs
+    uniform_t = np.arange(0.0, duration_sec + (step * 0.5), step)
+    resampled = pd.DataFrame({"_elapsed_sec": uniform_t})
+    resampled["Timestamp_ns"] = start_ns + (uniform_t * 1e9)
+
+    numeric_cols = [
+        col
+        for col in df.columns
+        if col != "Timestamp_ns" and pd.api.types.is_numeric_dtype(df[col])
+    ]
+    for col in numeric_cols:
+        values = df[col].to_numpy(dtype=float)
+        valid = np.isfinite(values) & np.isfinite(elapsed)
+        if valid.sum() < 2:
+            resampled[col] = np.nan
+        else:
+            resampled[col] = np.interp(uniform_t, elapsed[valid], values[valid])
+    return resampled, duration_sec, target_fs
 
 
 def _bandpass(values: np.ndarray, fs: float, low: float, high: float, order: int = 4) -> np.ndarray:
@@ -112,11 +140,8 @@ def _extract_window_features(window: pd.DataFrame, fs: float) -> dict[str, float
 
 def extract_gait_features_from_csv(source, selected_window_sec: float = 10.0) -> dict:
     df = load_gait_csv(source)
-    fs = _sampling_rate(df["Timestamp_ns"])
-    start_ns = float(df["Timestamp_ns"].iloc[0])
-    df = df.copy()
-    df["_elapsed_sec"] = (df["Timestamp_ns"].astype(float) - start_ns) / 1e9
-    duration_sec = float(df["_elapsed_sec"].iloc[-1])
+    observed_fs = _sampling_rate(df["Timestamp_ns"])
+    df, duration_sec, fs = _resample_to_uniform_hz(df)
 
     if duration_sec < selected_window_sec:
         raise ValueError(f"CSV is shorter than {selected_window_sec:.0f} seconds.")
@@ -170,6 +195,8 @@ def extract_gait_features_from_csv(source, selected_window_sec: float = 10.0) ->
                 None if not regularity_scores else round(float(np.nanmedian(regularity_scores)), 4)
             ),
             "sampling_rate_hz": round(float(fs), 3),
+            "observed_sampling_rate_hz": round(float(observed_fs), 3),
+            "resampled_to_hz": round(float(TARGET_FS_HZ), 3),
             "collected_sec": round(duration_sec, 3),
             "selected_sec": selected_window_sec,
         },
