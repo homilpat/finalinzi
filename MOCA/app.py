@@ -57,6 +57,7 @@ def require_access_password():
 
 # 메모리 세션 저장소 (시연용)
 _store = {}  # uid → { 'sess': MoCASession, 'raw': dict, 'location': str, 'sigungu': str }
+_gait_result_store = {}
 
 # ── CNN 모델 (학습 완료 시 자동 로드, 없으면 룰베이스 폴백) ──
 _cnn_cube        = None   # (model, device) from cube_cnn_inference_v2.load_model
@@ -221,7 +222,8 @@ def _gait_explainability(model_artifact, features):
             }
             for name, coef, val in zip(names, coefs, transformed)
         ]
-    except Exception:
+    except Exception as e:
+        print(f"[gait explainability error] {e}")
         raw = [
             {"key": name, "label": name, "value": _safe_float(features.get(name)), "contribution": 0.0}
             for name in names
@@ -375,6 +377,20 @@ def _classify_care_type(cognitive=None, gait=None):
         "physical_flag": physical_flag,
     })
     return result
+
+
+def _save_gait_result(gait_result):
+    gait_result_id = session.get('gait_result_id') or uuid4().hex
+    _gait_result_store[gait_result_id] = gait_result
+    session['gait_result_id'] = gait_result_id
+    session.pop('gait_result', None)
+
+
+def _get_gait_result():
+    gait_result_id = session.get('gait_result_id')
+    if gait_result_id and gait_result_id in _gait_result_store:
+        return _gait_result_store[gait_result_id]
+    return session.get('gait_result')
 
 
 def _current_member_id():
@@ -801,7 +817,7 @@ def gait_predict():
         'visual': _gait_visual_profile(features),
         'window': data.get('_window') or {},
     }
-    session['gait_result'] = gait_result
+    _save_gait_result(gait_result)
 
     return jsonify({
         'ok': True,
@@ -817,7 +833,7 @@ def gait_predict():
 
 @app.route('/gait/avatar')
 def gait_avatar_page():
-    gait_result = session.get('gait_result')
+    gait_result = _get_gait_result()
     if not gait_result:
         return redirect(url_for('gait_page'))
     return render_template('gait_avatar.html', gait=gait_result)
@@ -1121,7 +1137,7 @@ def result_page():
 def final_result():
     panel = request.args.get('panel', 'summary')
     cognitive = _get_cognitive_result()
-    gait_result = session.get('gait_result')
+    gait_result = _get_gait_result()
     care_type = _classify_care_type(cognitive, gait_result)
     return render_template(
         'final_result.html',
@@ -1135,14 +1151,14 @@ def final_result():
 @app.route('/care-type')
 def care_type_api():
     cognitive = _get_cognitive_result()
-    gait_result = session.get('gait_result')
+    gait_result = _get_gait_result()
     return jsonify(_classify_care_type(cognitive, gait_result))
 
 
 @app.route('/guardian')
 def guardian_page():
     recent_assessments = get_recent_assessment_summaries(limit=5)
-    gait_result = session.get('gait_result')
+    gait_result = _get_gait_result()
     cheers = session.get('guardian_cheers') or []
     dashboard = {
         "cognitive_done": any(item["is_completed"] for item in recent_assessments),
@@ -1311,7 +1327,7 @@ def _compute_score(raw, entry, s):
         return result
     except Exception as e:
         print(f'[총점 계산 오류] {e}')
-        return {'final_score': 0, 'raw_score': 0, 'sections': {}, 'mci': {'interpretation': '오류'}, 'education_correction': 0}
+        return {'final_score': 0, 'raw_score': 0, 'sections': {}, 'mci': {'label': 1, 'interpretation': '오류'}, 'education_correction': 0}
 
 
 if __name__ == '__main__':
