@@ -14,6 +14,7 @@ REQUIRED_COLUMNS = {
     "Acc_Z",
     "Gyro_Clean_Z",
 }
+GRAVITY_MPS2 = 9.80665
 
 
 def _find_header_line(text: str) -> int:
@@ -93,8 +94,10 @@ def _stride_regularity(signal: np.ndarray, fs: float) -> float | None:
 
 
 def _extract_window_features(window: pd.DataFrame, fs: float) -> dict[str, float | None]:
-    v = _bandpass(window["Acc_Z"].to_numpy(dtype=float), fs, low=0.6, high=3.0)
-    ml = _bandpass(window["Acc_X"].to_numpy(dtype=float), fs, low=0.6, high=3.0)
+    # Sensor CSV stores acceleration in m/s^2; the gait model was trained on
+    # acceleration features in g-scale.
+    v = _bandpass(window["Acc_Z"].to_numpy(dtype=float) / GRAVITY_MPS2, fs, low=0.6, high=3.0)
+    ml = _bandpass(window["Acc_X"].to_numpy(dtype=float) / GRAVITY_MPS2, fs, low=0.6, high=3.0)
     # Sensor CSV stores gyroscope values in rad/s; the trained gait pipeline
     # expects the roll amplitude feature on the deg/s scale used in validation.
     roll_raw = np.rad2deg(window["Gyro_Clean_Z"].to_numpy(dtype=float))

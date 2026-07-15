@@ -74,6 +74,8 @@ CSV sensor ingestion is now supported for calibrated gait files:
 - Upload field: `file`
 - Expected columns: `Timestamp_ns`, `Acc_X`, `Acc_Z`, `Gyro_Clean_Z`
 - Optional columns such as `Acc_Y`, raw gyro, and calibration metadata can remain in the file.
+- Acceleration values are converted from `m/s^2` to `g` scale before feature extraction.
+- Gyroscope values are converted from `rad/s` to `deg/s` before `roll_amp_pool_iqr` extraction.
 - The server selects the best 10-second window from the 20-second recording, extracts gait features, and sends them through the same gait model rule.
 
 The intended service flow is:
