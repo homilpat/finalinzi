@@ -68,6 +68,14 @@ Missing-value rule:
 
 The UI currently shows a 20-second measurement flow, but real sensor ingestion is not connected yet. For now, model inference is confirmed through manual feature input.
 
+CSV sensor ingestion is now supported for calibrated gait files:
+
+- Endpoint: `POST /gait/upload-csv`
+- Upload field: `file`
+- Expected columns: `Timestamp_ns`, `Acc_X`, `Acc_Z`, `Gyro_Clean_Z`
+- Optional columns such as `Acc_Y`, raw gyro, and calibration metadata can remain in the file.
+- The server selects the best 10-second window from the 20-second recording, extracts gait features, and sends them through the same gait model rule.
+
 The intended service flow is:
 
 ```text

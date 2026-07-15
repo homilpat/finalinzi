@@ -747,15 +747,12 @@ def gait_page():
     return render_template('gait.html', model=_gait_model_summary())
 
 
-@app.route('/gait/predict', methods=['POST'])
-def gait_predict():
+def _predict_gait_from_payload(data):
     models = _load_gait_models()
     primary_artifact = models["primary"]["model"]
     fallback_artifact = models["fallback"]["model"]
     if primary_artifact is None and fallback_artifact is None:
-        return jsonify({'ok': False, 'error': '보행 평가 모델을 불러오지 못했습니다.'}), 503
-
-    data = request.get_json(silent=True) or {}
+        return None, ({'ok': False, 'error': '보행 평가 모델을 불러오지 못했습니다.'}, 503)
 
     def parse_feature(feature):
         value = data.get(feature)
@@ -768,19 +765,19 @@ def gait_predict():
 
     required_values = {feature: parse_feature(feature) for feature in GAIT_REQUIRED_FEATURES}
     if any(value is None for value in required_values.values()):
-        return jsonify({'ok': False, 'error': '필수 보행 feature가 부족합니다. 다시 측정해 주세요.'}), 400
+        return None, ({'ok': False, 'error': '필수 보행 feature가 부족합니다. 다시 측정해 주세요.'}, 400)
 
     stride_value = parse_feature(GAIT_STRIDE_FEATURE)
     if stride_value is None:
         model_artifact = fallback_artifact
         model_mode = "three_feature_fallback"
         if model_artifact is None:
-            return jsonify({'ok': False, 'error': '보행 리듬 값이 없어 3개 feature 모델이 필요하지만 불러오지 못했습니다.'}), 503
+            return None, ({'ok': False, 'error': '보행 리듬 값이 없어 3개 feature 모델이 필요하지만 불러오지 못했습니다.'}, 503)
     else:
         model_artifact = primary_artifact
         model_mode = "four_feature_primary"
         if model_artifact is None:
-            return jsonify({'ok': False, 'error': '4개 feature 보행 모델을 불러오지 못했습니다.'}), 503
+            return None, ({'ok': False, 'error': '4개 feature 보행 모델을 불러오지 못했습니다.'}, 503)
 
     model_features = model_artifact.get('features', GAIT_FEATURES)
     feature_values = dict(required_values)
@@ -790,7 +787,7 @@ def gait_predict():
     try:
         values = [float(feature_values[feature]) for feature in model_features]
     except (KeyError, TypeError, ValueError):
-        return jsonify({'ok': False, 'error': '보행 feature 조합이 모델과 맞지 않습니다. 다시 측정해 주세요.'}), 400
+        return None, ({'ok': False, 'error': '보행 feature 조합이 모델과 맞지 않습니다. 다시 측정해 주세요.'}, 400)
 
     import pandas as pd
     frame = pd.DataFrame([values], columns=model_features)
@@ -818,8 +815,7 @@ def gait_predict():
         'window': data.get('_window') or {},
     }
     _save_gait_result(gait_result)
-
-    return jsonify({
+    response = {
         'ok': True,
         'probability': probability,
         'threshold': threshold,
@@ -827,8 +823,40 @@ def gait_predict():
         'label': '이동기능 저하 가능성' if prediction else '이동기능 정상 범위 가능성',
         'threshold_strategy': threshold_strategy,
         'model_mode': model_mode,
+        'features': features,
+        'window': data.get('_window') or {},
         'redirect_url': url_for('gait_avatar_page'),
-    })
+    }
+    return gait_result, (response, 200)
+
+
+@app.route('/gait/predict', methods=['POST'])
+def gait_predict():
+    data = request.get_json(silent=True) or {}
+    _, result = _predict_gait_from_payload(data)
+    body, status = result
+    return jsonify(body), status
+
+
+@app.route('/gait/upload-csv', methods=['POST'])
+def gait_upload_csv():
+    upload = request.files.get('file')
+    if upload is None or not upload.filename:
+        return jsonify({'ok': False, 'error': 'CSV 파일을 선택해 주세요.'}), 400
+    try:
+        from gait_csv_processor import extract_gait_features_from_csv
+        extracted = extract_gait_features_from_csv(upload.stream)
+    except Exception as e:
+        return jsonify({'ok': False, 'error': f'CSV 전처리 실패: {e}'}), 400
+
+    payload = dict(extracted['features'])
+    payload['_window'] = extracted['window']
+    _, result = _predict_gait_from_payload(payload)
+    body, status = result
+    if status == 200:
+        body['extracted_features'] = extracted['features']
+        body['window'] = extracted['window']
+    return jsonify(body), status
 
 
 @app.route('/gait/avatar')
