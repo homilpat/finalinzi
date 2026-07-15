@@ -11,8 +11,8 @@ from scipy.signal import butter, correlate, sosfiltfilt
 REQUIRED_COLUMNS = {
     "Timestamp_ns",
     "Acc_X",
-    "Acc_Z",
-    "Gyro_Clean_Z",
+    "Acc_Y",
+    "Gyro_Clean_X",
 }
 GRAVITY_MPS2 = 9.80665
 TARGET_FS_HZ = 100.0
@@ -122,13 +122,14 @@ def _stride_regularity(signal: np.ndarray, fs: float) -> float | None:
 
 
 def _extract_window_features(window: pd.DataFrame, fs: float) -> dict[str, float | None]:
-    # Sensor CSV stores acceleration in m/s^2; the gait model was trained on
-    # acceleration features in g-scale.
-    v = _bandpass(window["Acc_Z"].to_numpy(dtype=float) / GRAVITY_MPS2, fs, low=0.6, high=3.0)
+    # Smartphone is worn vertically on the waist with the top toward the head.
+    # In that placement, Android Y is the closest vertical axis and X is the
+    # closest medio-lateral axis. Acceleration is converted from m/s^2 to g.
+    v = _bandpass(window["Acc_Y"].to_numpy(dtype=float) / GRAVITY_MPS2, fs, low=0.6, high=3.0)
     ml = _bandpass(window["Acc_X"].to_numpy(dtype=float) / GRAVITY_MPS2, fs, low=0.6, high=3.0)
     # Sensor CSV stores gyroscope values in rad/s; the trained gait pipeline
     # expects the roll amplitude feature on the deg/s scale used in validation.
-    roll_raw = np.rad2deg(window["Gyro_Clean_Z"].to_numpy(dtype=float))
+    roll_raw = np.rad2deg(window["Gyro_Clean_X"].to_numpy(dtype=float))
     roll = _bandpass(roll_raw - np.nanmedian(roll_raw), fs, low=0.5, high=5.0)
     return {
         "v_amp_pool_median": float(np.nanmedian(np.abs(v))),

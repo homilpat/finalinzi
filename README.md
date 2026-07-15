@@ -72,11 +72,12 @@ CSV sensor ingestion is now supported for calibrated gait files:
 
 - Endpoint: `POST /gait/upload-csv`
 - Upload field: `file`
-- Expected columns: `Timestamp_ns`, `Acc_X`, `Acc_Z`, `Gyro_Clean_Z`
+- Expected columns: `Timestamp_ns`, `Acc_X`, `Acc_Y`, `Gyro_Clean_X`
 - Optional columns such as `Acc_Y`, raw gyro, and calibration metadata can remain in the file.
 - Timestamped smartphone samples are interpolated onto a uniform `100 Hz` grid before filtering, matching the training IMU sampling rate.
 - Acceleration values are converted from `m/s^2` to `g` scale before feature extraction.
 - Gyroscope values are converted from `rad/s` to `deg/s` before `roll_amp_pool_iqr` extraction.
+- For the current waist-mounted portrait phone protocol, `Acc_Y` is treated as vertical, `Acc_X` as medio-lateral, and `Gyro_Clean_X` as roll.
 - The server extracts multiple overlapping 10-second windows from the 20-second recording, takes the median feature values, and sends them through the same gait model rule.
 
 The intended service flow is:
