@@ -76,13 +76,13 @@ CSV sensor ingestion is now supported for calibrated gait files:
 - Optional columns such as `Acc_Y`, raw gyro, and calibration metadata can remain in the file.
 - Acceleration values are converted from `m/s^2` to `g` scale before feature extraction.
 - Gyroscope values are converted from `rad/s` to `deg/s` before `roll_amp_pool_iqr` extraction.
-- The server selects the best 10-second window from the 20-second recording, extracts gait features, and sends them through the same gait model rule.
+- The server extracts multiple overlapping 10-second windows from the 20-second recording, takes the median feature values, and sends them through the same gait model rule.
 
 The intended service flow is:
 
 ```text
 20-second IMU collection
-→ select a stable 10-second walking window
+→ extract multiple 10-second walking windows and aggregate median features
 → Butterworth preprocessing
 → feature extraction
 → 4-feature Youden gait model inference, or 3-feature fallback when stride regularity is missing

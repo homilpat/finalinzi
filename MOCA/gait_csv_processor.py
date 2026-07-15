@@ -122,7 +122,7 @@ def extract_gait_features_from_csv(source, selected_window_sec: float = 10.0) ->
         raise ValueError(f"CSV is shorter than {selected_window_sec:.0f} seconds.")
 
     step_sec = 1.0
-    best = None
+    candidates = []
     max_start = max(0.0, duration_sec - selected_window_sec)
     for start in np.arange(0.0, max_start + 0.001, step_sec):
         end = start + selected_window_sec
@@ -132,26 +132,43 @@ def extract_gait_features_from_csv(source, selected_window_sec: float = 10.0) ->
         features = _extract_window_features(window, fs)
         regularity = features.get("base_v_stride_regularity")
         score = regularity if regularity is not None else -1.0
-        if best is None or score > best["score"]:
-            best = {
-                "score": score,
-                "start_offset_sec": float(start),
-                "end_offset_sec": float(end),
-                "sample_count": int(len(window)),
-                "features": features,
-            }
+        candidates.append({
+            "score": score,
+            "start_offset_sec": float(start),
+            "end_offset_sec": float(end),
+            "sample_count": int(len(window)),
+            "features": features,
+        })
 
-    if best is None:
+    if not candidates:
         raise ValueError("No valid 10-second gait window found.")
 
+    feature_names = sorted({key for item in candidates for key in item["features"]})
+    median_features = {}
+    for feature in feature_names:
+        values = [
+            item["features"].get(feature)
+            for item in candidates
+            if item["features"].get(feature) is not None and np.isfinite(item["features"].get(feature))
+        ]
+        median_features[feature] = float(np.nanmedian(values)) if values else None
+
+    best = max(candidates, key=lambda item: item["score"])
+    regularity_scores = [item["score"] for item in candidates if item["score"] >= 0]
     return {
-        "features": best["features"],
+        "features": median_features,
         "window": {
-            "protocol": "csv_20s_best10",
-            "start_offset_sec": round(best["start_offset_sec"], 3),
-            "end_offset_sec": round(best["end_offset_sec"], 3),
-            "sample_count": best["sample_count"],
+            "protocol": "csv_20s_multi10_median",
+            "aggregation": "median_features",
+            "window_count": len(candidates),
+            "window_step_sec": step_sec,
+            "best_start_offset_sec": round(best["start_offset_sec"], 3),
+            "best_end_offset_sec": round(best["end_offset_sec"], 3),
+            "median_sample_count": int(np.nanmedian([item["sample_count"] for item in candidates])),
             "quality_score": None if best["score"] < 0 else round(float(best["score"]), 4),
+            "median_quality_score": (
+                None if not regularity_scores else round(float(np.nanmedian(regularity_scores)), 4)
+            ),
             "sampling_rate_hz": round(float(fs), 3),
             "collected_sec": round(duration_sec, 3),
             "selected_sec": selected_window_sec,
