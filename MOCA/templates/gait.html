@@ -60,6 +60,15 @@
     <button class="btn btn-primary btn-lg" type="button" id="gaitMeasureBtn">
       20초 측정 시작
     </button>
+    <div class="gait-csv-panel">
+      <label>
+        보행 CSV 업로드
+        <input type="file" id="gaitCsvInput" accept=".csv,text/csv">
+      </label>
+      <button class="btn btn-secondary btn-lg" type="button" id="gaitCsvBtn">
+        CSV로 추론
+      </button>
+    </div>
     <div class="gait-result" id="gaitResult" hidden></div>
     <details class="gait-manual-panel">
       <summary>수동 feature 값으로 추론 확인</summary>
@@ -93,6 +102,8 @@
 <script>
   const gaitMeasureBtn = document.getElementById('gaitMeasureBtn');
   const gaitPredictBtn = document.getElementById('gaitPredictBtn');
+  const gaitCsvBtn = document.getElementById('gaitCsvBtn');
+  const gaitCsvInput = document.getElementById('gaitCsvInput');
   const gaitResult = document.getElementById('gaitResult');
 
   const COLLECTION_SEC = 20;
@@ -282,5 +293,30 @@
     });
     await runPrediction(payload);
   });
+
+  if (gaitCsvBtn && gaitCsvInput) {
+    gaitCsvBtn.addEventListener('click', async () => {
+      const file = gaitCsvInput.files && gaitCsvInput.files[0];
+      if (!file) {
+        gaitResult.hidden = false;
+        gaitResult.textContent = 'CSV 파일을 선택해 주세요.';
+        return;
+      }
+      gaitResult.hidden = false;
+      gaitResult.textContent = 'CSV 전처리 중입니다...';
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/gait/upload-csv', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        gaitResult.textContent = data.error || 'CSV 추론 중 오류가 발생했습니다.';
+        return;
+      }
+      window.location.href = data.redirect_url || '/gait/avatar';
+    });
+  }
 </script>
 {% endblock %}

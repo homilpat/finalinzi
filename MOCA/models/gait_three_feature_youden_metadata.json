@@ -1,0 +1,39 @@
+{
+  "target": "DGI_le19_or_TUG_ge12",
+  "clinical_label_rule": "DGI <= 19 OR TUG >= 12",
+  "data": "LabWalks 10sec lab walking",
+  "model": "LogisticRegression L2 class_weight=balanced C=0.5",
+  "threshold_strategy": "pooled_5fold_x100_oof_youden_three_feature_candidate",
+  "threshold": 0.4605355091838269,
+  "n_subjects": 67,
+  "positive": 25,
+  "negative": 42,
+  "excluded_subjects": [
+    "CO024",
+    "FL020"
+  ],
+  "features": [
+    "v_amp_pool_median",
+    "ml_amp_pool_iqr",
+    "roll_amp_pool_iqr"
+  ],
+  "cv_metrics": {
+    "test_auc": 0.8286182857142856,
+    "test_accuracy": 0.73,
+    "test_sensitivity": 0.7888,
+    "test_specificity": 0.695,
+    "test_f1": 0.6855553624196071
+  },
+  "apparent_train_metrics": {
+    "auc": 0.8628571428571429,
+    "accuracy": 0.7761194029850746,
+    "sensitivity": 0.92,
+    "specificity": 0.6904761904761905,
+    "f1": 0.7540983606557377,
+    "tn": 29,
+    "fp": 13,
+    "fn": 2,
+    "tp": 23
+  },
+  "note": "3-feature model excludes base_v_stride_regularity because stride regularity can be missing in service measurements."
+}

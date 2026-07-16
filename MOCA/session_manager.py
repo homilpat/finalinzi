@@ -4,7 +4,6 @@ MoCA 검사 세션 관리 모듈
 """
 
 import time
-import threading
 from datetime import datetime
 from enum import Enum
 from version_manager import get_version_config, get_next_version
