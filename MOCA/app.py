@@ -1074,6 +1074,11 @@ def care_type_api():
     return jsonify(_classify_care_type(cognitive, gait_result))
 
 
+@app.route('/guardian/login')
+def guardian_login_page():
+    return render_template('guardian_login.html')
+
+
 @app.route('/guardian')
 def guardian_page():
     recent_assessments = get_recent_assessment_summaries(limit=5)
