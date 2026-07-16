@@ -80,9 +80,50 @@
         </div>
       </div>
 
-      <div class="vital-summary">
-        <span>인지 기능을 먼저 확인해요</span>
-        <strong>검사할 평가를 선택해 주세요</strong>
+      <!-- Care Flow Horizontal Flowchart -->
+      <div class="care-flow-container" style="margin-top: 18px; background: rgba(255,255,255,0.75); padding: 18px 14px; border-radius: 20px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.03);">
+        <!-- Title inside card -->
+        <div style="font-size: 16px; font-weight: 800; color: #005da7; margin-bottom: 14px; text-align: left; padding-left: 4px;">📋 케어 절차</div>
+        
+        <div class="flow-steps" style="display: flex; align-items: flex-start; justify-content: space-between; gap: 4px; width: 100%;">
+          
+          <!-- Step 1 -->
+          <div class="flow-step" onclick="toggleFlowSub(1)" style="flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; user-select: none;">
+            <div class="step-num" style="width: 26px; height: 26px; border-radius: 50%; background: #005da7; color: white; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; margin-bottom: 6px;">1</div>
+            <div class="step-title" style="font-size: 14px; font-weight: 700; color: #021d33; word-break: keep-all; line-height: 1.3;">신체기능<br>검사</div>
+          </div>
+          
+          <!-- Arrow -->
+          <div class="flow-arrow" style="align-self: flex-start; color: #005da7; font-weight: bold; font-size: 18px; margin-top: 30px;">→</div>
+          
+          <!-- Step 2 -->
+          <div class="flow-step" onclick="toggleFlowSub(2)" style="flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; user-select: none;">
+            <div class="step-num" style="width: 26px; height: 26px; border-radius: 50%; background: #005da7; color: white; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; margin-bottom: 6px;">2</div>
+            <div class="step-title" style="font-size: 14px; font-weight: 700; color: #021d33; word-break: keep-all; line-height: 1.3;">인지기능<br>검사</div>
+          </div>
+          
+          <!-- Arrow -->
+          <div class="flow-arrow" style="align-self: flex-start; color: #005da7; font-weight: bold; font-size: 18px; margin-top: 30px;">→</div>
+          
+          <!-- Step 3 -->
+          <div class="flow-step" onclick="toggleFlowSub(3)" style="flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; user-select: none;">
+            <div class="step-num" style="width: 26px; height: 26px; border-radius: 50%; background: #005da7; color: white; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; margin-bottom: 6px;">3</div>
+            <div class="step-title" style="font-size: 14px; font-weight: 700; color: #021d33; word-break: keep-all; line-height: 1.3;">검사 결과<br>안내</div>
+          </div>
+          
+          <!-- Arrow -->
+          <div class="flow-arrow" style="align-self: flex-start; color: #005da7; font-weight: bold; font-size: 18px; margin-top: 30px;">→</div>
+          
+          <!-- Step 4 -->
+          <div class="flow-step" onclick="toggleFlowSub(4)" style="flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; cursor: pointer; user-select: none;">
+            <div class="step-num" style="width: 26px; height: 26px; border-radius: 50%; background: #005da7; color: white; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: bold; margin-bottom: 6px;">4</div>
+            <div class="step-title" style="font-size: 14px; font-weight: 700; color: #021d33; word-break: keep-all; line-height: 1.3;">운동하기</div>
+          </div>
+          
+        </div>
+
+        <!-- Shared wide detail panel: shows the description of whichever step was last clicked, replacing the previous one -->
+        <div id="flowDetailPanel" class="flow-detail-panel" style="display: none; margin-top: 12px; width: 100%; box-sizing: border-box; font-size: 20px; font-weight: 800; color: #005da7; text-align: center; word-break: keep-all; line-height: 1.4; padding: 14px 10px; background: #eef4ff; border-radius: 12px;"></div>
       </div>
     </section>
 
@@ -424,5 +465,26 @@
       setVerified(false, '전화번호 인증을 먼저 완료해 주세요.');
     }
   });
+
+  const flowStepDetails = {
+    1: '허리밴드 IMU 보행 검사',
+    2: 'MoCA-K 문항으로 검사',
+    3: 'AI 분석 결과 안내',
+    4: 'AI와 함께 운동'
+  };
+
+  window.toggleFlowSub = function(stepNum) {
+    const panel = document.getElementById('flowDetailPanel');
+    if (!panel) return;
+    const isOpenSameStep = panel.dataset.step === String(stepNum) && panel.style.display !== 'none';
+    if (isOpenSameStep) {
+      panel.style.display = 'none';
+      panel.dataset.step = '';
+    } else {
+      panel.textContent = flowStepDetails[stepNum];
+      panel.dataset.step = String(stepNum);
+      panel.style.display = 'block';
+    }
+  };
 </script>
 {% endblock %}
