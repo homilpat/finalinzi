@@ -1517,112 +1517,34 @@
   window.triggerVirtualSensor = function() {
     console.log("가상 센서 신호 유도됨.");
     
-    // A/B유형 1단계 (워밍업) BGM 가사 구간 매칭 체크
-    if ((currentType === 'A' || currentType === 'B') && currentPhase === 1) {
-      if (!bgmAudio) return;
-      const t = bgmAudio.currentTime;
-      let matched = false;
-      let actionName = "";
-      
-      // 구간 1: 53초~56초 (멈춤)
-      if (t >= 53 && t <= 56) {
-        matched = true;
-        actionName = "정지 (얼음)";
+    let action = null;
+    const t = bgmAudio ? bgmAudio.currentTime : 0;
+    
+    if (currentPhase === 1) {
+      if (currentType === 'A' || currentType === 'B') {
+        if (t >= 53 && t <= 56) action = 'stop';
+        else if (t >= 67 && t <= 73) action = 'weight_right';
+        else if (t >= 78 && t <= 81) action = 'weight_left';
+        else if (t >= 116 && t <= 122) action = 'step_forward_right';
+        else if (t >= 124 && t <= 125) action = 'step_backward';
       }
-      // 구간 2: 1분 7초~1분 13초 (67초~73초, 오른쪽 체중이동)
-      else if (t >= 67 && t <= 73) {
-        matched = true;
-        actionName = "오른쪽 체중 이동";
+      else if (currentType === 'C') {
+        if (t >= 55 && t <= 61) action = 'weight_right';
+        else if (t >= 69 && t <= 78) action = 'weight_left';
       }
-      // 구간 3: 1분 18초~1분 21초 (78초~81초, 왼쪽 체중이동)
-      else if (t >= 78 && t <= 81) {
-        matched = true;
-        actionName = "왼쪽 체중 이동";
-      }
-      // 구간 4: 1분 56초~2분 2초 (116초~122초, 오른발 앞으로 한발)
-      else if (t >= 116 && t <= 122) {
-        matched = true;
-        actionName = "오른발 앞으로 한발";
-      }
-      // 구간 5: 2분 4초~2분 5초 (124초~125초, 뒤로 한발)
-      else if (t >= 124 && t <= 125) {
-        matched = true;
-        actionName = "뒤로 한발";
+      else if (currentType === 'D') {
+        if ((t >= 55 && t <= 61) || (t >= 69 && t <= 78)) action = 'any_reaction';
       }
       
-      if (matched) {
-        AudioManager.playEffect('ding_bright.mp3');
-        sensorCueBox.innerHTML = `<span style='color: #059669; font-weight: 800;'>인식 성공! 🔔</span><br>감지된 동작: ${actionName}`;
-        console.log(`[A/B유형 1단계] 가사 동작 매칭 완료: ${actionName} (${Math.floor(t)}초)`);
-      } else {
+      if (!action) {
         sensorCueBox.innerHTML = `<span style='color: #ef4444; font-weight: 800;'>인식 실패 ❌</span><br>가사의 동작 지시 구간이 아닙니다. (현재 BGM 시간: ${Math.floor(t)}초)`;
-        console.log(`[A/B유형 1단계] 가사 매칭 실패 (현재 시간: ${t}초)`);
+        return;
       }
-      return;
     }
     
-    // C유형 1단계 (워밍업) BGM 가사 구간 매칭 체크
-    if (currentType === 'C' && currentPhase === 1) {
-      if (!bgmAudio) return;
-      const t = bgmAudio.currentTime;
-      let matched = false;
-      let actionName = "";
-      
-      // 구간 1: 55초~61초 (오른쪽 체중 이동)
-      if (t >= 55 && t <= 61) {
-        matched = true;
-        actionName = "오른쪽 체중 이동";
-      }
-      // 구간 2: 1분 9초~1분 18초 (69초~78초, 왼쪽 체중 이동)
-      else if (t >= 69 && t <= 78) {
-        matched = true;
-        actionName = "왼쪽 체중 이동";
-      }
-      
-      if (matched) {
-        AudioManager.playEffect('ding_bright.mp3');
-        sensorCueBox.innerHTML = `<span style='color: #059669; font-weight: 800;'>인식 성공! 🔔</span><br>감지된 동작: ${actionName}`;
-        console.log(`[C유형 1단계] 가사 동작 매칭 완료: ${actionName} (${Math.floor(t)}초)`);
-      } else {
-        sensorCueBox.innerHTML = `<span style='color: #ef4444; font-weight: 800;'>인식 실패 ❌</span><br>가사의 동작 지시 구간이 아닙니다. (현재 BGM 시간: ${Math.floor(t)}초)`;
-        console.log(`[C유형 1단계] 가사 매칭 실패 (현재 시간: ${t}초)`);
-      }
-      return;
-    }
-    
-    // D유형 1단계 (워밍업) BGM 가사 구간 매칭 체크
-    if (currentType === 'D' && currentPhase === 1) {
-      if (!bgmAudio) return;
-      const t = bgmAudio.currentTime;
-      let matched = false;
-      let actionName = "";
-      
-      // 구간 1: 55초~61초 (오른쪽 체중 이동)
-      if (t >= 55 && t <= 61) {
-        matched = true;
-        actionName = "오른쪽 체중 이동";
-      }
-      // 구간 2: 1분 9초~1분 18초 (69초~78초, 왼쪽 체중 이동)
-      else if (t >= 69 && t <= 78) {
-        matched = true;
-        actionName = "왼쪽 체중 이동";
-      }
-      
-      if (matched) {
-        AudioManager.playEffect('ding_bright.mp3');
-        sensorCueBox.innerHTML = `<span style='color: #059669; font-weight: 800;'>인식 성공! 🔔</span><br>감지된 동작: ${actionName}`;
-        console.log(`[D유형 1단계] 가사 동작 매칭 완료: ${actionName} (${Math.floor(t)}초)`);
-      } else {
-        sensorCueBox.innerHTML = `<span style='color: #ef4444; font-weight: 800;'>인식 실패 ❌</span><br>가사의 동작 지시 구간이 아닙니다. (현재 BGM 시간: ${Math.floor(t)}초)`;
-        console.log(`[D유형 1단계] 가사 매칭 실패 (현재 시간: ${t}초)`);
-      }
-      return;
-    }
-    
-    // 그 외 유형 및 단계는 기존의 가상 이벤트 핸들러 적용
     let mockEvt = {};
     if (currentPhase === 1) {
-      mockEvt = { type: 'motion', action: 'any' };
+      mockEvt = { type: 'motion', action: action };
     } 
     else if (currentPhase === 3) {
       if (currentType === 'A') {
@@ -1695,58 +1617,46 @@
     if (!isPlaying) return;
 
     if (currentPhase === 1) {
-      if (currentType === 'A') {
-        if (waitingSensorAction === 'p1_stop' && data.action === 'stop') {
-          AudioManager.playEffect('ding_bright.mp3');
-          waitingSensorAction = 'p1_weight_right';
-          sensorCueBox.textContent = "정지 인식 완료! ➔ 오른쪽으로 체중을 실어보세요.";
-          AudioManager.speak("정지 완료! 아주 좋습니다. 이번에는 양발을 벌리고 오른쪽으로 체중을 꾹 실어보세요.");
-        } 
-        else if (waitingSensorAction === 'p1_weight_right' && data.action === 'weight_right') {
-          AudioManager.playEffect('ding_bright.mp3');
-          waitingSensorAction = 'p1_weight_left';
-          sensorCueBox.textContent = "오른쪽 체중 이동 성공! ➔ 왼쪽으로 체중을 실어보세요.";
-          AudioManager.speak("네, 잘하셨습니다. 이번에는 반대편 왼쪽으로 체중을 꾹 실어볼까요?");
-        }
-        else if (waitingSensorAction === 'p1_weight_left' && data.action === 'weight_left') {
-          AudioManager.playEffect('ding_bright.mp3');
-          waitingSensorAction = null;
-          sensorCueBox.textContent = "워밍업 준비 완료! 곧 2단계로 넘어갑니다.";
-          AudioManager.speak("훌륭합니다! 캘리브레이션이 완료되었습니다. 그럼 2단계 본운동으로 넘어가겠습니다!");
-          
-          setTimeout(() => {
-            if (currentPhase === 1 && isPlaying) jumpToPhase(2);
-          }, 4000);
-        }
-      }
-      else if (currentType === 'B') {
-        if (waitingSensorAction === 'p1_shake_right' && data.action === 'shake_right') {
-          AudioManager.playEffect('ding_bright.mp3');
-          waitingSensorAction = 'p1_shake_left';
-          sensorCueBox.textContent = "오른쪽 흔들기 인식 완료! ➔ 왼쪽으로 흔들어보세요.";
-          AudioManager.speak("오른쪽 인식 성공! 이번에는 왼쪽으로 시계추처럼 몸을 흔 흔들어볼까요?");
-        }
-        else if (waitingSensorAction === 'p1_shake_left' && data.action === 'shake_left') {
-          AudioManager.playEffect('ding_bright.mp3');
-          waitingSensorAction = null;
-          sensorCueBox.textContent = "시계추 워밍업 완료! 2단계로 이동합니다.";
-          AudioManager.speak("참 잘하셨어요! 캘리브레이션이 성공했습니다. 다리를 풀어주는 2단계로 이동해 볼까요?");
-          
-          setTimeout(() => {
-            if (currentPhase === 1 && isPlaying) jumpToPhase(2);
-          }, 4000);
+      if (currentType === 'A' || currentType === 'B') {
+        if (!bgmAudio) return;
+        const t = bgmAudio.currentTime;
+        if (t >= 53 && t <= 56) {
+          if (data.action === 'stop') {
+            AudioManager.playEffect('ding_bright.mp3');
+            sensorCueBox.innerHTML = "<span style='color: #059669; font-weight: 800;'>인식 성공! 🔔</span><br>감지된 동작: 정지 (얼음)";
+          }
+        } else if (t >= 67 && t <= 73) {
+          if (data.action === 'weight_right') {
+            AudioManager.playEffect('ding_bright.mp3');
+            sensorCueBox.innerHTML = "<span style='color: #059669; font-weight: 800;'>인식 성공! 🔔</span><br>감지된 동작: 오른쪽 체중 이동";
+          }
+        } else if (t >= 78 && t <= 81) {
+          if (data.action === 'weight_left') {
+            AudioManager.playEffect('ding_bright.mp3');
+            sensorCueBox.innerHTML = "<span style='color: #059669; font-weight: 800;'>인식 성공! 🔔</span><br>감지된 동작: 왼쪽 체중 이동";
+          }
+        } else if (t >= 116 && t <= 122) {
+          if (data.action === 'step_forward_right') {
+            AudioManager.playEffect('ding_bright.mp3');
+            sensorCueBox.innerHTML = "<span style='color: #059669; font-weight: 800;'>인식 성공! 🔔</span><br>감지된 동작: 오른발 앞으로 한발";
+          }
+        } else if (t >= 124 && t <= 125) {
+          if (data.action === 'step_backward') {
+            AudioManager.playEffect('ding_bright.mp3');
+            sensorCueBox.innerHTML = "<span style='color: #059669; font-weight: 800;'>인식 성공! 🔔</span><br>감지된 동작: 뒤로 한발";
+          }
         }
       }
       else if (currentType === 'C') {
         if (!bgmAudio) return;
         const t = bgmAudio.currentTime;
         if (t >= 55 && t <= 61) {
-          if (data.action === 'weight_right' || data.action === 'step_right' || data.action === 'shake_right' || data.action === 'right') {
+          if (data.action === 'weight_right') {
             AudioManager.playEffect('ding_bright.mp3');
             sensorCueBox.innerHTML = "<span style='color: #059669; font-weight: 800;'>인식 성공! 🔔</span><br>감지된 동작: 오른쪽 체중 이동";
           }
         } else if (t >= 69 && t <= 78) {
-          if (data.action === 'weight_left' || data.action === 'step_left' || data.action === 'shake_left' || data.action === 'left') {
+          if (data.action === 'weight_left') {
             AudioManager.playEffect('ding_bright.mp3');
             sensorCueBox.innerHTML = "<span style='color: #059669; font-weight: 800;'>인식 성공! 🔔</span><br>감지된 동작: 왼쪽 체중 이동";
           }
@@ -1755,15 +1665,10 @@
       else if (currentType === 'D') {
         if (!bgmAudio) return;
         const t = bgmAudio.currentTime;
-        if (t >= 55 && t <= 61) {
-          if (data.action === 'weight_right' || data.action === 'step_right' || data.action === 'shake_right' || data.action === 'right') {
+        if ((t >= 55 && t <= 61) || (t >= 69 && t <= 78)) {
+          if (data.action === 'any_reaction') {
             AudioManager.playEffect('ding_bright.mp3');
-            sensorCueBox.innerHTML = "<span style='color: #059669; font-weight: 800;'>인식 성공! 🔔</span><br>감지된 동작: 오른쪽 체중 이동";
-          }
-        } else if (t >= 69 && t <= 78) {
-          if (data.action === 'weight_left' || data.action === 'step_left' || data.action === 'shake_left' || data.action === 'left') {
-            AudioManager.playEffect('ding_bright.mp3');
-            sensorCueBox.innerHTML = "<span style='color: #059669; font-weight: 800;'>인식 성공! 🔔</span><br>감지된 동작: 왼쪽 체중 이동";
+            sensorCueBox.innerHTML = "<span style='color: #059669; font-weight: 800;'>인식 성공! 🔔</span><br>감지된 동작: 반응 성공";
           }
         }
       }

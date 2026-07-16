@@ -541,7 +541,7 @@ ITEM_TITLES = {
     'memory_immediate': '단어 기억하기',
     'forward_digits':   '숫자 따라 말하기',
     'backward_digits':  '숫자 거꾸로 말하기',
-    'clapping':         '손뼉치기',
+    'clapping':         '화면 치기',
     'serial_7':         '빼기 계산',
     'sentence_repeat':  '따라 말하기',
     'verbal_fluency':   '단어 말하기',
@@ -604,7 +604,7 @@ def _tts_urls(item_name, version):
         'verbal_fluency':   [f'fluency_inst_{v}.mp3'],
         'abstraction':      ['abstract_inst.mp3'],
         'delayed_recall':   ['delayed_recall_inst.mp3'],
-        'orientation':      ['orientation_date_inst.mp3'],
+        'orientation':      ['orientation_date_inst.mp3', 'orientation_year.mp3'],
     }
     return [f'/audio/{f}' for f in mp.get(item_name, [])]
 
@@ -948,10 +948,10 @@ def item_page():
         ]
     elif item == 'orientation':
         info['sub_questions'] = [
-            {'key': 'year',    'label': '몇 년도인가요?',          'audio': '/audio/orientation_date_inst.mp3'},
-            {'key': 'month',   'label': '몇 월인가요?',            'audio': None},
-            {'key': 'day',     'label': '며칠인가요?',             'audio': None},
-            {'key': 'weekday', 'label': '무슨 요일인가요?',         'audio': None},
+            {'key': 'year',    'label': '몇 년도인가요?',          'audio': '/audio/orientation_year.mp3'},
+            {'key': 'month',   'label': '몇 월인가요?',            'audio': '/audio/orientation_month.mp3'},
+            {'key': 'day',     'label': '며칠인가요?',             'audio': '/audio/orientation_date.mp3'},
+            {'key': 'weekday', 'label': '무슨 요일인가요?',         'audio': '/audio/orientation_day.mp3'},
             {'key': 'place',   'label': '지금 계신 동네 이름은?',   'audio': '/audio/orientation_place_inst.mp3'},
             {'key': 'sigungu', 'label': '지금 계신 시군구는?',      'audio': '/audio/orientation_city_inst.mp3'},
         ]

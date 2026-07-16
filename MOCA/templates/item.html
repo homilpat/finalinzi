@@ -10,10 +10,17 @@
 
   <!-- TTS 재생 상태 표시 -->
   <div class="tts-banner" id="ttsBanner">
-    <div class="tts-waves">
+    <div class="tts-waves" id="ttsWaves">
       <span></span><span></span><span></span><span></span><span></span>
     </div>
-    <span class="tts-text">문제를 읽는 중...</span>
+    <span class="tts-text" id="ttsText">문제를 읽는 중...</span>
+    <button id="replayBtn" onclick="replayTTS()" style="display: none; background: none; border: none; color: white; font: inherit; padding: 0; cursor: pointer; align-items: center; gap: 8px; width: 100%; justify-content: center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-top:-1px;">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+        <path d="M3 3v5h5"/>
+      </svg>
+      문제 다시 듣기
+    </button>
   </div>
 
   <!-- 문항 제목 + 타이머 -->
@@ -34,7 +41,7 @@
     {% if item.item == 'trail_making' %}
       선으로 이어 주세요.
     {% elif item.item == 'cube' %}
-      아래 그림과 똑같이 그려 주세요.
+      위 그림과 똑같이 그려 주세요.
     {% elif item.item == 'clock' %}
       시계를 그려 주세요. 숫자를 모두 써 넣고, 열한시 십분이 되도록 바늘을 그려 주세요.
     {% elif item.item == 'naming' %}
@@ -67,20 +74,13 @@
 
     {# ────────── 그리기 (trail / cube / clock) ────────── #}
     {% if item_type == 'drawing' %}
-    <div class="canvas-container">
-      <canvas id="drawCanvas" class="draw-canvas"></canvas>
-      <div class="canvas-tools">
-        <button class="tool-btn" id="undoBtn" onclick="undoStroke()">되돌리기</button>
-        <button class="tool-btn tool-clear" onclick="clearCanvas()">지우기</button>
-      </div>
-    </div>
     {% if item.item == 'clock' %}
     <div class="trail-hint card-sm">
       원 안에 숫자를 모두 쓰고 <strong>11시 10분</strong>이 되도록 바늘을 그리세요
     </div>
     {% elif item.item == 'cube' %}
     <div class="trail-hint card-sm">
-      아래 그림과 똑같이 그려주세요
+      위 그림과 똑같이 그려주세요
       <div class="cube-reference">
         <svg viewBox="0 0 100 90" width="130">
           <!-- 앞면 -->
@@ -98,7 +98,13 @@
     </div>
     {% endif %}
 
-    {# ────────── 어휘력 (3동물) ────────── #}
+    <div class="canvas-container">
+      <canvas id="drawCanvas" class="draw-canvas"></canvas>
+      <div class="canvas-tools">
+        <button class="tool-btn" id="undoBtn" onclick="undoStroke()">되돌리기</button>
+        <button class="tool-btn tool-clear" onclick="clearCanvas()">지우기</button>
+      </div>
+    </div>
     {% elif item_type == 'naming' %}
     <div class="naming-container" id="namingContainer"
          data-animals='{{ item.animals | tojson }}'>

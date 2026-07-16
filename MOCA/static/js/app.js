@@ -22,6 +22,8 @@ const App = {
   responses:     {},       // 최종 제출 데이터
   itemType:      '',
   itemName:      '',
+  timerStarted:  false,
+  activeAudio:   null,
 
   // 다중 응답 (naming, sentence_repeat 등)
   multiStep:     0,
@@ -41,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
   App.duration = cfg.duration || 30;
   App.itemType = cfg.type;
   App.itemName = cfg.item;
+  App.timerStarted = false;
 
   initItemUI();
   playNextTTS();
@@ -194,18 +197,19 @@ function initItemUI() {
 // ────────────────────────────────────────────
 function playNextTTS() {
   if (App.ttsIndex >= App.ttsUrls.length) {
+    App.activeAudio = null;
     onTTSComplete();
     return;
   }
 
   const url   = App.ttsUrls[App.ttsIndex];
   const audio = new Audio(url);
+  App.activeAudio = audio;
   audio.onended = () => {
     App.ttsIndex++;
     playNextTTS();
   };
   audio.onerror = () => {
-    // 파일 없으면 스킵
     App.ttsIndex++;
     playNextTTS();
   };
@@ -217,8 +221,22 @@ function playNextTTS() {
 
 // TTS 전부 끝 → 타이머 시작
 function onTTSComplete() {
-  const banner = document.getElementById('ttsBanner');
-  if (banner) banner.classList.add('hidden');
+  const waves = document.getElementById('ttsWaves');
+  const txt = document.getElementById('ttsText');
+  const replayBtn = document.getElementById('replayBtn');
+  
+  if (waves) waves.style.display = 'none';
+  if (txt) txt.style.display = 'none';
+  if (replayBtn) replayBtn.style.display = 'flex';
+
+  if (App.itemType === 'orientation' && App.multiStep === 0) {
+    App.ttsUrls = ['/audio/orientation_year.mp3'];
+  }
+
+  if (App.timerStarted) {
+    return;
+  }
+  App.timerStarted = true;
 
   // 손뼉치기: 시퀀스 오디오 따로 재생 + 시퀀스 애니메이션 시작
   if (App.itemType === 'clapping') {
@@ -232,6 +250,33 @@ function onTTSComplete() {
   if (micBtn) micBtn.disabled = false;
   enableSubmit();
 }
+
+window.replayTTS = function() {
+  if (App.activeAudio) {
+    try {
+      App.activeAudio.pause();
+      App.activeAudio.currentTime = 0;
+    } catch(e){}
+    App.activeAudio = null;
+  }
+  
+  // 만약 마이크가 켜져 있으면 녹음 충돌 방지를 위해 꺼줌
+  if (App.recording) {
+    toggleMic();
+  }
+  
+  App.ttsIndex = 0;
+  
+  const waves = document.getElementById('ttsWaves');
+  const txt = document.getElementById('ttsText');
+  const replayBtn = document.getElementById('replayBtn');
+  
+  if (waves) waves.style.display = 'flex';
+  if (txt) txt.style.display = 'inline';
+  if (replayBtn) replayBtn.style.display = 'none';
+  
+  playNextTTS();
+};
 
 // ────────────────────────────────────────────
 // 타이머
@@ -288,6 +333,20 @@ async function submitItem() {
   if (App.stepAdvancing) {
     setTimeout(submitItem, 300);
     return;
+  }
+
+  // naming 이나 orientation 진행 도중이고 마지막 스텝이 아닌 경우, 다음 스텝으로 진행
+  if (App.itemType === 'naming') {
+    if (App.multiStep < (App.namingAnimals || []).length - 1) {
+      advanceMultiStep("");
+      return;
+    }
+  }
+  if (App.itemType === 'orientation') {
+    if (App.multiStep < (App.orientQuestions || []).length - 1) {
+      advanceMultiStep("");
+      return;
+    }
   }
 
   if (App.recording && App.recognition) {
@@ -495,23 +554,85 @@ function showAnimal(idx) {
   if (idx_el) idx_el.textContent = idx + 1;
 }
 
-function onStepComplete(text) {
+function advanceMultiStep(text) {
+  stopTimer();
+  
   if (App.itemType === 'naming') {
-    showAnswerCaptured(text, () => {
-      App.multiStep++;
-      if (App.multiStep < (App.namingAnimals || []).length) {
-        showAnimal(App.multiStep);
+    const keys = ['animal1_stt', 'animal2_stt', 'animal3_stt'];
+    App.multiAnswers[keys[App.multiStep]] = text || "";
+    App.multiStep++;
+    if (App.multiStep < (App.namingAnimals || []).length) {
+      showAnimal(App.multiStep);
+      startTimer(App.duration);
+    } else {
+      submitAfterCaptured();
+    }
+  } 
+  else if (App.itemType === 'orientation') {
+    const keys = ['year', 'month', 'day', 'weekday', 'place', 'sigungu'];
+    App.multiAnswers[keys[App.multiStep]] = text || "";
+    App.multiStep++;
+    App.timerStarted = false; // 타이머 기동 락 해제
+    const q = App.orientQuestions?.[App.multiStep];
+    if (q) {
+      const qEl  = document.getElementById('orientQuestion');
+      const idxEl = document.getElementById('orientIndex');
+      if (qEl)  qEl.textContent  = q.label;
+      if (idxEl) idxEl.textContent = App.multiStep + 1;
+
+      // 마이크 상태 디스플레이 갱신
+      const mst = document.getElementById('micStatus');
+      if (mst) mst.textContent = App.recording ? '듣는 중...' : '준비';
+
+      if (q.audio) {
+        // 문제 다시 듣기용 URL 배열 업데이트
+        App.ttsUrls = [q.audio];
+        App.ttsIndex = 0;
+
+        // 배너 파형 연출 및 다시 듣기 버튼 숨김
+        const waves = document.getElementById('ttsWaves');
+        const txt = document.getElementById('ttsText');
+        const replayBtn = document.getElementById('replayBtn');
+        if (waves) waves.style.display = 'flex';
+        if (txt) txt.style.display = 'inline';
+        if (replayBtn) replayBtn.style.display = 'none';
+
+        if (App.activeAudio) {
+          try { App.activeAudio.pause(); } catch(e){}
+        }
+        const au = new Audio(q.audio);
+        App.activeAudio = au;
+        au.onended = () => {
+          App.activeAudio = null;
+          onTTSComplete();
+        };
+        au.onerror = () => {
+          App.activeAudio = null;
+          onTTSComplete();
+        };
+        au.play().catch(() => {
+          App.activeAudio = null;
+          onTTSComplete();
+        });
       } else {
-        submitAfterCaptured();
+        startTimer(App.duration);
       }
-    });
-  } else if (App.itemType === 'voice_multi') {
-    onVoiceMultiStep(text);
-  } else if (App.itemType === 'orientation') {
-    onOrientationStep(text);
-  } else if (App.itemType === 'memory') {
-    onMemoryStep(text);
+    } else {
+      submitAfterCaptured();
+    }
   }
+}
+
+function onStepComplete(text) {
+  showAnswerCaptured(text, () => {
+    if (App.itemType === 'naming' || App.itemType === 'orientation') {
+      advanceMultiStep(text);
+    } else if (App.itemType === 'voice_multi') {
+      onVoiceMultiStep(text);
+    } else if (App.itemType === 'memory') {
+      onMemoryStep(text);
+    }
+  });
 }
 
 // ────────────────────────────────────────────
