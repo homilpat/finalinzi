@@ -1529,8 +1529,8 @@
         else if (t >= 124 && t <= 125) action = 'step_backward';
       }
       else if (currentType === 'C') {
-        if (t >= 55 && t <= 61) action = 'weight_right';
-        else if (t >= 69 && t <= 78) action = 'weight_left';
+        if (t >= 55 && t <= 61) action = 'weight_right_sit';
+        else if (t >= 69 && t <= 78) action = 'weight_left_sit';
       }
       else if (currentType === 'D') {
         if ((t >= 55 && t <= 61) || (t >= 69 && t <= 78)) action = 'any_reaction';
@@ -1651,12 +1651,12 @@
         if (!bgmAudio) return;
         const t = bgmAudio.currentTime;
         if (t >= 55 && t <= 61) {
-          if (data.action === 'weight_right') {
+          if (data.action === 'weight_right_sit') {
             AudioManager.playEffect('ding_bright.mp3');
             sensorCueBox.innerHTML = "<span style='color: #059669; font-weight: 800;'>인식 성공! 🔔</span><br>감지된 동작: 오른쪽 체중 이동";
           }
         } else if (t >= 69 && t <= 78) {
-          if (data.action === 'weight_left') {
+          if (data.action === 'weight_left_sit') {
             AudioManager.playEffect('ding_bright.mp3');
             sensorCueBox.innerHTML = "<span style='color: #059669; font-weight: 800;'>인식 성공! 🔔</span><br>감지된 동작: 왼쪽 체중 이동";
           }
