@@ -233,6 +233,11 @@ function onTTSComplete() {
     App.ttsUrls = ['/audio/orientation_year.mp3'];
   }
 
+  if (App.itemType === 'voice_multi' && App.multiStep === 0 && App.voiceMultiParts && App.voiceMultiParts.length > 0) {
+    const au = new Audio(App.voiceMultiParts[0]);
+    au.play().catch((e) => console.error('Audio play error:', e));
+  }
+
   if (App.timerStarted) {
     return;
   }
@@ -396,8 +401,10 @@ async function submitItem() {
     if (data.next === 'waiting') {
       sessionStorage.setItem('wait_seconds', data.wait_seconds);
       window.location.href = '/waiting';
+    } else if (data.next === 'final-result') {
+      window.location.href = '/final-result';
     } else if (data.next === 'result') {
-      window.location.href = '/final-result?panel=cognitive';
+      window.location.href = '/result';
     } else {
       window.location.href = '/item';
     }

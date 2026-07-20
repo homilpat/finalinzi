@@ -94,6 +94,16 @@ def _load_gait_artifact(model_name, metadata_name):
         try:
             import joblib
             model = joblib.load(model_path)
+            if model is not None:
+                from sklearn.pipeline import Pipeline
+                from sklearn.impute import SimpleImputer
+                if isinstance(model, dict) and "pipeline" in model:
+                    new_pipe = Pipeline(model["pipeline"].steps)
+                    for _, step_obj in new_pipe.steps:
+                        if isinstance(step_obj, SimpleImputer):
+                            if not hasattr(step_obj, "_fill_dtype") and hasattr(step_obj, "_fit_dtype"):
+                                step_obj._fill_dtype = step_obj._fit_dtype
+                    model["pipeline"] = new_pipe
         except Exception as e:
             print(f"[gait model load error] {e}")
             model = None
@@ -655,8 +665,10 @@ def _tts_urls(item_name, version):
 
 @app.route('/')
 def home():
+    is_new = bool(request.args.get('registered')) or session.get('is_new_member', False)
+    template = 'home_new.html' if is_new else 'home.html'
     return render_template(
-        'home.html',
+        template,
         education_levels=EDUCATION_LEVELS,
         error=request.args.get('error', ''),
         assessment_phase=request.args.get('phase', ''),
@@ -825,7 +837,7 @@ def _predict_gait_from_payload(data):
         'model_mode': model_mode,
         'features': features,
         'window': data.get('_window') or {},
-        'redirect_url': url_for('gait_avatar_page'),
+        'redirect_url': url_for('physical_to_cognitive_page') if session.get('is_new_member') else url_for('gait_avatar_page'),
     }
     return gait_result, (response, 200)
 
@@ -959,7 +971,7 @@ def save_profile():
         return redirect(url_for('home', error='전화번호 인증을 먼저 완료해 주세요.'))
 
     try:
-        member_id, edu, member_code = get_or_create_member(phone, education_level)
+        member_id, edu, member_code, is_new = get_or_create_member(phone, education_level)
     except ValueError as e:
         return redirect(url_for('home', error=str(e)))
 
@@ -971,6 +983,7 @@ def save_profile():
     session['phone_last4'] = phone_last4(phone)
     session['location'] = loc
     session['sigungu'] = sgg
+    session['is_new_member'] = is_new
 
     return redirect(url_for('home', registered='1'))
 
@@ -1007,7 +1020,7 @@ def start():
         return redirect(url_for('home', error='전화번호 인증을 먼저 완료해 주세요.'))
 
     try:
-        member_id, edu, member_code = get_or_create_member(phone, education_level)
+        member_id, edu, member_code, is_new = get_or_create_member(phone, education_level)
     except ValueError as e:
         return redirect(url_for('home', error=str(e)))
 
@@ -1019,6 +1032,7 @@ def start():
     session['phone_last4'] = phone_last4(phone)
     session['location'] = loc
     session['sigungu'] = sgg
+    session['is_new_member'] = is_new
 
     return _start_assessment(member_id, edu, member_code, education_level, loc, sgg, phone_last4(phone))
 
@@ -1102,7 +1116,10 @@ def submit():
     if result.get('status') == 'waiting':
         return jsonify({'next': 'waiting', 'wait_seconds': result['wait_seconds']})
     elif result.get('status') == 'completed':
-        return jsonify({'next': 'result'})
+        if session.get('is_new_member'):
+            return jsonify({'next': 'final-result'})
+        else:
+            return jsonify({'next': 'result'})
     else:
         return jsonify({'next': 'item'})
 
@@ -1129,7 +1146,10 @@ def continue_wait():
 
     result = s.next_item()
     if result.get('status') == 'completed':
-        return jsonify({'next': 'result'})
+        if session.get('is_new_member'):
+            return jsonify({'next': 'final-result'})
+        else:
+            return jsonify({'next': 'result'})
     return jsonify({'next': 'item'})
 
 
@@ -1161,12 +1181,27 @@ def result_page():
     )
 
 
+@app.route('/start_new_member_flow')
+def start_new_member_flow():
+    session['is_new_member'] = True
+    return redirect(url_for('gait_page'))
+
+
+@app.route('/physical-to-cognitive')
+def physical_to_cognitive_page():
+    return render_template('physical_to_cognitive.html')
+
+
 @app.route('/final-result')
 def final_result():
     panel = request.args.get('panel', 'summary')
     cognitive = _get_cognitive_result()
     gait_result = _get_gait_result()
     care_type = _classify_care_type(cognitive, gait_result)
+    
+    # Clear is_new_member flag as they have successfully completed the flow and viewed the final result
+    session.pop('is_new_member', None)
+    
     return render_template(
         'final_result.html',
         panel=panel,

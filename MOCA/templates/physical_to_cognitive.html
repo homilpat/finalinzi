@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% block header %}{% endblock %}
+
+{% block extra_head %}
+<style>
+  .trans-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    min-height: calc(100vh - 48px);
+    text-align: center;
+    background: #f7f9fc;
+    font-family: inherit;
+  }
+  .trans-card {
+    background: #ffffff;
+    border-radius: 24px;
+    padding: 32px 24px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.05);
+    width: 100%;
+    max-width: 400px;
+    box-sizing: border-box;
+    margin-bottom: 24px;
+    border: 1px solid #eef2f6;
+  }
+  .trans-title {
+    font-size: 24px;
+    font-weight: 800;
+    color: #021d33;
+    line-height: 1.5;
+    margin-bottom: 24px;
+    word-break: keep-all;
+  }
+  .trans-desc-box {
+    background: #f0f5ff;
+    border-radius: 16px;
+    padding: 20px;
+    text-align: left;
+    margin-bottom: 28px;
+    border: 1px solid #dbe5ff;
+  }
+  .trans-desc-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #005da7;
+    margin-bottom: 12px;
+  }
+  .trans-desc-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .trans-desc-list li {
+    font-size: 15px;
+    color: #495057;
+    margin-bottom: 8px;
+    line-height: 1.4;
+    position: relative;
+    padding-left: 14px;
+  }
+  .trans-desc-list li::before {
+    content: "•";
+    position: absolute;
+    left: 0;
+    color: #005da7;
+    font-weight: bold;
+  }
+  .trans-desc-footer {
+    font-size: 14px;
+    color: #6c757d;
+    margin-top: 12px;
+    line-height: 1.4;
+  }
+  .trans-btn {
+    width: 100%;
+    max-width: 400px;
+    background: #4A90E2;
+    color: white;
+    font-size: 18px;
+    font-weight: 700;
+    padding: 16px;
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
+    text-decoration: none;
+    display: block;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+  }
+  .trans-btn:active {
+    transform: scale(0.98);
+    background: #357ABD;
+  }
+  .trans-icon {
+    width: 64px;
+    height: 64px;
+    background: #e1f5fe;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="trans-screen">
+  <div class="trans-card">
+    <div class="trans-icon">
+      <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="#4A90E2" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+    </div>
+    
+    <h2 class="trans-title">신체기능 검사가 완료되었습니다.<br>이제 인지기능 검사를 시작하겠습니다.</h2>
+    
+    <div class="trans-desc-box">
+      <div class="trans-desc-title">다음 검사에서는</div>
+      <ul class="trans-desc-list">
+        <li>화면을 손으로 터치하거나</li>
+        <li>그림을 따라 그리거나</li>
+        <li>질문에 말로 대답하는 문제가 나옵니다.</li>
+      </ul>
+      <p class="trans-desc-footer">안내에 따라 천천히 진행해 주세요.</p>
+    </div>
+    
+    <a href="/start_saved" class="trans-btn">검사 시작하기</a>
+  </div>
+</div>
+{% endblock %}
