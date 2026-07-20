@@ -355,15 +355,16 @@ export default function App() {
   }
 
   async function stopManualMeasurement() {
-    if (!isManualExercise || phaseRef.current !== PHASE.walking) return;
+    if (!isManualExercise || phaseRef.current !== PHASE.walking) return '';
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = null;
-    await finishMeasurement();
+    return finishMeasurement();
   }
 
   async function handlePrimaryPress() {
     if (phase === PHASE.walking && isManualExercise) {
-      await stopManualMeasurement();
+      const path = await stopManualMeasurement();
+      if (path) await shareCsvPath(path);
       return;
     }
     await startMeasurement();
@@ -374,16 +375,20 @@ export default function App() {
   const primaryLabel = primaryCanStop ? '측정 종료/CSV 저장' : '측정 시작';
 
   async function shareCsvPath(path) {
-    const canShare = await Sharing.isAvailableAsync();
-    if (!canShare) {
-      Alert.alert('공유 불가', path);
-      return;
+    try {
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        Alert.alert('CSV 저장됨', `앱 내부 저장 위치:\n${path}`);
+        return;
+      }
+      await Sharing.shareAsync(path, {
+        mimeType: 'text/csv',
+        dialogTitle: `${selectedType.label} CSV 저장`,
+        UTI: 'public.comma-separated-values-text',
+      });
+    } catch (error) {
+      Alert.alert('CSV 저장 확인', `앱 내부에는 저장됐습니다.\n${path}\n\n${error?.message || ''}`);
     }
-    await Sharing.shareAsync(path, {
-      mimeType: 'text/csv',
-      dialogTitle: `${selectedType.label} CSV 공유`,
-      UTI: 'public.comma-separated-values-text',
-    });
   }
 
   async function shareCsv() {
