@@ -9,6 +9,7 @@ __pycache__/
 # Virtual environments / secrets
 .env
 .env.*
+node_modules/
 venv/
 .venv/
 env/
@@ -72,6 +73,8 @@ analysis_archive/
 external_data/
 보행SAMPLE/
 gaitsensorapp/
+mobile_sensor_app/.expo/
+mobile_sensor_app/.expo-home/
 app-debug.apk
 
 # Assessment source PDFs should not be uploaded unless explicitly cleared.
