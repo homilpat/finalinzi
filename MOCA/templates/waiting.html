@@ -47,7 +47,13 @@
       clearInterval(tick);
       fetch('/continue_wait', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}' })
         .then(r => r.json())
-        .then(d => { window.location.href = d.next === 'result' ? '/result' : '/item'; });
+        .then(d => {
+          if (d.next === 'final-result') {
+            window.location.href = '/final-result';
+          } else {
+            window.location.href = d.next === 'result' ? '/result' : '/item';
+          }
+        });
     }
   }, 1000);
 })();

@@ -4,18 +4,15 @@
 {% block content %}
 <div class="home-screen">
   <section class="splash-screen" id="splashScreen" aria-label="시작 화면">
-    <div class="splash-visual" aria-hidden="true">
-      <div class="splash-heart">
-        <svg viewBox="0 0 72 72" fill="none">
-          <path d="M36 9c14.2 0 25.5 10.9 25.5 24.3 0 17-24 29.4-25.1 29.9a2 2 0 0 1-1.8 0C33.5 62.7 10.5 50.3 10.5 33.3 10.5 19.9 21.8 9 36 9z" fill="white"/>
-          <path d="M19 37h9l4-10 7 18 4-8h10" stroke="#4A90E2" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+     <div class="splash-visual" aria-hidden="true">
+      <div class="splash-heart" style="width: 300px; height: auto;">
+        <img src="{{ url_for('static', filename='images/hazi_logo.png') }}" alt="기억하지 로고" style="width: 100%; height: auto;">
       </div>
     </div>
 
     <div class="splash-copy">
-      <p class="splash-brand">두근두근</p>
-      <h1>AI 시니어<br>건강 파트너</h1>
+      <p class="splash-brand">기억하지</p>
+      <h1>AI 시니어<br>건강 케어 파트너</h1>
     </div>
 
     <div class="splash-bottom">
@@ -33,7 +30,7 @@
         <span>←</span>
         <strong>뒤로</strong>
       </button>
-      <h1>두근두근</h1>
+      <h1>기억하지</h1>
       <span class="design-header-spacer" aria-hidden="true"></span>
     </header>
 
@@ -44,13 +41,13 @@
 
     <div class="user-type-list">
       <button class="user-type-card elder" type="button" id="seniorUserBtn">
-        <span class="user-type-pill">운동 · 인지 · 건강 관리</span>
+        <span class="user-type-pill">시니어</span>
         <span class="user-type-title">어르신 본인</span>
         <span class="user-type-arrow">›</span>
       </button>
 
       <button class="user-type-card guardian" type="button" id="guardianUserBtn">
-        <span class="user-type-pill blue">모니터링 · 알림 · 리포트</span>
+        <span class="user-type-pill blue">케어 파트너</span>
         <span class="user-type-title">보호자 · 가족</span>
         <span class="user-type-arrow">›</span>
       </button>
@@ -65,15 +62,16 @@
         <span>←</span>
         <strong>뒤로</strong>
       </button>
-      <h1>두근두근</h1>
+      <h1>기억하지</h1>
       <span class="design-header-spacer" aria-hidden="true"></span>
     </header>
+
 
     <section class="vital-hero">
       <div class="vital-hero-top">
         <div>
           <p class="vital-brand">어르신 본인</p>
-          <h1 class="vital-title">오늘의 평가</h1>
+          <h1 class="vital-title">케어 절차</h1>
         </div>
         <div class="vital-logo" aria-hidden="true">
           <svg viewBox="0 0 72 72" fill="none">
@@ -83,13 +81,13 @@
         </div>
       </div>
 
-      <div class="vital-summary">
-        <span>인지 기능을 먼저 확인해요</span>
-        <strong>검사할 평가를 선택해 주세요</strong>
+      <!-- Care Flow Image -->
+      <div style="margin-top: 18px; margin-left: -30px; margin-right: -30px; margin-bottom: -34px; width: calc(100% + 60px); overflow: hidden; border-bottom-left-radius: 30px; border-bottom-right-radius: 30px;">
+        <img src="/static/images/care_process.png" alt="케어 절차" style="width: 100%; display: block;">
       </div>
     </section>
 
-    <section class="mode-panel" id="modePanel" aria-label="평가 메뉴">
+    <section class="mode-panel" id="modePanel" aria-label="평가 메뉴" style="margin-top: 24px;">
       <button class="mode-card mode-card-primary" type="button" id="cognitiveModeBtn">
         <span class="mode-icon" aria-hidden="true">
           <svg viewBox="0 0 48 48" fill="none">
@@ -98,10 +96,10 @@
           </svg>
         </span>
         <span>
-          <strong>인지기능평가</strong>
+          <strong>인지기능검사</strong>
           <small>MoCA-K 문항으로 검사 시작</small>
         </span>
-        <span class="mode-arrow">시작</span>
+        <span class="mode-arrow">재검사</span>
       </button>
 
       <div class="mode-grid">
@@ -113,10 +111,10 @@
             </svg>
           </span>
           <span>
-            <strong>신체평가</strong>
+            <strong>신체기능검사</strong>
             <small>허리밴드 IMU 보행 평가</small>
           </span>
-          <span class="mode-arrow">시작</span>
+          <span class="mode-arrow">재검사</span>
         </button>
 
         <a class="mode-card mode-card-secondary mode-card-link" href="/physical/guide">
@@ -187,7 +185,7 @@
         <span>←</span>
         <strong>뒤로</strong>
       </button>
-      <h1>두근두근</h1>
+      <h1>기억하지</h1>
       <span class="design-header-spacer" aria-hidden="true"></span>
     </header>
 
@@ -340,7 +338,7 @@
     showMemberForm();
   });
   guardianUserBtn.addEventListener('click', () => {
-    window.location.href = '/guardian';
+    window.location.href = '/guardian/login';
   });
   homeMainBackBtn.addEventListener('click', showUserSelect);
   cognitiveModeBtn.addEventListener('click', () => {
@@ -354,7 +352,7 @@
     window.location.href = '/gait';
   });
   guardianModeBtn.addEventListener('click', () => {
-    window.location.href = '/guardian';
+    window.location.href = '/guardian/login';
   });
   formBackBtn.addEventListener('click', showUserSelect);
   startBtn.addEventListener('click', () => {
@@ -427,5 +425,26 @@
       setVerified(false, '전화번호 인증을 먼저 완료해 주세요.');
     }
   });
+
+  const flowStepDetails = {
+    1: '허리밴드 IMU 보행 검사',
+    2: 'MoCA-K 문항으로 검사',
+    3: 'AI 분석 결과 안내',
+    4: 'AI와 함께 운동'
+  };
+
+  window.toggleFlowSub = function(stepNum) {
+    const panel = document.getElementById('flowDetailPanel');
+    if (!panel) return;
+    const isOpenSameStep = panel.dataset.step === String(stepNum) && panel.style.display !== 'none';
+    if (isOpenSameStep) {
+      panel.style.display = 'none';
+      panel.dataset.step = '';
+    } else {
+      panel.textContent = flowStepDetails[stepNum];
+      panel.dataset.step = String(stepNum);
+      panel.style.display = 'block';
+    }
+  };
 </script>
 {% endblock %}

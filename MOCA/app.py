@@ -96,6 +96,16 @@ def _load_gait_artifact(model_name, metadata_name):
         try:
             import joblib
             model = joblib.load(model_path)
+            if model is not None:
+                from sklearn.pipeline import Pipeline
+                from sklearn.impute import SimpleImputer
+                if isinstance(model, dict) and "pipeline" in model:
+                    new_pipe = Pipeline(model["pipeline"].steps)
+                    for _, step_obj in new_pipe.steps:
+                        if isinstance(step_obj, SimpleImputer):
+                            if not hasattr(step_obj, "_fill_dtype") and hasattr(step_obj, "_fit_dtype"):
+                                step_obj._fill_dtype = step_obj._fit_dtype
+                    model["pipeline"] = new_pipe
         except Exception as e:
             print(f"[gait model load error] {e}")
             model = None
@@ -321,34 +331,34 @@ CARE_TYPE_MAP = {
         "code": "A",
         "name": "유지형",
         "title": "A 유형",
-        "summary": "인지기능과 신체기능이 모두 양호한 상태입니다.",
+        "summary": "인지기능과 신체기능이 모두 양호한 상태입니다. 현재의 건강한 상태를 유지하고 향상시키기 위한 예방 중심의 운동을 권장합니다.",
         "focus": "현재 상태 유지",
         "cognitive_status": "양호",
         "physical_status": "양호",
     },
     (0, 1): {
-        "code": "B",
-        "name": "신체관리형",
-        "title": "B 유형",
-        "summary": "인지기능은 양호하지만 신체기능 관리가 필요한 상태입니다.",
+        "code": "C",
+        "name": "통합관리형",
+        "title": "C 유형",
+        "summary": "인지기능은 양호하지만 신체기능 관리가 필요한 상태입니다. 안전한 맞춤 운동으로 하체 근력과 균형 능력을 함께 길러보겠습니다.",
         "focus": "보행 및 근력 관리",
         "cognitive_status": "양호",
         "physical_status": "저하",
     },
     (1, 0): {
-        "code": "C",
-        "name": "통합관리형",
-        "title": "C 유형",
-        "summary": "신체기능은 양호하지만 인지기능 변화 확인과 통합 관리가 필요한 상태입니다.",
+        "code": "B",
+        "name": "인지관리형",
+        "title": "B 유형",
+        "summary": "신체기능은 양호하지만 인지기능 변화 확인과 통합 관리가 필요한 상태입니다. 지금부터 꾸준히 두뇌 운동을 하면 인지 건강을 관리하는 데 도움이 됩니다.",
         "focus": "인지 훈련 중심 통합 관리",
         "cognitive_status": "저하",
         "physical_status": "양호",
     },
     (1, 1): {
         "code": "D",
-        "name": "인지관리형",
+        "name": "통합관리형",
         "title": "D 유형",
-        "summary": "인지기능과 신체기능 모두 세심한 관리가 필요한 상태입니다.",
+        "summary": "인지기능과 신체기능 모두 세심한 관리가 필요한 상태입니다. 보호자와 함께 안전하게 운동하며 몸과 두뇌를 함께 움직여 보세요.",
         "focus": "인지 및 신체 동시 관리",
         "cognitive_status": "저하",
         "physical_status": "저하",
@@ -603,7 +613,7 @@ ITEM_TITLES = {
     'memory_immediate': '단어 기억하기',
     'forward_digits':   '숫자 따라 말하기',
     'backward_digits':  '숫자 거꾸로 말하기',
-    'clapping':         '손뼉치기',
+    'clapping':         '화면 치기',
     'serial_7':         '빼기 계산',
     'sentence_repeat':  '따라 말하기',
     'verbal_fluency':   '단어 말하기',
@@ -666,7 +676,7 @@ def _tts_urls(item_name, version):
         'verbal_fluency':   [f'fluency_inst_{v}.mp3'],
         'abstraction':      ['abstract_inst.mp3'],
         'delayed_recall':   ['delayed_recall_inst.mp3'],
-        'orientation':      ['orientation_date_inst.mp3'],
+        'orientation':      ['orientation_date_inst.mp3', 'orientation_year.mp3'],
     }
     return [f'/audio/{f}' for f in mp.get(item_name, [])]
 
@@ -675,8 +685,10 @@ def _tts_urls(item_name, version):
 
 @app.route('/')
 def home():
+    is_new = bool(request.args.get('registered')) or session.get('is_new_member', False)
+    template = 'home_new.html' if is_new else 'home.html'
     return render_template(
-        'home.html',
+        template,
         education_levels=EDUCATION_LEVELS,
         error=request.args.get('error', ''),
         assessment_phase=request.args.get('phase', ''),
@@ -760,12 +772,26 @@ def exercise_sensor_analyze():
 
 @app.route('/report/detail')
 def report_detail_page():
-    return render_template('report_detail.html', exercise=_personal_exercise_data(), back_url='/exercise/complete')
+    return render_template(
+        'report_detail.html',
+        exercise=_personal_exercise_data(),
+        back_url='/exercise/complete',
+        cognitive=_get_cognitive_result(),
+        gait=_get_gait_result(),
+        panel=request.args.get('panel', 'cognitive')
+    )
 
 
 @app.route('/mypage')
 def mypage_page():
-    return render_template('report_detail.html', exercise=_personal_exercise_data(), back_url='/?registered=1')
+    return render_template(
+        'report_detail.html',
+        exercise=_personal_exercise_data(),
+        back_url='/?registered=1',
+        cognitive=_get_cognitive_result(),
+        gait=_get_gait_result(),
+        panel=request.args.get('panel', 'cognitive')
+    )
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -875,7 +901,7 @@ def _predict_gait_from_payload(data):
         'model_mode': model_mode,
         'features': features,
         'window': data.get('_window') or {},
-        'redirect_url': url_for('gait_avatar_page'),
+        'redirect_url': url_for('physical_to_cognitive_page') if session.get('is_new_member') else url_for('gait_avatar_page'),
     }
     return gait_result, (response, 200)
 
@@ -1106,7 +1132,7 @@ def save_profile():
         return redirect(url_for('home', error='전화번호 인증을 먼저 완료해 주세요.'))
 
     try:
-        member_id, edu, member_code = get_or_create_member(phone, education_level)
+        member_id, edu, member_code, is_new = get_or_create_member(phone, education_level)
     except ValueError as e:
         return redirect(url_for('home', error=str(e)))
 
@@ -1118,6 +1144,7 @@ def save_profile():
     session['phone_last4'] = phone_last4(phone)
     session['location'] = loc
     session['sigungu'] = sgg
+    session['is_new_member'] = is_new
 
     return redirect(url_for('home', registered='1'))
 
@@ -1154,7 +1181,7 @@ def start():
         return redirect(url_for('home', error='전화번호 인증을 먼저 완료해 주세요.'))
 
     try:
-        member_id, edu, member_code = get_or_create_member(phone, education_level)
+        member_id, edu, member_code, is_new = get_or_create_member(phone, education_level)
     except ValueError as e:
         return redirect(url_for('home', error=str(e)))
 
@@ -1166,6 +1193,7 @@ def start():
     session['phone_last4'] = phone_last4(phone)
     session['location'] = loc
     session['sigungu'] = sgg
+    session['is_new_member'] = is_new
 
     return _start_assessment(member_id, edu, member_code, education_level, loc, sgg, phone_last4(phone))
 
@@ -1204,10 +1232,10 @@ def item_page():
         ]
     elif item == 'orientation':
         info['sub_questions'] = [
-            {'key': 'year',    'label': '몇 년도인가요?',          'audio': '/audio/orientation_date_inst.mp3'},
-            {'key': 'month',   'label': '몇 월인가요?',            'audio': None},
-            {'key': 'day',     'label': '며칠인가요?',             'audio': None},
-            {'key': 'weekday', 'label': '무슨 요일인가요?',         'audio': None},
+            {'key': 'year',    'label': '몇 년도인가요?',          'audio': '/audio/orientation_year.mp3'},
+            {'key': 'month',   'label': '몇 월인가요?',            'audio': '/audio/orientation_month.mp3'},
+            {'key': 'day',     'label': '며칠인가요?',             'audio': '/audio/orientation_date.mp3'},
+            {'key': 'weekday', 'label': '무슨 요일인가요?',         'audio': '/audio/orientation_day.mp3'},
             {'key': 'place',   'label': '지금 계신 동네 이름은?',   'audio': '/audio/orientation_place_inst.mp3'},
             {'key': 'sigungu', 'label': '지금 계신 시군구는?',      'audio': '/audio/orientation_city_inst.mp3'},
         ]
@@ -1249,7 +1277,10 @@ def submit():
     if result.get('status') == 'waiting':
         return jsonify({'next': 'waiting', 'wait_seconds': result['wait_seconds']})
     elif result.get('status') == 'completed':
-        return jsonify({'next': 'result'})
+        if session.get('is_new_member'):
+            return jsonify({'next': 'final-result'})
+        else:
+            return jsonify({'next': 'result'})
     else:
         return jsonify({'next': 'item'})
 
@@ -1276,7 +1307,10 @@ def continue_wait():
 
     result = s.next_item()
     if result.get('status') == 'completed':
-        return jsonify({'next': 'result'})
+        if session.get('is_new_member'):
+            return jsonify({'next': 'final-result'})
+        else:
+            return jsonify({'next': 'result'})
     return jsonify({'next': 'item'})
 
 
@@ -1308,12 +1342,27 @@ def result_page():
     )
 
 
+@app.route('/start_new_member_flow')
+def start_new_member_flow():
+    session['is_new_member'] = True
+    return redirect(url_for('gait_page'))
+
+
+@app.route('/physical-to-cognitive')
+def physical_to_cognitive_page():
+    return render_template('physical_to_cognitive.html')
+
+
 @app.route('/final-result')
 def final_result():
     panel = request.args.get('panel', 'summary')
     cognitive = _get_cognitive_result()
     gait_result = _get_gait_result()
     care_type = _classify_care_type(cognitive, gait_result)
+    
+    # Clear is_new_member flag as they have successfully completed the flow and viewed the final result
+    session.pop('is_new_member', None)
+    
     return render_template(
         'final_result.html',
         panel=panel,
@@ -1328,6 +1377,11 @@ def care_type_api():
     cognitive = _get_cognitive_result()
     gait_result = _get_gait_result()
     return jsonify(_classify_care_type(cognitive, gait_result))
+
+
+@app.route('/guardian/login')
+def guardian_login_page():
+    return render_template('guardian_login.html')
 
 
 @app.route('/guardian')

@@ -1,0 +1,384 @@
+<!DOCTYPE html><html class="light" lang="ko"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>상세 리포트 - 두근두근</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "primary-container": "#2976c7",
+                "primary": "#005da7",
+                "surface-container-lowest": "#ffffff",
+                "primary-fixed": "#d4e3ff",
+                "on-error-container": "#93000a",
+                "surface-container-highest": "#d0e4ff",
+                "secondary-fixed-dim": "#7ed7c1",
+                "on-tertiary-fixed": "#3f0300",
+                "error-container": "#ffdad6",
+                "on-tertiary-fixed-variant": "#7d2c1e",
+                "on-secondary": "#ffffff",
+                "on-primary-container": "#fdfcff",
+                "surface-container": "#e4efff",
+                "on-surface": "#021d33",
+                "on-primary": "#ffffff",
+                "tertiary": "#994030",
+                "surface": "#f8f9ff",
+                "primary-fixed-dim": "#a4c9ff",
+                "inverse-on-surface": "#e9f1ff",
+                "secondary-container": "#97f0da",
+                "error": "#ba1a1a",
+                "on-surface-variant": "#414751",
+                "on-error": "#ffffff",
+                "outline": "#717783",
+                "tertiary-fixed": "#ffdad3",
+                "outline-variant": "#c1c7d3",
+                "tertiary-fixed-dim": "#ffb4a6",
+                "secondary-fixed": "#9af3dc",
+                "on-background": "#021d33",
+                "secondary": "#006b5a",
+                "background": "#f8f9ff",
+                "surface-container-low": "#eef4ff",
+                "surface-variant": "#d0e4ff",
+                "on-primary-fixed-variant": "#004883",
+                "surface-bright": "#f8f9ff",
+                "on-primary-fixed": "#001c39",
+                "surface-bright": "#f8f9ff",
+                "on-primary-fixed": "#001c39",
+                "surface-dim": "#c5dcfb",
+                "inverse-primary": "#a4c9ff",
+                "tertiary-container": "#b85846"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+            },
+            "spacing": {
+                "touch-target-min": "72px",
+                "button-height-min": "80px",
+                "stack-gap": "32px",
+                "safe-zone-bottom": "88px",
+                "container-padding": "24px",
+                "back-button-tap": "52px"
+            },
+            "fontFamily": {
+                "headline-lg": ["Noto Sans KR"],
+                "headline-md": ["Noto Sans KR"],
+                "body-md": ["Noto Sans KR"],
+                "label-md": ["Noto Sans KR"],
+                "body-lg": ["Noto Sans KR"]
+            },
+            "fontSize": {
+                "headline-lg": ["40px", {"lineHeight": "60px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                "headline-md": ["36px", {"lineHeight": "54px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                "body-md": ["24px", {"lineHeight": "40px", "fontWeight": "400"}],
+                "label-md": ["20px", {"lineHeight": "28px", "letterSpacing": "0.02em", "fontWeight": "700"}],
+                "body-lg": ["28px", {"lineHeight": "48px", "fontWeight": "500"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #F7FAFC; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 48; }
+        .filled-icon { font-variation-settings: 'FILL' 1; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="flex justify-center items-start min-h-screen">
+<div class="w-full max-w-[390px] min-h-[844px] bg-background shadow-2xl relative overflow-x-hidden no-scrollbar pb-safe-zone-bottom">
+<!-- Header Section (TopAppBar Logic) -->
+<header class="sticky top-0 z-50 bg-surface flex justify-between items-center px-container-padding h-touch-target-min w-full">
+<button class="flex items-center gap-2 text-primary transition-transform active:scale-95 duration-200">
+<span class="material-symbols-outlined text-[32px]">arrow_back</span>
+<span class="font-label-md text-label-md">뒤로</span>
+</button>
+<div class="flex flex-col items-center">
+<h1 class="font-label-md text-label-md text-on-surface">어머니 상세 리포트</h1>
+<p class="text-[14px] text-on-surface-variant font-medium">1월 17일</p>
+</div>
+<div class="w-[52px]"></div> <!-- Spacer for balance -->
+</header>
+<main class="flex flex-col gap-stack-gap px-container-padding pt-6">
+<!-- SECTION 1: Total Score Card -->
+<section class="relative overflow-hidden rounded-xl p-8 bg-gradient-to-br from-primary to-primary-container text-on-primary shadow-[0_4px_20px_rgba(0,93,167,0.25)]">
+<div class="relative z-10 flex flex-col items-center text-center">
+<span class="font-label-md text-label-md opacity-90 mb-2">종합 건강 점수</span>
+<div class="flex items-baseline gap-1">
+<span class="text-[72px] font-black tracking-tight">82</span>
+<span class="text-body-lg font-bold opacity-80">점</span>
+</div>
+<div class="flex gap-1 text-[#FFD700] mb-6">
+<span class="material-symbols-outlined filled-icon text-[32px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined filled-icon text-[32px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined filled-icon text-[32px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined filled-icon text-[32px]" style="font-variation-settings: 'FILL' 1;">star</span>
+<span class="material-symbols-outlined text-[32px]">star</span>
+</div>
+<div class="bg-white/20 backdrop-blur-md rounded-full px-4 py-2 flex items-center gap-2 mb-8">
+<span class="material-symbols-outlined text-secondary-container text-[20px]">trending_up</span>
+<span class="text-label-md font-bold text-white">지난주 대비 ▲ +7점</span>
+</div>
+<div class="w-full space-y-2">
+<div class="flex justify-between text-[16px] font-bold opacity-90 px-1">
+<span>지난주 (75점)</span>
+<span>이번주 (82점)</span>
+</div>
+<div class="w-full h-4 bg-white/20 rounded-full overflow-hidden">
+<div class="h-full bg-secondary-container" style="width: 82%"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 2: Test Results -->
+<section class="space-y-6">
+<h2 class="font-headline-md text-headline-md text-on-surface">정밀 검사 결과</h2>
+<!-- CARD A: Cognitive -->
+<div class="bg-white p-container-padding rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] border-2 border-transparent active:border-primary transition-all">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-4">
+<div class="w-16 h-16 bg-surface-container flex items-center justify-center rounded-xl">
+<span class="material-symbols-outlined text-primary text-[40px]">psychology</span>
+</div>
+<div>
+<h3 class="font-headline-md text-[28px] text-on-surface leading-tight">인지 리포트</h3>
+<div class="flex items-center gap-1 text-primary font-bold">
+<span class="material-symbols-outlined text-[18px]">arrow_drop_up</span>
+<span class="text-[16px]">지난주 대비 +3</span>
+</div>
+</div>
+</div>
+<div class="text-right">
+<span class="text-headline-md text-primary">60</span>
+<span class="text-label-md text-on-surface-variant">점</span>
+</div>
+</div>
+<div class="w-full h-3 bg-surface-container rounded-full mb-6 overflow-hidden">
+<div class="h-full bg-primary" style="width: 60%"></div>
+</div>
+<div class="grid grid-cols-3 gap-2 bg-surface-container-low p-4 rounded-lg">
+<div class="text-center">
+<p class="text-on-surface-variant text-[14px] mb-1">기억력</p>
+<p class="font-bold text-on-surface">64</p>
+</div>
+<div class="text-center border-x border-outline-variant">
+<p class="text-on-surface-variant text-[14px] mb-1">집중력</p>
+<p class="font-bold text-on-surface">58</p>
+</div>
+<div class="text-center">
+<p class="text-on-surface-variant text-[14px] mb-1">판단력</p>
+<p class="font-bold text-on-surface">61</p>
+</div>
+</div>
+</div>
+<!-- CARD B: Walking -->
+<div class="bg-white p-container-padding rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] border-2 border-transparent active:border-primary transition-all">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-4">
+<div class="w-16 h-16 bg-secondary-container/30 flex items-center justify-center rounded-xl">
+<span class="material-symbols-outlined text-secondary text-[40px]">directions_walk</span>
+</div>
+<div>
+<h3 class="font-headline-md text-[28px] text-on-surface leading-tight">보행 리포트</h3>
+<div class="flex items-center gap-1 text-secondary font-bold">
+<span class="material-symbols-outlined text-[18px]">arrow_drop_up</span>
+<span class="text-[16px]">지난주 대비 +5</span>
+</div>
+</div>
+</div>
+<div class="text-right">
+<span class="text-headline-md text-secondary">75</span>
+<span class="text-label-md text-on-surface-variant">점</span>
+</div>
+</div>
+<div class="w-full h-3 bg-surface-container rounded-full mb-6 overflow-hidden">
+<div class="h-full bg-secondary" style="width: 75%"></div>
+</div>
+<div class="grid grid-cols-3 gap-2 bg-surface-container-low p-4 rounded-lg">
+<div class="text-center">
+<p class="text-on-surface-variant text-[14px] mb-1">균형감</p>
+<p class="font-bold text-on-surface">78</p>
+</div>
+<div class="text-center border-x border-outline-variant">
+<p class="text-on-surface-variant text-[14px] mb-1">보행속도</p>
+<p class="font-bold text-on-surface">71</p>
+</div>
+<div class="text-center">
+<p class="text-on-surface-variant text-[14px] mb-1">안정성</p>
+<p class="font-bold text-on-surface">76</p>
+</div>
+</div>
+</div>
+</section>
+<!-- SECTION 3: Attendance Calendar -->
+<section class="bg-white rounded-xl p-container-padding shadow-[0_4px_20px_rgba(0,0,0,0.05)]">
+<div class="flex justify-between items-center mb-6">
+<h2 class="font-headline-md text-[28px] text-on-surface">출석부</h2>
+<span class="font-label-md text-primary">2025년 1월</span>
+</div>
+<div class="grid grid-cols-7 gap-2 mb-8 text-center">
+<!-- Calendar Header -->
+<div class="text-on-surface-variant text-[12px] font-bold">일</div>
+<div class="text-on-surface-variant text-[12px] font-bold">월</div>
+<div class="text-on-surface-variant text-[12px] font-bold">화</div>
+<div class="text-on-surface-variant text-[12px] font-bold">수</div>
+<div class="text-on-surface-variant text-[12px] font-bold">목</div>
+<div class="text-on-surface-variant text-[12px] font-bold">금</div>
+<div class="text-on-surface-variant text-[12px] font-bold">토</div>
+<!-- Simplified Calendar Grid (Starting Wednesday Jan 1) -->
+<div class="col-span-3"></div> <!-- Offset -->
+<div class="aspect-square flex items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-container font-bold">1</div>
+<div class="aspect-square flex items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-container font-bold">2</div>
+<div class="aspect-square flex items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-container font-bold">3</div>
+<div class="aspect-square flex items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-container font-bold">4</div>
+<div class="aspect-square flex items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-container font-bold">5</div>
+<div class="aspect-square flex items-center justify-center rounded-full bg-error-container text-on-error-container font-bold">6</div>
+<div class="aspect-square flex items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-container font-bold">7</div>
+<div class="aspect-square flex items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-container font-bold">8</div>
+<div class="aspect-square flex items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-container font-bold">9</div>
+<div class="aspect-square flex items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-container font-bold">10</div>
+<div class="aspect-square flex items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-container font-bold">11</div>
+<div class="aspect-square flex items-center justify-center rounded-full bg-error-container text-on-error-container font-bold">12</div>
+<div class="aspect-square flex items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-container font-bold">13</div>
+<div class="aspect-square flex items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-container font-bold">14</div>
+<div class="aspect-square flex items-center justify-center rounded-full bg-error-container text-on-error-container font-bold">15</div>
+<div class="aspect-square flex items-center justify-center rounded-full bg-secondary-fixed text-on-secondary-container font-bold">16</div>
+<!-- TODAY 17 -->
+<div class="aspect-square flex items-center justify-center rounded-full bg-primary text-white font-bold relative scale-110 shadow-lg">
+                        17
+                        <span class="absolute -top-2 -right-1 text-[16px]">🔥</span>
+</div>
+<!-- Rest of the month placeholders -->
+<div class="aspect-square flex items-center justify-center text-outline-variant">18</div>
+<div class="aspect-square flex items-center justify-center text-outline-variant">19</div>
+<div class="aspect-square flex items-center justify-center text-outline-variant">20</div>
+<div class="aspect-square flex items-center justify-center text-outline-variant">21</div>
+<div class="aspect-square flex items-center justify-center text-outline-variant">22</div>
+</div>
+<div class="flex justify-between items-center p-4 bg-surface-container rounded-xl">
+<div class="text-center">
+<p class="text-[14px] text-on-surface-variant font-medium">출석</p>
+<p class="text-headline-md text-primary text-[24px]">14일</p>
+</div>
+<div class="w-px h-8 bg-outline-variant"></div>
+<div class="text-center">
+<p class="text-[14px] text-on-surface-variant font-medium">결석</p>
+<p class="text-headline-md text-tertiary text-[24px]">3일</p>
+</div>
+<div class="w-px h-8 bg-outline-variant"></div>
+<div class="text-center">
+<p class="text-[14px] text-on-surface-variant font-medium">연속</p>
+<p class="text-headline-md text-secondary text-[24px]">4일</p>
+</div>
+</div>
+</section>
+<!-- SECTION 4: Exercise Log List -->
+<section class="space-y-4">
+<div class="flex justify-between items-end">
+<h2 class="font-headline-md text-[28px] text-on-surface">운동 기록</h2>
+<a class="font-label-md text-primary flex items-center gap-1 hover:underline" href="#">
+                        전체 기록 보기
+                        <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+</a>
+</div>
+<div class="space-y-3">
+<!-- 1/17 -->
+<div class="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm">
+<div class="w-16 h-16 flex flex-col items-center justify-center bg-surface-container rounded-lg border border-primary">
+<span class="text-[12px] font-bold text-primary">오늘</span>
+<span class="text-[20px] font-black text-on-surface">1/17</span>
+</div>
+<div class="flex-grow">
+<p class="text-label-md text-on-surface">완료</p>
+<p class="text-on-surface-variant text-[14px]">인지 및 하체 근력 강화</p>
+</div>
+<div class="text-right">
+<span class="text-headline-md text-[28px] text-primary">88</span>
+<span class="text-label-md text-on-surface-variant">점</span>
+</div>
+</div>
+<!-- 1/16 -->
+<div class="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm">
+<div class="w-16 h-16 flex flex-col items-center justify-center bg-surface-container-low rounded-lg">
+<span class="text-[12px] font-bold text-on-surface-variant">목</span>
+<span class="text-[20px] font-black text-on-surface">1/16</span>
+</div>
+<div class="flex-grow">
+<p class="text-label-md text-on-surface">완료</p>
+<p class="text-on-surface-variant text-[14px]">보행 균형 및 유연성</p>
+</div>
+<div class="text-right">
+<span class="text-headline-md text-[28px] text-on-surface-variant">85</span>
+<span class="text-label-md text-on-surface-variant">점</span>
+</div>
+</div>
+<!-- 1/15 -->
+<div class="flex items-center gap-4 bg-surface-container-low/50 p-4 rounded-xl border-2 border-dashed border-outline-variant">
+<div class="w-16 h-16 flex flex-col items-center justify-center bg-outline-variant/20 rounded-lg">
+<span class="text-[12px] font-bold text-on-surface-variant">수</span>
+<span class="text-[20px] font-black text-on-surface-variant">1/15</span>
+</div>
+<div class="flex-grow">
+<p class="text-label-md text-tertiary">결석</p>
+<p class="text-on-surface-variant text-[14px]">기록이 없습니다.</p>
+</div>
+<div class="text-right">
+<span class="material-symbols-outlined text-outline-variant text-[32px]">event_busy</span>
+</div>
+</div>
+<!-- 1/14 -->
+<div class="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm">
+<div class="w-16 h-16 flex flex-col items-center justify-center bg-surface-container-low rounded-lg">
+<span class="text-[12px] font-bold text-on-surface-variant">화</span>
+<span class="text-[20px] font-black text-on-surface">1/14</span>
+</div>
+<div class="flex-grow">
+<p class="text-label-md text-on-surface">완료</p>
+<p class="text-on-surface-variant text-[14px]">상체 가동성 운동</p>
+</div>
+<div class="text-right">
+<span class="text-headline-md text-[28px] text-on-surface-variant">82</span>
+<span class="text-label-md text-on-surface-variant">점</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Shell -->
+<nav class="fixed bottom-0 left-0 w-full h-safe-zone-bottom bg-surface-container-lowest flex justify-around items-center px-4 pb-4 z-50 rounded-t-xl shadow-[0_-4px_20px_rgba(0,0,0,0.10)]">
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-6 py-2 transition-all active:scale-90 duration-300">
+<span class="material-symbols-outlined text-[28px]">home</span>
+<span class="font-label-md text-label-md">홈</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-6 py-2 transition-all active:scale-90 duration-300">
+<span class="material-symbols-outlined text-[28px]">calendar_today</span>
+<span class="font-label-md text-label-md">활동</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-6 py-2 transition-all active:scale-90 duration-300">
+<span class="material-symbols-outlined text-[28px] filled-icon" style="font-variation-settings: 'FILL' 1;">analytics</span>
+<span class="font-label-md text-label-md">결과</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-6 py-2 transition-all active:scale-90 duration-300">
+<span class="material-symbols-outlined text-[28px]">settings</span>
+<span class="font-label-md text-label-md">설정</span>
+</button>
+</nav>
+</div>
+<script>
+        // Micro-interactions for scrolling and clicking
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('click', () => {
+                // Subtle haptic-like effect logic would go here
+            });
+        });
+    </script>
+</body></html>
