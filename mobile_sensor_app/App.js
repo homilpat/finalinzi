@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -9,15 +10,12 @@ import {
   View,
 } from 'react-native';
 import { Accelerometer, Gyroscope } from 'expo-sensors';
-import * as FileSystem from 'expo-file-system';
+import { Directory, EncodingType, File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
 const G = 9.80665;
 const SAMPLE_INTERVAL_MS = 10;
-const PREP_SEC = 7;
-const CALIBRATION_SEC = 3;
-const WALK_SEC = 20;
-const TOTAL_SEC = PREP_SEC + CALIBRATION_SEC + WALK_SEC;
+const UI_SAMPLE_INTERVAL_MS = 250;
 
 const SESSION_TYPES = [
   {
@@ -205,13 +203,15 @@ export default function App() {
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [sampleCount, setSampleCount] = useState(0);
   const [csvPath, setCsvPath] = useState('');
-  const [summary, setSummary] = useState('허리에 고정하고 시작 버튼을 누르세요.');
+  const [csvFilename, setCsvFilename] = useState('');
+  const [summary, setSummary] = useState('허리에 폰을 고정하고 시작 버튼을 눌러주세요.');
   const latestAcc = useRef([0, G, 0]);
   const latestGyro = useRef([0, 0, 0]);
   const calibrationRows = useRef([]);
   const measurementRows = useRef([]);
   const timerRef = useRef(null);
   const phaseRef = useRef(PHASE.idle);
+  const lastSampleUiMs = useRef(0);
 
   const selectedType = useMemo(
     () => SESSION_TYPES.find((item) => item.key === selectedTypeKey) || SESSION_TYPES[0],
@@ -235,16 +235,23 @@ export default function App() {
     const accSub = Accelerometer.addListener((data) => {
       latestAcc.current = [data.x * G, data.y * G, data.z * G];
       const currentPhase = phaseRef.current;
+      if (currentPhase !== PHASE.calibration && currentPhase !== PHASE.walking) return;
+
       const row = {
         timestampNs: nowNs(),
         acc: latestAcc.current,
         gyro: latestGyro.current,
       };
+
       if (currentPhase === PHASE.calibration) {
         calibrationRows.current.push(row);
-      } else if (currentPhase === PHASE.walking) {
+      } else {
         measurementRows.current.push(row);
-        setSampleCount(measurementRows.current.length);
+        const uiNow = Date.now();
+        if (uiNow - lastSampleUiMs.current >= UI_SAMPLE_INTERVAL_MS) {
+          lastSampleUiMs.current = uiNow;
+          setSampleCount(measurementRows.current.length);
+        }
       }
     });
 
@@ -266,77 +273,86 @@ export default function App() {
   }
 
   async function startMeasurement() {
-    const accPermission = await Accelerometer.requestPermissionsAsync();
-    const gyroPermission = await Gyroscope.requestPermissionsAsync();
-    if (!accPermission.granted || !gyroPermission.granted) {
-      Alert.alert('센서 권한 필요', '측정을 위해 모션 센서 권한을 허용해 주세요.');
-      return;
-    }
-
-    const accAvailable = await Accelerometer.isAvailableAsync();
-    const gyroAvailable = await Gyroscope.isAvailableAsync();
-    if (!accAvailable || !gyroAvailable) {
-      Alert.alert('센서 확인', '가속도계 또는 자이로스코프를 사용할 수 없습니다.');
-      return;
-    }
-
-    calibrationRows.current = [];
-    measurementRows.current = [];
-    setCsvPath('');
-    setSampleCount(0);
-    if (selectedType.prepSec > 0 || selectedType.calibrationSec > 0) {
-      setSummary(isManualExercise ? '3초 뒤 동작 측정을 시작합니다.' : '7초 동안 자세를 잡고, 보정 단계에서는 3초간 정지하세요.');
-      transition(PHASE.prep, totalSec);
-    } else {
-      setSummary(selectedType.instruction);
-      transition(PHASE.walking, totalSec);
-    }
-
-    const startMs = Date.now();
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(async () => {
-      const elapsed = (Date.now() - startMs) / 1000;
-      const remaining = isManualExercise
-        ? Math.max(0, Math.ceil(selectedType.prepSec - elapsed))
-        : Math.max(0, Math.ceil(totalSec - elapsed));
-      setSecondsLeft(remaining);
-
-      if (selectedType.prepSec > 0 && elapsed < selectedType.prepSec) {
-        if (phaseRef.current !== PHASE.prep) transition(PHASE.prep, remaining);
-      } else if (
-        selectedType.calibrationSec > 0 &&
-        elapsed < selectedType.prepSec + selectedType.calibrationSec
-      ) {
-        if (phaseRef.current !== PHASE.calibration) {
-          setSummary('움직이지 말고 3초간 정지하세요.');
-          transition(PHASE.calibration, remaining);
-        }
-      } else if (isManualExercise) {
-        if (phaseRef.current !== PHASE.walking) {
-          setSummary(`${selectedType.instruction} 끝나면 아래 버튼을 눌러 CSV를 저장하세요.`);
-          transition(PHASE.walking, 0);
-        }
-      } else if (elapsed < totalSec) {
-        if (phaseRef.current !== PHASE.walking) {
-          setSummary(selectedType.instruction);
-          transition(PHASE.walking, remaining);
-        }
-      } else {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-        await finishMeasurement();
+    try {
+      const accAvailable = await Accelerometer.isAvailableAsync();
+      const gyroAvailable = await Gyroscope.isAvailableAsync();
+      if (!accAvailable || !gyroAvailable) {
+        Alert.alert('센서 확인', '가속도계 또는 자이로스코프를 사용할 수 없습니다.');
+        return;
       }
-    }, 200);
+
+      const accPermission = await Accelerometer.requestPermissionsAsync();
+      const gyroPermission = await Gyroscope.requestPermissionsAsync();
+      if (!accPermission.granted || !gyroPermission.granted) {
+        Alert.alert('센서 권한 필요', '측정을 위해 모션 센서 권한을 허용해 주세요.');
+        return;
+      }
+
+      calibrationRows.current = [];
+      measurementRows.current = [];
+      lastSampleUiMs.current = 0;
+      setCsvPath('');
+      setCsvFilename('');
+      setSampleCount(0);
+      setSummary(
+        isManualExercise
+          ? '3초 뒤 동작 측정을 시작합니다.'
+          : '7초 동안 자세를 잡고, 보정 단계에서는 3초간 정지해 주세요.',
+      );
+      transition(PHASE.prep, totalSec);
+
+      const startMs = Date.now();
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = setInterval(async () => {
+        const elapsed = (Date.now() - startMs) / 1000;
+        const remaining = isManualExercise
+          ? Math.max(0, Math.ceil(selectedType.prepSec - elapsed))
+          : Math.max(0, Math.ceil(totalSec - elapsed));
+        setSecondsLeft(remaining);
+
+        if (selectedType.prepSec > 0 && elapsed < selectedType.prepSec) {
+          if (phaseRef.current !== PHASE.prep) transition(PHASE.prep, remaining);
+        } else if (
+          selectedType.calibrationSec > 0 &&
+          elapsed < selectedType.prepSec + selectedType.calibrationSec
+        ) {
+          if (phaseRef.current !== PHASE.calibration) {
+            setSummary('움직이지 말고 3초간 정지해 주세요.');
+            transition(PHASE.calibration, remaining);
+          }
+        } else if (isManualExercise) {
+          if (phaseRef.current !== PHASE.walking) {
+            setSummary(`${selectedType.instruction} 끝나면 아래 버튼을 눌러 CSV를 저장하세요.`);
+            transition(PHASE.walking, 0);
+          }
+        } else if (elapsed < totalSec) {
+          if (phaseRef.current !== PHASE.walking) {
+            setSummary(selectedType.instruction);
+            transition(PHASE.walking, remaining);
+          }
+        } else {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+          await finishMeasurement();
+        }
+      }, 200);
+    } catch (error) {
+      transition(PHASE.idle, 0);
+      setSummary('센서 시작 중 오류가 났습니다. 권한을 확인한 뒤 다시 시도해 주세요.');
+      Alert.alert('센서 오류', error?.message || '알 수 없는 오류');
+    }
   }
 
   async function finishMeasurement() {
     const calibration = calibrationRows.current;
     const measurement = measurementRows.current;
+    setSampleCount(measurement.length);
+
     const calibrationOk = selectedType.calibrationSec > 0 ? calibration.length >= 10 : true;
     const minSamples = isManualExercise ? 1 : 100;
     if (!calibrationOk || measurement.length < minSamples) {
       transition(PHASE.idle, 0);
-      setSummary('샘플이 부족합니다. 다시 측정해 주세요.');
+      setSummary(`샘플이 부족합니다. 현재 ${measurement.length}개입니다. 다시 측정해 주세요.`);
       return '';
     }
 
@@ -346,12 +362,14 @@ export default function App() {
     const basis = buildBasis(gravityMean);
     const csv = buildCsv(measurement, calibration, basis, gyroBias, selectedType);
     const filename = `finalinzi_${selectedType.filenamePrefix}_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
-    const path = `${FileSystem.documentDirectory}${filename}`;
-    await FileSystem.writeAsStringAsync(path, csv, { encoding: FileSystem.EncodingType.UTF8 });
-    setCsvPath(path);
+    const file = new File(Paths.document, filename);
+    file.create({ overwrite: true });
+    file.write(csv, { encoding: EncodingType.UTF8 });
+    setCsvPath(file.uri);
+    setCsvFilename(filename);
     transition(PHASE.done, 0);
-    setSummary(`CSV 생성 완료: ${selectedType.label} ${measurement.length}개 샘플`);
-    return path;
+    setSummary(`CSV 생성 완료: ${selectedType.label}, ${measurement.length}개 샘플`);
+    return file.uri;
   }
 
   async function stopManualMeasurement() {
@@ -364,21 +382,31 @@ export default function App() {
   async function handlePrimaryPress() {
     if (phase === PHASE.walking && isManualExercise) {
       const path = await stopManualMeasurement();
-      if (path) await shareCsvPath(path);
+      if (path) await saveCsvToPhone(path);
       return;
     }
     await startMeasurement();
   }
 
-  const primaryCanStop = phase === PHASE.walking && isManualExercise;
-  const primaryDisabled = phase !== PHASE.idle && phase !== PHASE.done && !primaryCanStop;
-  const primaryLabel = primaryCanStop ? '측정 종료/CSV 저장' : '측정 시작';
+  async function saveCsvToPhone(path) {
+    if (!path) return;
 
-  async function shareCsvPath(path) {
     try {
+      const filename = csvFilename || path.split('/').pop() || 'finalinzi_sensor.csv';
+
+      if (Platform.OS === 'android') {
+        const sourceFile = new File(path);
+        const targetDir = await Directory.pickDirectoryAsync();
+        const targetFile = targetDir.createFile(filename, 'text/csv');
+        targetFile.write(await sourceFile.text(), { encoding: EncodingType.UTF8 });
+        setSummary(`휴대폰 선택 폴더에 저장 완료: ${filename}`);
+        Alert.alert('CSV 저장 완료', `${filename} 파일을 선택한 폴더에 저장했습니다.`);
+        return;
+      }
+
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
-        Alert.alert('CSV 저장됨', `앱 내부 저장 위치:\n${path}`);
+        Alert.alert('CSV 생성됨', `파일 위치:\n${path}`);
         return;
       }
       await Sharing.shareAsync(path, {
@@ -387,11 +415,11 @@ export default function App() {
         UTI: 'public.comma-separated-values-text',
       });
     } catch (error) {
-      Alert.alert('CSV 저장 확인', `앱 내부에는 저장됐습니다.\n${path}\n\n${error?.message || ''}`);
+      Alert.alert('CSV 저장 오류', `${error?.message || '알 수 없는 오류'}\n\n앱 내부 파일:\n${path}`);
     }
   }
 
-  async function shareCsv() {
+  async function handleSavePress() {
     let path = csvPath;
     if (!path && phaseRef.current === PHASE.walking && isManualExercise) {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -400,10 +428,10 @@ export default function App() {
     }
 
     if (!path) {
-      Alert.alert('CSV 없음', '측정이 끝난 뒤 CSV를 저장/공유할 수 있습니다.');
+      Alert.alert('CSV 없음', '측정이 끝난 뒤 CSV를 저장할 수 있습니다.');
       return;
     }
-    await shareCsvPath(path);
+    await saveCsvToPhone(path);
   }
 
   function reset() {
@@ -411,11 +439,17 @@ export default function App() {
     timerRef.current = null;
     calibrationRows.current = [];
     measurementRows.current = [];
+    lastSampleUiMs.current = 0;
     setCsvPath('');
+    setCsvFilename('');
     setSampleCount(0);
     transition(PHASE.idle, 0);
-    setSummary('허리에 고정하고 시작 버튼을 누르세요.');
+    setSummary('허리에 폰을 고정하고 시작 버튼을 눌러주세요.');
   }
+
+  const primaryCanStop = phase === PHASE.walking && isManualExercise;
+  const primaryDisabled = phase !== PHASE.idle && phase !== PHASE.done && !primaryCanStop;
+  const primaryLabel = primaryCanStop ? '측정 종료/CSV 저장' : '측정 시작';
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -458,8 +492,8 @@ export default function App() {
           <Text style={styles.buttonText}>{primaryLabel}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={[styles.button, styles.secondary, !csvPath && styles.buttonMuted]} onPress={shareCsv}>
-          <Text style={styles.secondaryText}>CSV 공유/저장</Text>
+        <TouchableOpacity style={[styles.button, styles.secondary, !csvPath && styles.buttonMuted]} onPress={handleSavePress}>
+          <Text style={styles.secondaryText}>CSV 폰에 저장/공유</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={[styles.button, styles.ghost]} onPress={reset}>
@@ -474,7 +508,11 @@ export default function App() {
             Acc_AP_g, Gyro_Roll_deg_s
           </Text>
           <Text style={styles.schemaNote}>
-            운동 분석 서버 전송 시 exercise_type은 {SESSION_TYPES.filter((item) => item.key !== 'gait').map((item) => item.key).join(', ')} 중 하나를 같이 보내면 됩니다.
+            이동 분석 서버 전송 시 exercise_type은{' '}
+            {SESSION_TYPES.filter((item) => item.key !== 'gait')
+              .map((item) => item.key)
+              .join(', ')}{' '}
+            중 하나를 같이 보내면 됩니다.
           </Text>
         </View>
       </ScrollView>
@@ -560,11 +598,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   button: {
-    height: 56,
+    minHeight: 56,
     borderRadius: 8,
-    backgroundColor: '#1477c9',
+    paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#1477c9',
   },
   buttonDisabled: {
     opacity: 0.5,
@@ -586,6 +625,7 @@ const styles = StyleSheet.create({
     color: '#1477c9',
     fontSize: 18,
     fontWeight: '800',
+    textAlign: 'center',
   },
   ghost: {
     backgroundColor: 'transparent',

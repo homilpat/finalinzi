@@ -133,12 +133,14 @@ function initPhysicalPages() {
   setText('physicalGaitType', result.gaitType);
   setText('physicalGaitLevel', `(${result.gaitLevel})`);
   setText('physicalGaitMessage', getGaitMessage(result));
-  setText('physicalCognitiveScore', result.cognitiveScore);
+  setText('physicalBalanceScore', result.cognitiveScore);
   setText('physicalGaitScore', result.gaitScore);
+  setText('physicalWalkingSpeed', result.walkingSpeed ?? '-');
+  setText('physicalStepCount', result.stepCount ?? '-');
   setText('physicalMeasuredAt', `측정 시간 ${formatPhysicalDate(result.measuredAt)}`);
 
-  const cognitiveBar = document.getElementById('physicalCognitiveBar');
-  if (cognitiveBar) cognitiveBar.style.width = `${clampScore(result.cognitiveScore)}%`;
+  const balanceBar = document.getElementById('physicalBalanceBar');
+  if (balanceBar) balanceBar.style.width = `${clampScore(result.cognitiveScore)}%`;
 
   const gaitBar = document.getElementById('physicalGaitBar');
   if (gaitBar) gaitBar.style.width = `${clampScore(result.gaitScore)}%`;
