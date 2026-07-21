@@ -39,25 +39,25 @@
   <!-- 문항 지문 (문제지와 동일) -->
   <div class="item-inst" id="itemInst">
     {% if item.item == 'trail_making' %}
-      선으로 이어 주세요.
+      숫자에서 글자로 번갈아 가면서 선을 이어 주세요.
     {% elif item.item == 'cube' %}
-      위 그림과 똑같이 그려 주세요.
+      이 그림과 똑같이 그려 주세요.
     {% elif item.item == 'clock' %}
-      시계를 그려 주세요. 숫자를 모두 써 넣고, 열한시 십분이 되도록 바늘을 그려 주세요.
+      시계를 그려 주세요. 원 안에 숫자를 모두 써 넣고, 11시 10분이 되도록 바늘을 그려 주세요
     {% elif item.item == 'naming' %}
-      이름을 말씀해 주세요.
+      이 동물의 이름이 무엇인가요?
     {% elif item.item == 'memory_immediate' %}
-      단어를 듣고 따라 말씀해 주세요.
+      단어를 들은 후 기억나는 대로 말씀해 주세요.
     {% elif item.item == 'forward_digits' %}
       바로 따라 말씀해 주세요.
     {% elif item.item == 'backward_digits' %}
       이번에는 거꾸로 말씀해 주세요.
-    {% elif item.item == 'tapping' %}
-      {% if version == 'MoCA-K' %}'가'{% else %}'월'{% endif %}이 들리면 화면을 치세요. 두 번 이상 실수하면 점수가 없습니다.
+    {% elif item.item == 'clapping' %}
+      {% if version == 'MoCA-K' %}'가'가 들리면 화면을 치세요.{% else %}'월'이 들리면 화면을 치세요.{% endif %}
     {% elif item.item == 'serial_7' %}
-      100에서 7씩 빼세요.
+      100에서 7을 계속 빼서 말씀해주세요
     {% elif item.item == 'sentence_repeat' %}
-      따라 말씀해 주세요.
+      들리는 문장을 그대로 따라 말씀해주세요.
     {% elif item.item == 'verbal_fluency' %}
       {% if version == 'MoCA-K' %}시장에서 살 수 있는 물건을 1분 동안 말씀해 주세요.{% else %}ㄱ으로 시작되는 단어를 1분 동안 말씀해 주세요.{% endif %}
     {% elif item.item == 'abstraction' %}
@@ -74,13 +74,8 @@
 
     {# ────────── 그리기 (trail / cube / clock) ────────── #}
     {% if item_type == 'drawing' %}
-    {% if item.item == 'clock' %}
+    {% if item.item == 'cube' %}
     <div class="trail-hint card-sm">
-      원 안에 숫자를 모두 쓰고 <strong>11시 10분</strong>이 되도록 바늘을 그리세요
-    </div>
-    {% elif item.item == 'cube' %}
-    <div class="trail-hint card-sm">
-      위 그림과 똑같이 그려주세요
       <div class="cube-reference">
         <svg viewBox="0 0 100 90" width="130">
           <!-- 앞면 -->
@@ -112,7 +107,7 @@
         <div class="animal-image-wrap">
           <img id="animalImg" class="animal-img" src="/static/images/lion.png" alt="동물 사진">
         </div>
-        <p class="naming-question">이 동물의 이름이 무엇인가요?</p>
+        <p class="naming-question" style="display: none;">이 동물의 이름이 무엇인가요?</p>
         <div class="naming-counter">
           <span id="animalIndex">1</span> / 3
         </div>
@@ -125,10 +120,10 @@
          data-words='{{ item.words | tojson }}'
          data-trial2-audio='{{ item.trial2_audio | tojson }}'>
       <div class="memory-trial-label" id="trialLabel">1회차</div>
-      <div class="words-display" id="wordsDisplay">
+      <div class="words-display" id="wordsDisplay" style="display: none;">
         잘 들으세요
       </div>
-      <p class="memory-inst" id="memoryInst">단어를 들은 후 기억나는 대로 말씀해 주세요</p>
+      <p class="memory-inst" id="memoryInst" style="display: none;">단어를 들은 후 기억나는 대로 말씀해 주세요</p>
     </div>
 
     {# ────────── 손뼉치기 ────────── #}
@@ -138,7 +133,7 @@
          data-target='{{ item.target }}'
          data-seq-audio='{{ item.clap_audio_seq }}'>
       <div class="clap-target-card card">
-        <p class="clap-label">이 글자가 들리면 화면을 치세요</p>
+        <p class="clap-label" style="display: none;">이 글자가 들리면 화면을 치세요</p>
         <div class="clap-target">{{ item.target }}</div>
       </div>
       <div class="clap-current" id="clapCurrent">
@@ -156,9 +151,6 @@
          data-keys='["stt1","stt2"]'
          data-labels='["첫 번째 문장","두 번째 문장"]'>
       <div class="multi-step-label card-sm" id="multiStepLabel">첫 번째 문장</div>
-      <div class="multi-instruction" id="multiInstruction">
-        들리는 문장을 그대로 따라 말씀해 주세요
-      </div>
     </div>
 
     {% elif item_type == 'voice_multi' and item.item == 'abstraction' %}
@@ -169,7 +161,6 @@
       <div class="multi-step-label card-sm" id="multiStepLabel">
         {% if item.pairs %}{{ item.pairs[0][0] }} - {{ item.pairs[0][1] }}{% endif %}
       </div>
-      <div class="multi-instruction">공통점이 무엇인지 말씀해 주세요</div>
     </div>
 
     {# ────────── 지남력 (6단계) ────────── #}
@@ -189,17 +180,8 @@
     {# ────────── 일반 음성 입력 ────────── #}
     {% else %}
     <div class="voice-container">
-      {% if item.item == 'verbal_fluency' %}
+      {% if item.item == 'serial_7' %}
       <div class="fluency-hint card-sm">
-        {% if version == 'MoCA-K' %}
-        시장에서 살 수 있는 물건을 1분 동안 말씀해 주세요
-        {% else %}
-        "ㄱ"으로 시작하는 단어를 1분 동안 말씀해 주세요
-        {% endif %}
-      </div>
-      {% elif item.item == 'serial_7' %}
-      <div class="fluency-hint card-sm">
-        100에서 7을 계속 빼서 말씀해 주세요<br>
         <strong>100 → 93 → 86 → ...</strong>
       </div>
       {% endif %}

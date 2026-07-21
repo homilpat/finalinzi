@@ -353,6 +353,12 @@ async function submitItem() {
       return;
     }
   }
+  if (App.itemType === 'voice_multi') {
+    if (App.multiStep < (App.voiceMultiParts || []).length - 1) {
+      onVoiceMultiStep("");
+      return;
+    }
+  }
 
   if (App.recording && App.recognition) {
     App.micStopRequested = true;
@@ -568,9 +574,17 @@ function advanceMultiStep(text) {
     const keys = ['animal1_stt', 'animal2_stt', 'animal3_stt'];
     App.multiAnswers[keys[App.multiStep]] = text || "";
     App.multiStep++;
+    App.timerStarted = false;
     if (App.multiStep < (App.namingAnimals || []).length) {
       showAnimal(App.multiStep);
-      startTimer(App.duration);
+      const waves = document.getElementById('ttsWaves');
+      const txt = document.getElementById('ttsText');
+      const replayBtn = document.getElementById('replayBtn');
+      if (waves) waves.style.display = 'flex';
+      if (txt) txt.style.display = 'inline';
+      if (replayBtn) replayBtn.style.display = 'none';
+      App.ttsIndex = 0;
+      playNextTTS();
     } else {
       submitAfterCaptured();
     }
@@ -705,6 +719,7 @@ function onVoiceMultiStep(text) {
   App.multiAnswers[key] = text;
   showAnswerCaptured(text, () => {
     App.multiStep++;
+    App.timerStarted = false;
 
     if (App.multiStep < App.voiceMultiParts.length) {
       // 다음 파트 TTS 재생
@@ -713,9 +728,17 @@ function onVoiceMultiStep(text) {
         lbl.textContent = App.voiceMultiLabels[App.multiStep];
       }
       const au = new Audio(App.voiceMultiParts[App.multiStep]);
-      au.onended = () => {};
-      au.onerror = () => {};
-      au.play().catch(() => {});
+      au.onended = () => {
+        startTimer(App.duration);
+      };
+      au.onerror = () => {
+        startTimer(App.duration);
+      };
+      stopTimer();
+      App.timerStarted = true;
+      au.play().catch(() => {
+        startTimer(App.duration);
+      });
 
       const mst = document.getElementById('micStatus');
       if (mst) mst.textContent = App.recording ? '듣는 중...' : '준비';
