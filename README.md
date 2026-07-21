@@ -284,3 +284,55 @@ Render 배포: 루트 `render.yaml`, `rootDir: MOCA`
 | `gait_axis_aligned_processor.py` | CSV → 신호 레벨 보정(α) → 피처 추출 → 모델 추론 |
 | `models/gait_daily_clinical_3feat.joblib` | 최종 로지스틱 회귀 모델 artifact (signal_correction, threshold 포함) |
 | `models/gait_daily_clinical_3feat_metadata.json` | 모델 메타데이터 (AUC, 피처, 보정 파라미터) |
+
+---
+
+## 앱 데모 계획 (발표용)
+
+### 아키텍처
+
+```
+폰 (Expo React Native 앱)
+  ├── 보행 측정 (네이티브 센서)  ──POST /gait/upload-csv──┐
+  └── MoCA 평가 (WebView)       ──http://노트북IP:5000──┐ │
+                                                        ↓ ↓
+                                          노트북 (Flask 로컬 서버)
+                                            - 보행 모델 추론
+                                            - Whisper STT
+                                            - OpenCV 드로잉 채점
+                                            - MoCA 채점 로직
+                                            - DB (회원·기록)
+```
+
+### 역할 분담
+
+| 앱 (React Native) | 서버 (노트북 로컬) |
+|-------------------|--------------------|
+| 센서 수집 (가속도·자이로) | 보행 모델 추론 |
+| 보행 CSV 생성 및 전송 | Whisper STT |
+| MoCA WebView 렌더링 | OpenCV 드로잉 채점 |
+| 결과 화면 표시 | MoCA 채점 및 DB |
+
+### 발표 시나리오
+
+```
+폰 앱 실행
+  → 보행 측정 20초 (네이티브)
+  → CSV 자동 서버 전송 → 보행 결과 표시
+  → MoCA 평가 버튼 탭
+  → WebView에서 인지검사 진행 (노트북 Flask)
+  → 케어타입 (A~D형) 최종 결과
+```
+
+### 발표 환경 설정
+
+- 노트북과 폰을 같은 WiFi 또는 핫스팟으로 연결
+- `ipconfig`로 노트북 IPv4 확인 → 앱 `SERVER_URL` 설정
+- `python app.py` → `0.0.0.0:5000` 실행
+- 공용 WiFi는 AP isolation 가능 → 핫스팟으로 대체
+
+### 이후 고도화 계획 (발표 후)
+
+- AIHub 한국어 노인 음성 데이터로 Whisper 파인튜닝
+- MoCA 화면 전체 React Native 네이티브 구현
+- 파인튜닝 모델 서버 적용
