@@ -191,7 +191,7 @@ def get_or_create_member(phone, education_level):
                 """,
                 (member_code, member_code, last4, level, years, stamp, row["id"]),
             )
-            return row["id"], years, member_code
+            return row["id"], years, member_code, False
 
         member_code = _next_member_code(conn)
         cur = conn.execute(
@@ -204,7 +204,7 @@ def get_or_create_member(phone, education_level):
             """,
             (member_code, member_code, phash, last4, level, years, stamp, stamp),
         )
-        return cur.lastrowid, years, member_code
+        return cur.lastrowid, years, member_code, True
 
 
 def create_assessment(uid, member_id, version, location, sigungu):

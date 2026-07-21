@@ -1,0 +1,313 @@
+<!DOCTYPE html><html lang="ko"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-container": "#2976c7",
+                    "primary": "#005da7",
+                    "surface-container-lowest": "#ffffff",
+                    "primary-fixed": "#d4e3ff",
+                    "on-error-container": "#93000a",
+                    "surface-container-highest": "#d0e4ff",
+                    "secondary-fixed-dim": "#7ed7c1",
+                    "on-tertiary-fixed": "#3f0300",
+                    "error-container": "#ffdad6",
+                    "on-tertiary-fixed-variant": "#7d2c1e",
+                    "on-secondary": "#ffffff",
+                    "on-primary-container": "#fdfcff",
+                    "surface-container": "#e4efff",
+                    "on-surface": "#021d33",
+                    "on-primary": "#ffffff",
+                    "tertiary": "#994030",
+                    "surface": "#f8f9ff",
+                    "primary-fixed-dim": "#a4c9ff",
+                    "inverse-on-surface": "#e9f1ff",
+                    "secondary-container": "#97f0da",
+                    "error": "#ba1a1a",
+                    "on-surface-variant": "#414751",
+                    "on-error": "#ffffff",
+                    "outline": "#717783",
+                    "tertiary-fixed": "#ffdad3",
+                    "outline-variant": "#c1c7d3",
+                    "tertiary-fixed-dim": "#ffb4a6",
+                    "secondary-fixed": "#9af3dc",
+                    "on-background": "#021d33",
+                    "secondary": "#006b5a",
+                    "background": "#f8f9ff",
+                    "surface-container-low": "#eef4ff",
+                    "surface-variant": "#d0e4ff",
+                    "on-primary-fixed-variant": "#004883",
+                    "surface-bright": "#f8f9ff",
+                    "on-primary-fixed": "#001c39",
+                    "surface-bright": "#f8f9ff",
+                    "on-primary-fixed": "#001c39",
+                    "surface-container-high": "#dae9ff",
+                    "surface-tint": "#0060ac",
+                    "on-secondary-fixed": "#00201a",
+                    "inverse-surface": "#1a324a",
+                    "on-secondary-container": "#00705e",
+                    "on-tertiary-container": "#fffbff",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-fixed-variant": "#005143",
+                    "surface-dim": "#c5dcfb",
+                    "inverse-primary": "#a4c9ff",
+                    "tertiary-container": "#b85846"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "touch-target-min": "72px",
+                    "button-height-min": "80px",
+                    "stack-gap": "32px",
+                    "safe-zone-bottom": "88px",
+                    "container-padding": "24px",
+                    "back-button-tap": "52px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Noto Sans KR"],
+                    "headline-md": ["Noto Sans KR"],
+                    "body-md": ["Noto Sans KR"],
+                    "label-md": ["Noto Sans KR"],
+                    "body-lg": ["Noto Sans KR"]
+            },
+            "fontSize": {
+                    "headline-lg": ["40px", {"lineHeight": "60px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-md": ["36px", {"lineHeight": "54px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "body-md": ["24px", {"lineHeight": "40px", "fontWeight": "400"}],
+                    "label-md": ["20px", {"lineHeight": "28px", "letterSpacing": "0.02em", "fontWeight": "700"}],
+                    "body-lg": ["28px", {"lineHeight": "48px", "fontWeight": "500"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #F7FAFC;
+            overscroll-behavior: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 48;
+        }
+        .filled-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .card-shadow {
+            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+        }
+        .chart-container {
+            position: relative;
+            height: 120px;
+            width: 100%;
+        }
+        .chart-line {
+            stroke: #005da7;
+            stroke-width: 4;
+            fill: none;
+        }
+        .chart-area {
+            fill: url(#chartGradient);
+            opacity: 0.2;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen bg-slate-200">
+<!-- Mobile Frame (390x844) -->
+<div class="relative w-[390px] h-[844px] bg-[#F7FAFC] overflow-hidden shadow-2xl flex flex-col font-body-md">
+<!-- TopAppBar (From JSON mapping) -->
+<header class="flex justify-between items-center px-container-padding h-touch-target-min w-full bg-surface z-20">
+<div class="flex flex-col">
+<h1 class="font-headline-md text-[24px] leading-tight font-bold text-primary">안녕하세요, 김지영님 👋</h1>
+<p class="text-on-surface-variant font-label-md text-[16px]">어머니 현황을 확인해보세요</p>
+</div>
+<div class="relative w-12 h-12 flex items-center justify-center transition-transform active:scale-95 duration-200">
+<span class="material-symbols-outlined text-[32px] text-on-surface-variant">notifications</span>
+<span class="absolute top-2 right-2 w-5 h-5 bg-error text-white text-[10px] flex items-center justify-center rounded-full border-2 border-surface font-bold">2</span>
+</div>
+</header>
+<!-- Scrollable Content -->
+<main class="flex-1 overflow-y-auto px-container-padding pb-safe-zone-bottom space-y-6 hide-scrollbar">
+<!-- Parent Info Hero Card -->
+<section class="bg-white rounded-[28px] p-6 card-shadow mt-4">
+<div class="flex items-center gap-4 mb-6">
+<div class="w-16 h-16 rounded-full bg-primary-container flex items-center justify-center text-white text-[28px] font-bold">
+                        김
+                    </div>
+<div>
+<h2 class="text-on-surface font-headline-md text-[24px] leading-tight">김순자 어르신</h2>
+<p class="text-on-surface-variant font-body-md text-[18px]">1950년생 · 75세</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-surface-container rounded-2xl p-4 flex flex-col justify-center">
+<span class="text-on-surface-variant text-[14px]">오늘 운동</span>
+<span class="text-primary font-bold text-[18px]">✅ 완료</span>
+</div>
+<div class="bg-primary-fixed rounded-2xl p-4 flex flex-col justify-center border border-primary/10">
+<span class="text-on-surface-variant text-[14px]">건강점수</span>
+<span class="text-primary font-bold text-[18px]">82점 <span class="text-[14px] font-medium">▲+7</span></span>
+</div>
+</div>
+</section>
+<!-- Tab Bar -->
+<nav class="flex space-x-2 bg-surface-container-low p-1.5 rounded-2xl">
+<button class="flex-1 py-3 px-2 bg-white rounded-xl shadow-sm text-primary font-bold text-[16px] transition-all">📊 요약</button>
+<button class="flex-1 py-3 px-2 text-on-surface-variant font-medium text-[16px] hover:bg-surface-container transition-all">📅 출석</button>
+<button class="flex-1 py-3 px-2 text-on-surface-variant font-medium text-[16px] hover:bg-surface-container transition-all">📋 검사결과</button>
+</nav>
+<!-- Stats Grid -->
+<section class="grid grid-cols-3 gap-3">
+<div class="bg-white p-4 rounded-[20px] card-shadow flex flex-col items-center text-center">
+<span class="text-on-surface-variant text-[12px] mb-1">종합점수</span>
+<span class="font-bold text-primary text-[20px]">82점</span>
+<div class="flex text-tertiary-container scale-75 -my-1">
+<span class="material-symbols-outlined filled-icon text-[16px]">star</span>
+<span class="material-symbols-outlined filled-icon text-[16px]">star</span>
+<span class="material-symbols-outlined filled-icon text-[16px]">star</span>
+<span class="material-symbols-outlined filled-icon text-[16px]">star</span>
+<span class="material-symbols-outlined text-[16px]">star</span>
+</div>
+<span class="text-primary text-[10px] mt-1 font-medium">▲ 지난주 +7</span>
+</div>
+<div class="bg-white p-4 rounded-[20px] card-shadow flex flex-col items-center">
+<span class="text-on-surface-variant text-[12px] mb-1">이번 달</span>
+<span class="font-bold text-secondary text-[20px]">14회</span>
+<div class="w-full bg-secondary-fixed h-2 rounded-full mt-2 overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 70%"></div>
+</div>
+<span class="text-on-surface-variant text-[10px] mt-1">목표 20회</span>
+</div>
+<div class="bg-white p-4 rounded-[20px] card-shadow flex flex-col items-center">
+<span class="text-on-surface-variant text-[12px] mb-1">연속 출석</span>
+<span class="font-bold text-tertiary text-[20px]">🔥 4일</span>
+<span class="text-on-surface-variant text-[10px] mt-1">최장 7일</span>
+<div class="w-full mt-2 flex justify-center space-x-1">
+<div class="w-1.5 h-1.5 rounded-full bg-tertiary"></div>
+<div class="w-1.5 h-1.5 rounded-full bg-tertiary"></div>
+<div class="w-1.5 h-1.5 rounded-full bg-tertiary"></div>
+<div class="w-1.5 h-1.5 rounded-full bg-tertiary"></div>
+<div class="w-1.5 h-1.5 rounded-full bg-outline-variant"></div>
+</div>
+</div>
+</section>
+<!-- Weekly Trend Card -->
+<section class="bg-white rounded-[28px] p-6 card-shadow relative overflow-hidden">
+<div class="flex justify-between items-center mb-4">
+<h3 class="font-bold text-on-surface text-[18px]">📈 일주일 건강점수 변화</h3>
+<span class="text-primary text-[14px] font-medium">평균 74점</span>
+</div>
+<div class="chart-container mt-6">
+<svg class="w-full h-full preserve-3d" viewBox="0 0 100 40">
+<defs>
+<linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#006b5a" stop-opacity="0.4"></stop>
+<stop offset="100%" stop-color="#006b5a" stop-opacity="0"></stop>
+</linearGradient>
+</defs>
+<!-- Chart Area Fill -->
+<path class="chart-area" d="M0,40 L0,30 L16.6,25 L33.2,32 L49.8,20 L66.4,18 L83,12 L100,5 L100,40 Z"></path>
+<!-- Chart Line -->
+<path d="M0,30 L16.6,25 L33.2,32 L49.8,20 L66.4,18 L83,12 L100,5" fill="none" stroke="#005da7" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"></path>
+<!-- Points -->
+<circle cx="0" cy="30" fill="#005da7" r="1.2"></circle>
+<circle cx="16.6" cy="25" fill="#005da7" r="1.2"></circle>
+<circle cx="33.2" cy="32" fill="#005da7" r="1.2"></circle>
+<circle cx="49.8" cy="20" fill="#005da7" r="1.2"></circle>
+<circle cx="66.4" cy="18" fill="#005da7" r="1.2"></circle>
+<circle cx="83" cy="12" fill="#005da7" r="1.2"></circle>
+<circle cx="100" cy="5" fill="#005da7" r="1.8"></circle>
+</svg>
+</div>
+<div class="flex justify-between mt-2 px-1">
+<span class="text-[10px] text-on-surface-variant">월</span>
+<span class="text-[10px] text-on-surface-variant">화</span>
+<span class="text-[10px] text-on-surface-variant">수</span>
+<span class="text-[10px] text-on-surface-variant">목</span>
+<span class="text-[10px] text-on-surface-variant">금</span>
+<span class="text-[10px] text-on-surface-variant">토</span>
+<span class="text-[10px] font-bold text-primary">일</span>
+</div>
+</section>
+<!-- Bottom Action Row -->
+<section class="grid grid-cols-2 gap-4">
+<div class="bg-white p-5 rounded-[28px] card-shadow">
+<h4 class="font-bold text-[16px] mb-3 text-on-surface">운동 기록</h4>
+<ul class="space-y-2">
+<li class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+<span class="text-[14px] text-on-surface font-medium">오늘 10:20</span>
+</li>
+<li class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-outline-variant"></span>
+<span class="text-[14px] text-on-surface-variant">어제 14:15</span>
+</li>
+<li class="flex items-center gap-2">
+<span class="w-1.5 h-1.5 rounded-full bg-outline-variant"></span>
+<span class="text-[14px] text-on-surface-variant">2일전 09:40</span>
+</li>
+</ul>
+</div>
+<div class="bg-primary p-5 rounded-[28px] card-shadow flex flex-col justify-between transition-all active:scale-95">
+<p class="text-white font-bold text-[16px] leading-tight">어머니에게<br>힘을 주세요!</p>
+<button class="mt-4 w-full bg-white text-primary font-bold py-3 rounded-2xl flex items-center justify-center gap-1 shadow-md">
+<span class="text-[14px]">응원하기</span>
+<span class="material-symbols-outlined text-[18px] filled-icon">favorite</span>
+</button>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (From JSON mapping) -->
+<nav class="fixed bottom-0 left-0 w-full h-safe-zone-bottom bg-surface-container-lowest flex justify-around items-center px-4 pb-4 shadow-[0_-4px_20px_rgba(0,0,0,0.10)] z-50 rounded-t-xl">
+<button class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-6 py-2 transition-all active:scale-90 duration-300">
+<span class="material-symbols-outlined text-[28px] filled-icon">home</span>
+<span class="font-label-md text-[14px] mt-0.5">홈</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-6 py-2 transition-all active:scale-90 duration-300">
+<span class="material-symbols-outlined text-[28px]">analytics</span>
+<span class="font-label-md text-[14px] mt-0.5">보고서</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-6 py-2 transition-all active:scale-90 duration-300">
+<span class="material-symbols-outlined text-[28px]">calendar_today</span>
+<span class="font-label-md text-[14px] mt-0.5">일정</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant px-6 py-2 transition-all active:scale-90 duration-300">
+<span class="material-symbols-outlined text-[28px]">settings</span>
+<span class="font-label-md text-[14px] mt-0.5">설정</span>
+</button>
+</nav>
+</div>
+<!-- Interaction Script -->
+<script>
+        // Simple haptic-like feedback on buttons
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('click', function() {
+                if (window.navigator.vibrate) {
+                    window.navigator.vibrate(10);
+                }
+            });
+        });
+
+        // Toggle badge visibility for demo
+        const notificationBtn = document.querySelector('header .relative');
+        notificationBtn.addEventListener('click', () => {
+            const badge = notificationBtn.querySelector('.bg-error');
+            if(badge) badge.style.display = 'none';
+        });
+    </script>
+</body></html>

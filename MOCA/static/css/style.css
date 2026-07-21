@@ -2292,7 +2292,7 @@ body {
 .tool-btn:active { background: var(--primary-light); }
 .tool-clear { border-color: var(--tertiary); color: var(--tertiary); }
 
-.trail-hint { text-align: center; line-height: 1.8; }
+.trail-hint { text-align: center; line-height: 1.8; margin-bottom: 24px; }
 .cube-reference { display: flex; justify-content: center; margin-top: 8px; }
 
 .item-inst {

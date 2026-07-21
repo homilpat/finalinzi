@@ -1,119 +1,537 @@
 {% extends 'base.html' %}
 {% block header %}{% endblock %}
 
+{% block extra_head %}
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+  .page { padding: 0 !important; gap: 0 !important; background-color: #F8F9FF; }
+  .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 48;
+  }
+  .filled-icon {
+      font-variation-settings: 'FILL' 1;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+  }
+  .card-shadow {
+      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+  }
+  .chart-container {
+      position: relative;
+      height: 120px;
+      width: 100%;
+  }
+  .chart-line {
+      stroke: #005da7;
+      stroke-width: 4;
+      fill: none;
+  }
+  .chart-area {
+      fill: url(#chartGradient);
+      opacity: 0.2;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<section class="guardian-screen">
-  <header class="design-header compact">
-    <a class="design-back-btn gait-back-link" href="/" aria-label="처음으로">
-      <span>‹</span>
-      <strong>처음</strong>
-    </a>
-    <h1>보호자모드</h1>
-    <span class="design-header-spacer" aria-hidden="true"></span>
+<!-- Calculate dynamic scores -->
+{% set cog_score = ((dashboard.latest_cognitive.final_score / 30 * 100) | int) if dashboard.latest_cognitive else 0 %}
+{% set gait_score = 82 if dashboard.gait_done else 0 %}
+{% set overall_score = (((cog_score + (gait_score if dashboard.gait_done else 75)) / 2) | int) if dashboard.latest_cognitive else 0 %}
+
+<div class="relative w-full min-h-screen bg-[#F7FAFC] overflow-x-hidden flex flex-col pb-[100px]">
+  
+  <!-- TopAppBar -->
+  <header class="flex justify-between items-center px-6 h-[72px] w-full bg-white border-b border-gray-100 shrink-0">
+    <div class="flex flex-col">
+      <h1 class="text-[20px] leading-tight font-bold text-[#005da7]" id="guardianGreeting">안녕하세요, 보호자님 👋</h1>
+      <p class="text-[#6B7A8D] text-[13px]" id="parentSubText">어르신 현황을 확인해보세요</p>
+    </div>
+    <div class="relative w-10 h-10 flex items-center justify-center transition-transform active:scale-95 duration-200">
+      <span class="material-symbols-outlined text-[28px] text-[#6B7A8D]">notifications</span>
+      <span class="absolute top-1 right-1 w-4 h-4 bg-[#ba1a1a] text-white text-[9px] flex items-center justify-center rounded-full border border-white font-bold">1</span>
+    </div>
   </header>
 
-  <section class="guardian-hero">
-    <p>가족 모니터링</p>
-    <h2>평가 여부와 결과를 한 번에 확인해요</h2>
-  </section>
+  <!-- Sticky Tab Selector -->
+  <div class="px-6 py-3 bg-[#F7FAFC] sticky top-0 z-30">
+    <nav class="flex space-x-2 bg-[#eef4ff] p-1.5 rounded-2xl">
+      <button id="tabSummaryBtn" onclick="switchTab('summary')" class="flex-1 py-3 px-2 bg-white rounded-xl shadow-sm text-[#005da7] font-bold text-[14px] transition-all">📊 요약</button>
+      <button id="tabDetailBtn" onclick="switchTab('detail')" class="flex-1 py-3 px-2 text-[#414751] font-medium text-[14px] hover:bg-[#e4efff] transition-all">📋 상세보기</button>
+    </nav>
+  </div>
 
-  <section class="guardian-status-grid">
-    <article class="guardian-status-card {% if dashboard.cognitive_done %}is-done{% endif %}">
-      <span>인지평가</span>
-      <strong>{% if dashboard.cognitive_done %}완료{% else %}대기{% endif %}</strong>
-      <small>{% if dashboard.latest_cognitive %}{{ dashboard.latest_cognitive.completed_at or dashboard.latest_cognitive.started_at }}{% else %}아직 기록 없음{% endif %}</small>
-    </article>
-    <article class="guardian-status-card {% if dashboard.gait_done %}is-done{% endif %}">
-      <span>신체평가</span>
-      <strong>{% if dashboard.gait_done %}완료{% else %}대기{% endif %}</strong>
-      <small>{% if dashboard.gait_done %}보행 결과 저장됨{% else %}아직 보행 결과 없음{% endif %}</small>
-    </article>
-  </section>
+  <!-- Scrollable Content Containers -->
+  <main class="flex-grow px-6 space-y-6">
 
-  <section class="guardian-actions">
-    <a class="guardian-action-card" href="/final-result?panel=cognitive">
-      <span>점수 확인</span>
-      <strong>인지점수와 신체점수 보기</strong>
-    </a>
-    <a class="guardian-action-card" href="/final-result?panel=gait">
-      <span>리포트 확인</span>
-      <strong>보행 feature와 설명 보기</strong>
-    </a>
-    <button class="guardian-action-card" type="button" id="cheerOpenBtn">
-      <span>응원하기</span>
-      <strong>응원 메시지 보내기</strong>
-    </button>
-  </section>
-
-  <section class="guardian-card">
-    <h3>최근 평가 기록</h3>
-    {% if dashboard.recent_assessments %}
-      <div class="guardian-timeline">
-        {% for item in dashboard.recent_assessments %}
-          <div>
-            <span>{{ item.member_code or 'ID 미정' }} · 전화번호 끝 {{ item.phone_last4 }}</span>
-            <strong>
-              {% if item.is_completed %}
-                MoCA {{ item.final_score }}/30
-              {% else %}
-                평가 진행 중
-              {% endif %}
-            </strong>
-            <small>{{ item.completed_at or item.started_at }}</small>
+    <!-- ────────────────────────────────────────── -->
+    <!-- TAB 1: 요약 화면 -->
+    <!-- ────────────────────────────────────────── -->
+    <div id="tabSummaryContent" class="space-y-6">
+      
+      <!-- Parent Info Hero Card -->
+      <section class="bg-white rounded-[28px] p-6 card-shadow">
+        <div class="flex items-center gap-4 mb-6">
+          <div class="w-14 h-14 rounded-full bg-[#d4e3ff] flex items-center justify-center text-[#005da7] text-[22px] font-bold" id="parentAvatar">
+            김
           </div>
-        {% endfor %}
-      </div>
-    {% else %}
-      <p class="guardian-empty">아직 저장된 평가 기록이 없습니다.</p>
-    {% endif %}
-  </section>
+          <div>
+            <h2 class="text-[#021d33] text-[20px] font-bold leading-tight" id="parentNameDisplay">김순자 어르신</h2>
+            <p class="text-[#6B7A8D] text-[14px]">기억하지 시니어 회원</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-[#eef4ff] rounded-2xl p-4 flex flex-col justify-center">
+            <span class="text-[#6B7A8D] text-[12px]">신체 평가</span>
+            <span class="text-[#005da7] font-bold text-[16px]">
+              {% if dashboard.gait_done %}✅ 완료{% else %}⏱️ 대기{% endif %}
+            </span>
+          </div>
+          <div class="bg-[#d4e3ff] rounded-2xl p-4 flex flex-col justify-center border border-[#005da7]/10">
+            <span class="text-[#6B7A8D] text-[12px]">인지 평가</span>
+            <span class="text-[#005da7] font-bold text-[16px]">
+              {% if dashboard.cognitive_done %}✅ 완료{% else %}⏱️ 대기{% endif %}
+            </span>
+          </div>
+        </div>
+      </section>
 
-  <section class="guardian-card">
-    <h3>응원 메시지</h3>
-    <div class="cheer-box" id="cheerBox" hidden>
-      <textarea id="cheerInput" maxlength="120" placeholder="예: 오늘도 천천히 잘 해냈어요. 같이 계속 해봐요!"></textarea>
-      <button class="btn btn-primary btn-lg" type="button" id="cheerSendBtn">응원 보내기</button>
+      <!-- Gauge Bars Section (Cognitive & Gait) -->
+      <section class="space-y-4">
+        <!-- Cognitive Gauge Card -->
+        <div class="bg-white p-6 rounded-2xl card-shadow border border-transparent transition-all">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 bg-[#e4efff] flex items-center justify-center rounded-xl">
+                <span class="material-symbols-outlined text-[#005da7] text-[28px]">psychology</span>
+              </div>
+              <div>
+                <h3 class="text-[#021d33] font-bold text-[18px] leading-tight">인지 리포트</h3>
+                <div class="flex items-center gap-0.5 text-[#005da7] text-[12px] font-bold mt-0.5">
+                  <span class="material-symbols-outlined text-[14px]">trending_up</span>
+                  <span>지난주 대비 우수</span>
+                </div>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="text-[24px] font-bold text-[#005da7]">{{ cog_score }}</span>
+              <span class="text-[12px] text-[#6B7A8D]">점</span>
+            </div>
+          </div>
+          <div class="w-full h-3 bg-[#e4efff] rounded-full mb-4 overflow-hidden">
+            <div class="h-full bg-[#005da7] rounded-full transition-all duration-500" style="width: {{ cog_score }}%"></div>
+          </div>
+          <div class="grid grid-cols-3 gap-2 bg-[#f8f9ff] p-3 rounded-xl text-center">
+            <div>
+              <p class="text-[#6B7A8D] text-[11px] mb-0.5">기억력</p>
+              <p class="font-bold text-[#021d33] text-[14px]">
+                {% if dashboard.latest_cognitive %}{{ (dashboard.latest_cognitive.score.get('sections', {}).get('memory', 0) / 5 * 100) | int }}{% else %}0{% endif %}%
+              </p>
+            </div>
+            <div class="border-x border-gray-100">
+              <p class="text-[#6B7A8D] text-[11px] mb-0.5">집중력</p>
+              <p class="font-bold text-[#021d33] text-[14px]">
+                {% if dashboard.latest_cognitive %}{{ (dashboard.latest_cognitive.score.get('sections', {}).get('attention', 0) / 6 * 100) | int }}{% else %}0{% endif %}%
+              </p>
+            </div>
+            <div>
+              <p class="text-[#6B7A8D] text-[11px] mb-0.5">판단력</p>
+              <p class="font-bold text-[#021d33] text-[14px]">
+                {% if dashboard.latest_cognitive %}{{ (dashboard.latest_cognitive.score.get('sections', {}).get('abstraction', 0) / 2 * 100) | int }}{% else %}0{% endif %}%
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Walking Gauge Card -->
+        <div class="bg-white p-6 rounded-2xl card-shadow border border-transparent transition-all">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 bg-[#9af3dc]/20 flex items-center justify-center rounded-xl">
+                <span class="material-symbols-outlined text-[#006b5a] text-[28px]">directions_walk</span>
+              </div>
+              <div>
+                <h3 class="text-[#021d33] font-bold text-[18px] leading-tight">보행 리포트</h3>
+                <div class="flex items-center gap-0.5 text-[#006b5a] text-[12px] font-bold mt-0.5">
+                  <span class="material-symbols-outlined text-[14px]">trending_up</span>
+                  <span>지난주 대비 양호</span>
+                </div>
+              </div>
+            </div>
+            <div class="text-right">
+              <span class="text-[24px] font-bold text-[#006b5a]">{{ gait_score }}</span>
+              <span class="text-[12px] text-[#6B7A8D]">점</span>
+            </div>
+          </div>
+          <div class="w-full h-3 bg-[#e4efff] rounded-full mb-4 overflow-hidden">
+            <div class="h-full bg-[#006b5a] rounded-full transition-all duration-500" style="width: {{ gait_score }}%"></div>
+          </div>
+          <div class="grid grid-cols-3 gap-2 bg-[#f8f9ff] p-3 rounded-xl text-center">
+            <div>
+              <p class="text-[#6B7A8D] text-[11px] mb-0.5">균형감</p>
+              <p class="font-bold text-[#021d33] text-[14px]">{% if dashboard.gait_done %}82{% else %}0{% endif %}%</p>
+            </div>
+            <div class="border-x border-gray-100">
+              <p class="text-[#6B7A8D] text-[11px] mb-0.5">보행속도</p>
+              <p class="font-bold text-[#021d33] text-[14px]">{% if dashboard.gait_done %}78{% else %}0{% endif %}%</p>
+            </div>
+            <div>
+              <p class="text-[#6B7A8D] text-[11px] mb-0.5">안정성</p>
+              <p class="font-bold text-[#021d33] text-[14px]">{% if dashboard.gait_done %}85{% else %}0{% endif %}%</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Weekly Trend Card -->
+      <section class="bg-white rounded-[28px] p-6 card-shadow relative overflow-hidden">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="font-bold text-[#021d33] text-[16px]">📈 일주일 인지 리포트 변화</h3>
+          <span class="text-[#005da7] text-[12px] font-medium">실시간 데이터 연동</span>
+        </div>
+        <div class="chart-container mt-6">
+          <svg class="w-full h-full" viewBox="0 0 100 40">
+            <defs>
+              <linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#005da7" stop-opacity="0.3"></stop>
+                <stop offset="100%" stop-color="#005da7" stop-opacity="0"></stop>
+              </linearGradient>
+            </defs>
+            <path class="chart-area" d="M0,40 L0,32 L20,30 L40,35 L60,25 L80,20 L100,10 L100,40 Z"></path>
+            <path d="M0,32 L20,30 L40,35 L60,25 L80,20 L100,10" fill="none" stroke="#005da7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+            <circle cx="0" cy="32" fill="#005da7" r="1.5"></circle>
+            <circle cx="20" cy="30" fill="#005da7" r="1.5"></circle>
+            <circle cx="40" cy="35" fill="#005da7" r="1.5"></circle>
+            <circle cx="60" cy="25" fill="#005da7" r="1.5"></circle>
+            <circle cx="80" cy="20" fill="#005da7" r="1.5"></circle>
+            <circle cx="100" cy="10" fill="#005da7" r="2"></circle>
+          </svg>
+        </div>
+        <div class="flex justify-between mt-2 px-1">
+          <span class="text-[10px] text-[#6B7A8D]">월</span>
+          <span class="text-[10px] text-[#6B7A8D]">화</span>
+          <span class="text-[10px] text-[#6B7A8D]">수</span>
+          <span class="text-[10px] text-[#6B7A8D]">목</span>
+          <span class="text-[10px] text-[#6B7A8D]">금</span>
+          <span class="text-[10px] text-[#6B7A8D]">토</span>
+          <span class="text-[10px] font-bold text-[#005da7]">일</span>
+        </div>
+      </section>
+
+      <!-- Cheering Input Box -->
+      <section class="space-y-4">
+        <div class="bg-white p-5 rounded-[28px] card-shadow flex flex-col space-y-3" id="cheerBox">
+          <div class="flex flex-col">
+            <h4 class="font-bold text-[16px] text-[#021d33]">어르신에게 힘을 주세요!</h4>
+            <p class="text-[#6B7A8D] text-[12px] mt-0.5">스마트폰 화면에 응원 문구가 나타납니다</p>
+          </div>
+          <textarea id="cheerInput" maxlength="120" placeholder="예: 오늘도 천천히 잘 해냈어요. 같이 계속 해봐요!" class="w-full h-[80px] p-3 bg-[#eef4ff] border border-transparent rounded-xl text-[14px] focus:outline-none focus:border-[#4A90E2] resize-none"></textarea>
+          <button class="w-full bg-[#005da7] hover:bg-[#2976c7] text-white font-bold py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5" type="button" id="cheerSendBtn">
+            <span>응원 보내기</span>
+            <span class="material-symbols-outlined text-[18px] filled-icon text-[#ba1a1a]">favorite</span>
+          </button>
+        </div>
+
+        <div class="bg-white p-5 rounded-[28px] card-shadow">
+          <h4 class="font-bold text-[16px] mb-3 text-[#021d33]">가장 최근 보낸 응원</h4>
+          <div class="space-y-3" id="cheerList">
+            {% if dashboard.cheers %}
+              {% for cheer in dashboard.cheers %}
+                <div class="flex justify-between items-start border-b border-gray-50 pb-2">
+                  <strong class="text-[14px] text-on-surface font-medium block pr-4">{{ cheer.message }}</strong>
+                  <span class="text-[11px] text-[#6B7A8D] shrink-0">{{ cheer.created_at }}</span>
+                </div>
+              {% endfor %}
+            {% else %}
+              <p class="text-[13px] text-[#6B7A8D] text-center py-4">아직 보낸 응원이 없습니다.</p>
+            {% endif %}
+          </div>
+        </div>
+      </section>
+
     </div>
-    <div class="cheer-list" id="cheerList">
-      {% if dashboard.cheers %}
-        {% for cheer in dashboard.cheers %}
-          <div><strong>{{ cheer.message }}</strong><span>{{ cheer.created_at }}</span></div>
-        {% endfor %}
-      {% else %}
-        <p class="guardian-empty">아직 보낸 응원이 없습니다.</p>
-      {% endif %}
+
+    <!-- ────────────────────────────────────────── -->
+    <!-- TAB 2: 상세보기 화면 -->
+    <!-- ────────────────────────────────────────── -->
+    <div id="tabDetailContent" class="space-y-6 hidden">
+      
+      <!-- Total Score Card (Detailed styling) -->
+      <section class="relative overflow-hidden rounded-2xl p-6 bg-gradient-to-br from-[#005da7] to-[#2976c7] text-white shadow-lg">
+        <div class="relative z-10 flex flex-col items-center text-center">
+          <span class="text-[14px] opacity-90 mb-1">종합 건강 점수</span>
+          <div class="flex items-baseline gap-0.5">
+            <span class="text-[56px] font-black tracking-tight" id="overallScoreDisplay">{{ overall_score }}</span>
+            <span class="text-[16px] font-bold opacity-80">점</span>
+          </div>
+          <div class="flex gap-0.5 text-[#FFD700] mb-4">
+            <span class="material-symbols-outlined filled-icon text-[24px]">star</span>
+            <span class="material-symbols-outlined filled-icon text-[24px]">star</span>
+            <span class="material-symbols-outlined filled-icon text-[24px]">star</span>
+            <span class="material-symbols-outlined filled-icon text-[24px]">star</span>
+            <span class="material-symbols-outlined text-[24px]">star</span>
+          </div>
+          <div class="bg-white/20 backdrop-blur-md rounded-full px-4 py-1.5 flex items-center gap-1.5 mb-6 text-[13px]">
+            <span class="material-symbols-outlined text-[#97f0da] text-[16px]">trending_up</span>
+            <span class="font-bold text-white">지난주 대비 ▲ +7점</span>
+          </div>
+          <div class="w-full space-y-2">
+            <div class="flex justify-between text-[12px] opacity-90">
+              <span>지난주 (75점)</span>
+              <span>이번주 ({{ overall_score }}점)</span>
+            </div>
+            <div class="w-full h-3 bg-white/20 rounded-full overflow-hidden">
+              <div class="h-full bg-[#97f0da]" style="width: {{ overall_score }}%"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Attendance Calendar (출석부) -->
+      <section class="bg-white rounded-2xl p-5 card-shadow">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="font-bold text-[16px] text-on-surface">🗓️ 출석부</h2>
+          <span class="text-[#005da7] font-bold text-[13px]">2026년 7월</span>
+        </div>
+        <div class="grid grid-cols-7 gap-2 mb-4 text-center">
+          <div class="text-[#6B7A8D] text-[11px] font-bold">일</div>
+          <div class="text-[#6B7A8D] text-[11px] font-bold">월</div>
+          <div class="text-[#6B7A8D] text-[11px] font-bold">화</div>
+          <div class="text-[#6B7A8D] text-[11px] font-bold">수</div>
+          <div class="text-[#6B7A8D] text-[11px] font-bold">목</div>
+          <div class="text-[#6B7A8D] text-[11px] font-bold">금</div>
+          <div class="text-[#6B7A8D] text-[11px] font-bold">토</div>
+          <!-- Calendar Items -->
+          <div class="col-span-3"></div> <!-- Offset -->
+          <div class="aspect-square flex items-center justify-center rounded-full bg-[#9af3dc] text-[#00705e] text-[13px] font-bold">1</div>
+          <div class="aspect-square flex items-center justify-center rounded-full bg-[#9af3dc] text-[#00705e] text-[13px] font-bold">2</div>
+          <div class="aspect-square flex items-center justify-center rounded-full bg-[#9af3dc] text-[#00705e] text-[13px] font-bold">3</div>
+          <div class="aspect-square flex items-center justify-center rounded-full bg-[#9af3dc] text-[#00705e] text-[13px] font-bold">4</div>
+          <div class="aspect-square flex items-center justify-center rounded-full bg-[#9af3dc] text-[#00705e] text-[13px] font-bold">5</div>
+          <div class="aspect-square flex items-center justify-center rounded-full bg-[#ffdad6] text-[#93000a] text-[13px] font-bold">6</div>
+          <div class="aspect-square flex items-center justify-center rounded-full bg-[#9af3dc] text-[#00705e] text-[13px] font-bold">7</div>
+          <div class="aspect-square flex items-center justify-center rounded-full bg-[#9af3dc] text-[#00705e] text-[13px] font-bold">8</div>
+          <div class="aspect-square flex items-center justify-center rounded-full bg-[#9af3dc] text-[#00705e] text-[13px] font-bold">9</div>
+          <div class="aspect-square flex items-center justify-center rounded-full bg-[#9af3dc] text-[#00705e] text-[13px] font-bold">10</div>
+          <div class="aspect-square flex items-center justify-center rounded-full bg-[#9af3dc] text-[#00705e] text-[13px] font-bold">11</div>
+          <div class="aspect-square flex items-center justify-center rounded-full bg-[#ffdad6] text-[#93000a] text-[13px] font-bold">12</div>
+          <div class="aspect-square flex items-center justify-center rounded-full bg-[#9af3dc] text-[#00705e] text-[13px] font-bold">13</div>
+          <div class="aspect-square flex items-center justify-center rounded-full bg-[#9af3dc] text-[#00705e] text-[13px] font-bold">14</div>
+          <div class="aspect-square flex items-center justify-center rounded-full bg-[#ffdad6] text-[#93000a] text-[13px] font-bold">15</div>
+          <div class="aspect-square flex items-center justify-center rounded-full bg-[#9af3dc] text-[#00705e] text-[13px] font-bold">16</div>
+          <div class="aspect-square flex items-center justify-center rounded-full bg-[#005da7] text-white text-[13px] font-bold relative scale-110 shadow-md">
+            17
+            <span class="absolute -top-1.5 -right-1 text-[11px]">🔥</span>
+          </div>
+          <div class="aspect-square flex items-center justify-center text-gray-300 text-[13px]">18</div>
+          <div class="aspect-square flex items-center justify-center text-gray-300 text-[13px]">19</div>
+          <div class="aspect-square flex items-center justify-center text-gray-300 text-[13px]">20</div>
+          <div class="aspect-square flex items-center justify-center text-gray-300 text-[13px]">21</div>
+          <div class="aspect-square flex items-center justify-center text-gray-300 text-[13px]">22</div>
+        </div>
+        <div class="flex justify-between items-center p-3 bg-[#eef4ff] rounded-xl text-center">
+          <div>
+            <p class="text-[12px] text-[#6B7A8D]">출석</p>
+            <p class="text-[#005da7] font-bold text-[18px]">14일</p>
+          </div>
+          <div class="w-px h-6 bg-gray-200"></div>
+          <div>
+            <p class="text-[12px] text-[#6B7A8D]">결석</p>
+            <p class="text-[#994030] font-bold text-[18px]">3일</p>
+          </div>
+          <div class="w-px h-6 bg-gray-200"></div>
+          <div>
+            <p class="text-[12px] text-[#6B7A8D]">연속</p>
+            <p class="text-[#006b5a] font-bold text-[18px]">4일</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Recent Assessment History Card (MOVED HERE!) -->
+      <section class="bg-white rounded-[28px] p-6 card-shadow">
+        <h3 class="font-bold text-[#021d33] text-[16px] mb-4">📋 최근 평가 기록</h3>
+        {% if dashboard.recent_assessments %}
+          <div class="space-y-4">
+            {% for item in dashboard.recent_assessments %}
+              <div class="flex justify-between items-center border-b border-gray-50 pb-3 last:border-0 last:pb-0">
+                <div class="flex flex-col">
+                  <span class="text-[15px] font-bold text-[#021d33]">{{ item.member_code or 'ID 미정' }}</span>
+                  <span class="text-[12px] text-[#6B7A8D] mt-0.5">전화번호 끝 {{ item.phone_last4 }} · {{ item.completed_at or item.started_at }}</span>
+                </div>
+                <strong class="text-[16px] text-[#005da7]">
+                  {% if item.is_completed %}
+                    MoCA {{ item.final_score }}점 <span class="text-[11px] text-[#6B7A8D] font-normal">/30</span>
+                  {% else %}
+                    평가 진행 중
+                  {% endif %}
+                </strong>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-[13px] text-[#6B7A8D] text-center py-6">아직 저장된 평가 기록이 없습니다.</p>
+        {% endif %}
+      </section>
+
+      <!-- Exercise Log List (운동 기록) -->
+      <section class="space-y-4">
+        <div class="flex justify-between items-end">
+          <h2 class="font-bold text-[#021d33] text-[18px]">🏃 운동 기록</h2>
+          <a class="text-[12px] text-[#005da7] font-bold flex items-center hover:underline" href="#">
+            전체 기록 보기
+            <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+          </a>
+        </div>
+        <div class="space-y-3">
+          <!-- Today -->
+          <div class="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-50">
+            <div class="w-14 h-14 flex flex-col items-center justify-center bg-[#eef4ff] rounded-lg border border-[#005da7]/20 shrink-0">
+              <span class="text-[10px] font-bold text-[#005da7]">오늘</span>
+              <span class="text-[16px] font-black text-[#021d33]">7/17</span>
+            </div>
+            <div class="flex-grow">
+              <p class="text-[14px] font-bold text-[#021d33]">완료</p>
+              <p class="text-[#6B7A8D] text-[12px]">인지 및 하체 근력 강화</p>
+            </div>
+            <div class="text-right shrink-0">
+              <span class="text-[20px] font-bold text-[#005da7]">88</span>
+              <span class="text-[12px] text-[#6B7A8D]">점</span>
+            </div>
+          </div>
+          <!-- Yesterday -->
+          <div class="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-50">
+            <div class="w-14 h-14 flex flex-col items-center justify-center bg-[#f8f9ff] rounded-lg border border-gray-100 shrink-0">
+              <span class="text-[10px] font-bold text-[#6B7A8D]">목</span>
+              <span class="text-[16px] font-black text-[#021d33]">7/16</span>
+            </div>
+            <div class="flex-grow">
+              <p class="text-[14px] font-bold text-[#021d33]">완료</p>
+              <p class="text-[#6B7A8D] text-[12px]">보행 균형 및 유연성</p>
+            </div>
+            <div class="text-right shrink-0">
+              <span class="text-[20px] font-bold text-[#6B7A8D]">85</span>
+              <span class="text-[12px] text-[#6B7A8D]">점</span>
+            </div>
+          </div>
+          <!-- Event Busy -->
+          <div class="flex items-center gap-4 bg-[#f8f9ff] p-4 rounded-xl border border-dashed border-gray-200 shrink-0">
+            <div class="w-14 h-14 flex flex-col items-center justify-center bg-gray-100 rounded-lg shrink-0">
+              <span class="text-[10px] font-bold text-[#6B7A8D]">수</span>
+              <span class="text-[16px] font-black text-gray-400">7/15</span>
+            </div>
+            <div class="flex-grow">
+              <p class="text-[14px] font-bold text-[#994030]">결석</p>
+              <p class="text-[#6B7A8D] text-[12px]">훈련 참여 기록이 없습니다.</p>
+            </div>
+            <div class="text-right shrink-0 text-gray-300">
+              <span class="material-symbols-outlined text-[24px]">event_busy</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
     </div>
-  </section>
-</section>
+
+  </main>
+
+  <!-- BottomNavBar -->
+  <nav class="fixed bottom-0 left-0 w-full h-[76px] bg-white flex justify-around items-center pb-2 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] z-50 rounded-t-2xl">
+    <button onclick="window.location.href='/guardian'" class="flex flex-col items-center justify-center text-[#005da7] px-6 py-2 transition-all active:scale-90 duration-300">
+      <span class="material-symbols-outlined text-[26px] filled-icon">home</span>
+      <span class="text-[12px] font-bold mt-0.5">홈</span>
+    </button>
+    <button onclick="window.location.href='/final-result?panel=cognitive'" class="flex flex-col items-center justify-center text-gray-400 px-6 py-2 transition-all active:scale-90 duration-300">
+      <span class="material-symbols-outlined text-[26px]">analytics</span>
+      <span class="text-[12px] font-medium mt-0.5">보고서</span>
+    </button>
+    <button onclick="window.location.href='/'" class="flex flex-col items-center justify-center text-gray-400 px-6 py-2 transition-all active:scale-90 duration-300">
+      <span class="material-symbols-outlined text-[26px]">logout</span>
+      <span class="text-[12px] font-medium mt-0.5">시니어모드</span>
+    </button>
+  </nav>
+
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-  const cheerOpenBtn = document.getElementById('cheerOpenBtn');
-  const cheerBox = document.getElementById('cheerBox');
+  // Dynamic Tab Switcher
+  function switchTab(tab) {
+      const summaryBtn = document.getElementById('tabSummaryBtn');
+      const detailBtn = document.getElementById('tabDetailBtn');
+      const summaryContent = document.getElementById('tabSummaryContent');
+      const detailContent = document.getElementById('tabDetailContent');
+
+      if (tab === 'summary') {
+          // Select Summary
+          summaryBtn.className = "flex-1 py-3 px-2 bg-white rounded-xl shadow-sm text-[#005da7] font-bold text-[14px] transition-all";
+          detailBtn.className = "flex-1 py-3 px-2 text-[#414751] font-medium text-[14px] hover:bg-[#e4efff] transition-all";
+          summaryContent.classList.remove('hidden');
+          detailContent.classList.add('hidden');
+      } else {
+          // Select Detail
+          summaryBtn.className = "flex-1 py-3 px-2 text-[#414751] font-medium text-[14px] hover:bg-[#e4efff] transition-all";
+          detailBtn.className = "flex-1 py-3 px-2 bg-white rounded-xl shadow-sm text-[#005da7] font-bold text-[14px] transition-all";
+          summaryContent.classList.add('hidden');
+          detailContent.classList.remove('hidden');
+      }
+      
+      if (window.navigator.vibrate) {
+          window.navigator.vibrate(10);
+      }
+  }
+
+  // Retrieve saved Parent Name from Session Storage
+  const savedParentName = sessionStorage.getItem('guardian_parent_name');
+  if (savedParentName) {
+      const greetingEl = document.getElementById('guardianGreeting');
+      const subTextEl = document.getElementById('parentSubText');
+      const nameDispEl = document.getElementById('parentNameDisplay');
+      const avatarEl = document.getElementById('parentAvatar');
+
+      if (greetingEl) greetingEl.textContent = `안녕하세요, 보호자님 👋`;
+      if (subTextEl) subTextEl.textContent = `${savedParentName} 어르신 현황을 확인해보세요`;
+      if (nameDispEl) nameDispEl.textContent = `${savedParentName} 어르신`;
+      if (avatarEl && savedParentName.length > 0) {
+          avatarEl.textContent = savedParentName.charAt(0);
+      }
+  }
+
+  // Cheering elements
   const cheerInput = document.getElementById('cheerInput');
   const cheerSendBtn = document.getElementById('cheerSendBtn');
   const cheerList = document.getElementById('cheerList');
 
-  cheerOpenBtn.addEventListener('click', () => {
-    cheerBox.hidden = !cheerBox.hidden;
-    if (!cheerBox.hidden) cheerInput.focus();
-  });
+  // Handle cheer message sending via API
+  if (cheerSendBtn) {
+      cheerSendBtn.addEventListener('click', async () => {
+          const message = cheerInput.value.trim();
+          if (!message) return;
 
-  cheerSendBtn.addEventListener('click', async () => {
-    const message = cheerInput.value.trim();
-    const res = await fetch('/guardian/cheer', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({message}),
-    });
-    const data = await res.json();
-    if (!data.ok) return;
-    cheerInput.value = '';
-    cheerBox.hidden = true;
-    cheerList.innerHTML = `
-      <div><strong>${data.message}</strong><span>방금 전</span></div>
-    ` + cheerList.innerHTML;
-  });
+          const res = await fetch('/guardian/cheer', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({message}),
+          });
+          const data = await res.json();
+          if (!data.ok) return;
+
+          cheerInput.value = '';
+
+          // Prepend new cheer to the list
+          const emptyText = cheerList.querySelector('p');
+          if (emptyText) emptyText.remove();
+
+          const newCheerHtml = `
+            <div class="flex justify-between items-start border-b border-gray-50 pb-2">
+              <strong class="text-[14px] text-on-surface font-medium block pr-4">${data.message}</strong>
+              <span class="text-[11px] text-[#6B7A8D] shrink-0">방금 전</span>
+            </div>
+          `;
+          cheerList.innerHTML = newCheerHtml + cheerList.innerHTML;
+      });
+  }
 </script>
 {% endblock %}

@@ -66,7 +66,6 @@
       <span class="design-header-spacer" aria-hidden="true"></span>
     </header>
 
-
     <section class="vital-hero">
       <div class="vital-hero-top">
         <div>
@@ -88,35 +87,17 @@
     </section>
 
     <section class="mode-panel" id="modePanel" aria-label="평가 메뉴" style="margin-top: 24px;">
-      <button class="mode-card mode-card-primary" type="button" id="cognitiveModeBtn">
-        <span class="mode-icon" aria-hidden="true">
-          <svg viewBox="0 0 48 48" fill="none">
+      <button class="mode-card mode-card-primary" type="button" id="startNewFlowBtn" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 12px; padding: 22px 16px;">
+        <span class="mode-icon" aria-hidden="true" style="flex-shrink: 0;">
+          <svg viewBox="0 0 48 48" fill="none" style="width: 40px; height: 40px;">
             <rect x="8" y="8" width="32" height="32" rx="12" fill="rgba(255,255,255,0.22)"/>
             <path d="M16 25h5l3-8 5 15 3-7h5" stroke="white" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </span>
-        <span>
-          <strong>인지기능검사</strong>
-          <small>MoCA-K 문항으로 검사 시작</small>
-        </span>
-        <span class="mode-arrow">재검사</span>
+        <strong style="font-size: 26px; font-weight: 900; color: #ffffff; margin: 0;">검사하기</strong>
       </button>
 
       <div class="mode-grid">
-        <button class="mode-card mode-card-secondary" type="button" id="gaitModeBtn">
-          <span class="mode-icon" aria-hidden="true">
-            <svg viewBox="0 0 48 48" fill="none">
-              <circle cx="24" cy="14" r="6" fill="rgba(255,255,255,0.94)"/>
-              <path d="M17 24h14l5 15h-6l-3-9h-6l-3 9h-6l5-15z" fill="rgba(255,255,255,0.94)"/>
-            </svg>
-          </span>
-          <span>
-            <strong>신체기능검사</strong>
-            <small>허리밴드 IMU 보행 평가</small>
-          </span>
-          <span class="mode-arrow">재검사</span>
-        </button>
-
         <a class="mode-card mode-card-secondary mode-card-link" href="/physical/guide">
           <span class="mode-icon" aria-hidden="true">
             <svg viewBox="0 0 48 48" fill="none">
@@ -128,32 +109,6 @@
           <span>
             <strong>신체측정</strong>
             <small>finalinzi 신체 평가 화면</small>
-          </span>
-        </a>
-
-        <a class="mode-card mode-card-secondary mode-card-link" href="/exercise/today">
-          <span class="mode-icon" aria-hidden="true">
-            <svg viewBox="0 0 48 48" fill="none">
-              <rect x="10" y="10" width="28" height="28" rx="9" fill="rgba(255,255,255,0.22)"/>
-              <path d="M16 28h6l3-10 4 14 3-7h5" stroke="white" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
-          <span>
-            <strong>오늘의 운동</strong>
-            <small>운동 미션과 리포트</small>
-          </span>
-        </a>
-
-        <a class="mode-card mode-card-secondary mode-card-link" href="/mypage">
-          <span class="mode-icon" aria-hidden="true">
-            <svg viewBox="0 0 48 48" fill="none">
-              <circle cx="24" cy="17" r="7" fill="rgba(255,255,255,0.94)"/>
-              <path d="M12 38c2-8 7-12 12-12s10 4 12 12H12z" fill="rgba(255,255,255,0.94)"/>
-            </svg>
-          </span>
-          <span>
-            <strong>마이페이지</strong>
-            <small>내 점수와 기록 확인</small>
           </span>
         </a>
 
@@ -280,8 +235,6 @@
   const homeMainBackBtn = document.getElementById('homeMainBackBtn');
   const modePanel = document.getElementById('modePanel');
   const memberForm = document.getElementById('memberForm');
-  const cognitiveModeBtn = document.getElementById('cognitiveModeBtn');
-  const gaitModeBtn = document.getElementById('gaitModeBtn');
   const guardianModeBtn = document.getElementById('guardianModeBtn');
   const formBackBtn = document.getElementById('formBackBtn');
 
@@ -341,16 +294,14 @@
     window.location.href = '/guardian/login';
   });
   homeMainBackBtn.addEventListener('click', showUserSelect);
-  cognitiveModeBtn.addEventListener('click', () => {
-    if (profileReady) {
-      window.location.href = '/start_saved';
-      return;
-    }
-    showMemberForm();
-  });
-  gaitModeBtn.addEventListener('click', () => {
-    window.location.href = '/gait';
-  });
+
+  const startNewFlowBtn = document.getElementById('startNewFlowBtn');
+  if (startNewFlowBtn) {
+    startNewFlowBtn.addEventListener('click', () => {
+      window.location.href = '/start_new_member_flow';
+    });
+  }
+
   guardianModeBtn.addEventListener('click', () => {
     window.location.href = '/guardian/login';
   });

@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% block header %}{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+  .page { padding: 0 !important; gap: 0 !important; background-color: #F8F9FF; }
+  .illustration-bg {
+      background: linear-gradient(180deg, #243B53 0%, #4A90E2 100%);
+  }
+  .squishy-press:active {
+      transform: scale(0.96);
+      transition: transform 0.1s ease-out;
+  }
+  .custom-shadow {
+      box-shadow: 0 4px 20px rgba(0,0,0,0.10);
+  }
+  input:focus {
+      outline: none;
+      border-color: #4A90E2 !important;
+      box-shadow: 0 0 0 4px rgba(74, 144, 226, 0.15);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<form id="guardianLoginForm" action="/guardian" method="GET" class="flex flex-col w-full min-h-screen bg-[#f8f9ff]">
+  <!-- Top Illustration Zone -->
+  <section class="h-[280px] w-full illustration-bg rounded-b-[40px] flex flex-col items-center relative overflow-hidden shrink-0">
+    <!-- Brand Header -->
+    <div class="mt-[56px] text-center">
+      <h1 class="text-[20px] font-bold text-white tracking-[2px]">기억하지</h1>
+      <p class="text-[14px] text-white opacity-75 mt-1">보호자 · 가족 모드</p>
+    </div>
+    <!-- Center Illustration -->
+    <div class="h-[140px] w-full flex justify-center items-center">
+      <img class="h-full object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDkfv2tpqdFiwtfgklGmx8aqiy_gwSJNO1MpXq-3pqZdq8wbqlCs6SNKvYO7mMGmNvflqeivPCvQ7R5Esm8P5sAuDhDYfdUc2RjDeQ-o-5pjpwFd7oyt8D5VCaD_tRDurSVVmW582VHF9lLz0vDeTeXeteSOvh5AK9NE_ggqJg_tVmrsQdUWjwqr526zbkfudGRdY_6l9HkeV3Z1rJSvNS4c5pINUqMpEzxNLcbcvOZSu2p8eECdFOoD4EVYcGPkLfuSFxvQtt6qUFZ">
+    </div>
+    <!-- Bottom Zone Text -->
+    <div class="absolute bottom-6 w-full text-center">
+      <p class="text-[18px] font-bold text-white">부모님의 건강을 함께 지켜요 💙</p>
+    </div>
+  </section>
+
+  <!-- Login Card Container -->
+  <main class="px-6 flex-1 -mt-[32px] z-10">
+    <div class="bg-white rounded-[28px] custom-shadow p-[28px_24px] flex flex-col">
+      <!-- Card Header -->
+      <header class="mb-8">
+        <h2 class="text-[22px] font-bold text-[#243B53]">연결 정보 입력</h2>
+        <p class="text-[14px] text-[#6B7A8D] mt-1">등록된 정보와 일치해야 연결돼요</p>
+      </header>
+      
+      <!-- Input Fields Stack -->
+      <div class="flex flex-col space-y-6">
+        <!-- Field 1 -->
+        <div class="space-y-3" id="parentNameField">
+          <label class="flex items-center text-[16px] font-bold text-[#243B53]">
+            <span class="mr-2">부모님 성함</span>
+          </label>
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-[#6B7A8D] text-[24px]">person</span>
+            <input class="w-full h-[56px] pl-14 pr-6 bg-[#eef4ff] border-2 border-transparent rounded-xl text-[18px] placeholder:text-[#c1c7d3] font-medium transition-all" placeholder="어르신 이름 입력" type="text" id="parentName" required>
+          </div>
+        </div>
+        
+        <!-- Field 2 -->
+        <div class="space-y-3" id="guardianPhoneField">
+          <div class="flex flex-col">
+            <label class="text-[16px] font-bold text-[#243B53]">보호자 전화번호</label>
+            <span class="text-[12px] text-[#6B7A8D]">어르신이 등록한 번호</span>
+          </div>
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-[#6B7A8D] text-[24px]">smartphone</span>
+            <input class="w-full h-[56px] pl-14 pr-6 bg-[#eef4ff] border-2 border-transparent rounded-xl text-[18px] placeholder:text-[#c1c7d3] font-medium transition-all" placeholder="010-0000-0000" type="tel" id="guardianPhone" required>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Action Button -->
+      <button type="submit" class="squishy-press mt-10 w-full h-[56px] bg-[#4A90E2] text-white rounded-full flex items-center justify-center space-x-2 custom-shadow active:shadow-inner transition-all">
+        <span class="text-[18px] font-bold">부모님 건강 확인하기</span>
+        <span class="material-symbols-outlined text-[24px]">arrow_forward</span>
+      </button>
+    </div>
+    
+    <!-- Security Notice -->
+    <div class="mt-8 mb-8 flex items-center justify-center space-x-2">
+      <span class="material-symbols-outlined text-[#6B7A8D] text-[18px]">lock</span>
+      <p class="text-[13px] text-[#6B7A8D]">개인정보 보호정책에 따라 안전하게 처리됩니다</p>
+    </div>
+  </main>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Simple Interaction Feedback
+  document.querySelectorAll('input').forEach(input => {
+      input.addEventListener('focus', () => {
+          input.parentElement.parentElement.classList.add('scale-[1.02]');
+          input.parentElement.parentElement.style.transition = 'all 0.3s ease';
+      });
+      input.parentElement.parentElement.classList.add('transition-all');
+      input.addEventListener('blur', () => {
+          input.parentElement.parentElement.classList.remove('scale-[1.02]');
+      });
+  });
+
+  // Submission validation and redirection
+  const loginForm = document.getElementById('guardianLoginForm');
+  loginForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      
+      const parentName = document.getElementById('parentName').value;
+      const guardianPhone = document.getElementById('guardianPhone').value;
+      
+      sessionStorage.setItem('guardian_parent_name', parentName);
+      sessionStorage.setItem('guardian_phone', guardianPhone);
+      
+      window.location.href = '/guardian';
+  });
+</script>
+{% endblock %}
