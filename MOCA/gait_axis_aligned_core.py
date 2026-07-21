@@ -13,9 +13,9 @@ from scipy.signal import butter, correlate, find_peaks, sosfiltfilt, spectrogram
 TARGET_FS_HZ = 100.0
 WINDOW_SEC = 10.0
 FEATURES = [
-    "v_acf_stride_peak",
-    "v_acf_stride_peak_width_sec",
-    "ap_acf_stride_peak_width_sec",
+    "v_harmonic_ratio",
+    "ap_harmonic_ratio",
+    "v_stride_freq_hz",
     "ap_spec_entropy",
 ]
 G_IN_M_S2 = 9.80665
@@ -305,18 +305,52 @@ def spec_entropy(x: np.ndarray, fs: float) -> tuple[float, float]:
 
 def window_features(vmlap: np.ndarray) -> dict:
     fs = TARGET_FS_HZ
-    v = bandpass(vmlap[:, 0], fs)
+    v  = bandpass(vmlap[:, 0], fs)
     ap = bandpass(vmlap[:, 2], fs)
-    _, v_stride_peak, v_stride_width = peak_in_range(acf(v), fs, 0.80, 1.70)
-    _, ap_stride_peak, ap_stride_width = peak_in_range(acf(ap), fs, 0.80, 1.70)
+
+    c_v  = acf(v)
+    c_ap = acf(ap)
+
+    v_stride_lag,  v_stride_peak,  v_stride_width  = peak_in_range(c_v,  fs, 0.80, 1.70)
+    ap_stride_lag, ap_stride_peak, ap_stride_width = peak_in_range(c_ap, fs, 0.80, 1.70)
+
+    # Step peak (AD1) at half stride lag — Moe-Nilssen & Helbostad 2004
+    if np.isfinite(v_stride_lag) and v_stride_lag > 0:
+        half_v = v_stride_lag / 2.0
+        _, v_step_peak, _ = peak_in_range(c_v, fs, half_v * 0.6, half_v * 1.4)
+        v_hr = float(v_step_peak / v_stride_peak) if (np.isfinite(v_stride_peak) and v_stride_peak > 1e-6) else np.nan
+        v_stride_freq = 1.0 / v_stride_lag
+    else:
+        v_step_peak  = np.nan
+        v_hr         = np.nan
+        v_stride_freq = np.nan
+
+    if np.isfinite(ap_stride_lag) and ap_stride_lag > 0:
+        half_ap = ap_stride_lag / 2.0
+        _, ap_step_peak, _ = peak_in_range(c_ap, fs, half_ap * 0.6, half_ap * 1.4)
+        ap_hr = float(ap_step_peak / ap_stride_peak) if (np.isfinite(ap_stride_peak) and ap_stride_peak > 1e-6) else np.nan
+    else:
+        ap_step_peak = np.nan
+        ap_hr        = np.nan
+
     _, ap_entropy = spec_entropy(ap, fs)
+
+    # vertical jerk RMS — Kavanagh & Menz 2008; higher = jerkier (worse smoothness)
+    v_jerk_rms = float(np.sqrt(np.mean(np.diff(v)**2)) * fs) if len(v) > 1 else np.nan
+
     return {
-        "v_acf_stride_peak": v_stride_peak,
-        "v_acf_stride_peak_width_sec": v_stride_width,
-        "ap_acf_stride_peak": ap_stride_peak,
+        "v_acf_stride_peak":            v_stride_peak,
+        "v_acf_stride_peak_width_sec":  v_stride_width,
+        "v_acf_step_peak":              v_step_peak,
+        "v_harmonic_ratio":             v_hr,
+        "v_stride_freq_hz":             v_stride_freq,
+        "v_jerk_rms":                   v_jerk_rms,
+        "ap_acf_stride_peak":           ap_stride_peak,
         "ap_acf_stride_peak_width_sec": ap_stride_width,
-        "ap_spec_entropy": ap_entropy,
-        "quality_score": v_stride_peak,
+        "ap_acf_step_peak":             ap_step_peak,
+        "ap_harmonic_ratio":            ap_hr,
+        "ap_spec_entropy":              ap_entropy,
+        "quality_score":                v_stride_peak,
     }
 
 
@@ -399,3 +433,148 @@ def extract_axis_aligned_gait_features(source: str | BinaryIO, axis_scale: dict 
         }
     )
     return extracted
+
+
+DAILY_FEATURES = ["v_jerk_rms_median", "v_jerk_rms_iqr", "v_harmonic_ratio_iqr"]
+
+_DAILY_WIN20   = int(20 * TARGET_FS_HZ)
+_DAILY_SUB_WIN = int(10 * TARGET_FS_HZ)
+_DAILY_STEP    = int(2  * TARGET_FS_HZ)
+
+
+def transform_signal(vmlap: np.ndarray, alpha: float, tau: float) -> np.ndarray:
+    """
+    신호 레벨 도메인 보정.
+    alpha: 진폭 배율 (jerk_rms ∝ alpha)
+    tau:   시간축 배율 (>1 신호 길어짐, <1 짧아짐 → 보행 주파수 변화)
+    100Hz 그리드 유지, 배열 길이만 변함.
+    """
+    scaled = vmlap * float(alpha)
+    n = len(scaled)
+    n_warped = max(10, int(round(n * float(tau))))
+    if n_warped == n:
+        return scaled
+    t_orig = np.linspace(0.0, 1.0, n)
+    t_warp = np.linspace(0.0, 1.0, n_warped)
+    return np.column_stack([
+        np.interp(t_warp, t_orig, scaled[:, i])
+        for i in range(scaled.shape[1])
+    ])
+
+
+def extract_subwindow_daily_features_from_vmlap(vmlap: np.ndarray, duration_sec: float | None = None) -> dict:
+    """
+    VMLAP 100Hz 배열 → v_jerk_rms_median/iqr, v_harmonic_ratio_iqr
+    extract_subwindow_daily_features()와 동일 로직이나 CSV 로드 없이 배열 직접 수신.
+    """
+    sub_feats: list[dict] = []
+    n = len(vmlap)
+    seg_starts = list(range(0, max(1, n - _DAILY_WIN20 + 1), _DAILY_WIN20 // 2))
+    if not seg_starts:
+        seg_starts = [0]
+    for w0 in seg_starts:
+        seg = vmlap[w0 : w0 + _DAILY_WIN20]
+        if len(seg) < int(0.5 * _DAILY_WIN20):
+            continue
+        for s in range(0, max(1, len(seg) - _DAILY_SUB_WIN + 1), _DAILY_STEP):
+            sub = seg[s : s + _DAILY_SUB_WIN]
+            if len(sub) < int(0.8 * _DAILY_SUB_WIN):
+                continue
+            try:
+                f = window_features(sub)
+                sub_feats.append({
+                    "v_harmonic_ratio": f.get("v_harmonic_ratio", np.nan),
+                    "v_jerk_rms":       f.get("v_jerk_rms",       np.nan),
+                })
+            except Exception:
+                continue
+
+    if len(sub_feats) < 2:
+        dur = duration_sec or n / TARGET_FS_HZ
+        raise ValueError(
+            f"분석 가능한 구간이 부족합니다 (필요: ≥20초 보행, 현재: {dur:.1f}초)"
+        )
+
+    arr      = pd.DataFrame(sub_feats)
+    hr_vals  = arr["v_harmonic_ratio"].dropna()
+    jrk_vals = arr["v_jerk_rms"].dropna()
+
+    return {
+        "features": {
+            "v_jerk_rms_median":    float(jrk_vals.median())                                   if len(jrk_vals) >= 2 else np.nan,
+            "v_jerk_rms_iqr":       float(jrk_vals.quantile(0.75) - jrk_vals.quantile(0.25))  if len(jrk_vals) >= 2 else np.nan,
+            "v_harmonic_ratio_iqr": float(hr_vals.quantile(0.75)  - hr_vals.quantile(0.25))   if len(hr_vals)  >= 2 else np.nan,
+        },
+        "window": {
+            "n_sub_windows": len(sub_feats),
+            "duration_sec":  float(duration_sec or n / TARGET_FS_HZ),
+        },
+    }
+
+
+def extract_subwindow_daily_features(source: str | BinaryIO, axis_scale: dict | None = None) -> dict:
+    """
+    CSV → V/ML/AP 정렬 → 20s 윈도우 내 10s 슬라이딩 sub-windows
+    → v_jerk_rms_median, v_jerk_rms_iqr, v_harmonic_ratio_iqr 반환
+    (PhysioNet 75h 임상 라벨 모델 입력 피처)
+    """
+    df, metadata = load_sensor_csv_with_metadata(source)
+    acc, already_vmlap, axes, calibration = _acc_columns(df, metadata)
+    t = df["Timestamp_ns"].to_numpy(float)
+    duration    = (np.nanmax(t) - np.nanmin(t)) / 1e9 if len(t) else np.nan
+    observed_fs = float(len(df) / duration) if np.isfinite(duration) and duration > 0 else TARGET_FS_HZ
+    duration    = len(df) / observed_fs if observed_fs > 0 else len(df) / TARGET_FS_HZ
+
+    aligned, alignment = align_to_vmlap(acc, already_vmlap=already_vmlap, fs=observed_fs)
+    scale = _axis_scale_array(axis_scale)
+    if scale is not None:
+        aligned = aligned * scale.reshape(1, 3)
+    vmlap = resample_array_to_100hz(aligned, observed_fs)
+
+    sub_feats: list[dict] = []
+    n = len(vmlap)
+    # 20s 단위로 분할; 데이터가 짧으면 전체를 하나의 세그먼트로 처리
+    seg_starts = list(range(0, max(1, n - _DAILY_WIN20 + 1), _DAILY_WIN20 // 2))
+    if not seg_starts:
+        seg_starts = [0]
+    for w0 in seg_starts:
+        seg = vmlap[w0 : w0 + _DAILY_WIN20]
+        if len(seg) < int(0.5 * _DAILY_WIN20):  # 10s 이상이면 허용
+            continue
+        win_len = len(seg)
+        for s in range(0, max(1, win_len - _DAILY_SUB_WIN + 1), _DAILY_STEP):
+            sub = seg[s : s + _DAILY_SUB_WIN]
+            if len(sub) < int(0.8 * _DAILY_SUB_WIN):
+                continue
+            try:
+                f = window_features(sub)
+                sub_feats.append({
+                    "v_harmonic_ratio": f.get("v_harmonic_ratio", np.nan),
+                    "v_jerk_rms":       f.get("v_jerk_rms",       np.nan),
+                })
+            except Exception:
+                continue
+
+    if len(sub_feats) < 2:
+        raise ValueError(
+            f"분석 가능한 구간이 부족합니다 (필요: ≥20초 보행, 현재: {duration:.1f}초)"
+        )
+
+    arr      = pd.DataFrame(sub_feats)
+    hr_vals  = arr["v_harmonic_ratio"].dropna()
+    jrk_vals = arr["v_jerk_rms"].dropna()
+
+    features = {
+        "v_jerk_rms_median":    float(jrk_vals.median())                              if len(jrk_vals) >= 2 else np.nan,
+        "v_jerk_rms_iqr":       float(jrk_vals.quantile(0.75) - jrk_vals.quantile(0.25)) if len(jrk_vals) >= 2 else np.nan,
+        "v_harmonic_ratio_iqr": float(hr_vals.quantile(0.75)  - hr_vals.quantile(0.25))  if len(hr_vals)  >= 2 else np.nan,
+    }
+    window = {
+        "n_sub_windows": len(sub_feats),
+        "duration_sec":  float(duration),
+        "observed_fs":   float(observed_fs),
+        "input_axes":    axes,
+        "calibration":   calibration,
+        **alignment,
+    }
+    return {"features": features, "window": window}

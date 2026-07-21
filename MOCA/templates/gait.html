@@ -203,7 +203,7 @@
 
   async function runPrediction(payload, windowInfo = null) {
     gaitResult.hidden = false;
-    gaitResult.textContent = '紐⑤뜽???ㅽ뻾?섎뒗 以묒엯?덈떎...';
+    gaitResult.textContent = '예측을 실행 중입니다...';
     const requestPayload = {...payload};
     if (windowInfo) {
       requestPayload._window = {
@@ -222,17 +222,17 @@
     });
     const data = await res.json();
     if (!data.ok) {
-      gaitResult.textContent = data.error || '異붾줎???ㅽ뙣?덉뒿?덈떎.';
+      gaitResult.textContent = data.error || '분석에 실패했습니다.';
       return;
     }
     const pct = (data.probability * 100).toFixed(1);
     const threshold = (data.threshold * 100).toFixed(1);
     const windowText = windowInfo
-      ? `<span>?좏깮 援ш컙 ${windowInfo.startOffset.toFixed(0)}珥덈???10珥?쨌 ?섑뵆 ${windowInfo.samples.length}媛?/span>`
+      ? `<span>선택 구간 ${windowInfo.startOffset.toFixed(0)}초부터 10초 · 샘플 ${windowInfo.samples.length}개</span>`
       : '';
     gaitResult.innerHTML = `
       <strong>${data.label}</strong>
-      <span>?덉륫 ?뺣쪧 ${pct}% 쨌 湲곗?媛?${threshold}%</span>
+      <span>예측 확률 ${pct}% · 기준값 ${threshold}%</span>
       ${windowText}
     `;
     window.location.href = data.redirect_url || '/final-result?panel=gait';
