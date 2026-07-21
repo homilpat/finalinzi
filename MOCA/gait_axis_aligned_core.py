@@ -380,6 +380,60 @@ def extract_best10_from_vmlap(vmlap: np.ndarray, duration_sec: float | None = No
     }
 
 
+def extract_best10_daily_features_from_vmlap(
+    vmlap: np.ndarray,
+    duration_sec: float | None = None,
+    gyro_pitch: np.ndarray | None = None,
+    gyro_alpha: float = 1.0,
+) -> dict:
+    """
+    VMLAP 100Hz → best quality 10s window → v_jerk_rms, v_harmonic_ratio, pitch_band_rms.
+    추론과 동일한 파이프라인: 20s 녹화 → best 10s 창 1개 → 3 피처.
+    gyro_pitch: 100Hz pitch 각속도 시계열 (rad/s). None이면 pitch_band_rms = NaN.
+    gyro_alpha: feature-level 도메인 보정 계수 (pitch_band_rms에 곱함).
+    """
+    win = int(round(WINDOW_SEC * TARGET_FS_HZ))  # 10s = 1000 samples
+    if len(vmlap) < int(0.8 * win):
+        dur = duration_sec or len(vmlap) / TARGET_FS_HZ
+        raise ValueError(f"분석 가능한 구간이 부족합니다 (필요: ≥8초 보행, 현재: {dur:.1f}초)")
+    if len(vmlap) < win:
+        vmlap = np.pad(vmlap, ((0, win - len(vmlap)), (0, 0)), mode="edge")
+
+    starts = range(0, len(vmlap) - win + 1, max(1, int(round(2 * TARGET_FS_HZ))))
+    best_feat = None
+    best_start = 0
+    for start in starts:
+        feat = window_features(vmlap[start : start + win])
+        if best_feat is None or feat.get("quality_score", -np.inf) > best_feat.get("quality_score", -np.inf):
+            best_feat = feat
+            best_start = start
+
+    if best_feat is None:
+        raise ValueError("best 10s window 추출 실패")
+
+    pitch_band_rms = np.nan
+    if gyro_pitch is not None:
+        sub_g = gyro_pitch[best_start : best_start + win]
+        if len(sub_g) >= int(0.8 * win):
+            pitch_bp = bandpass(sub_g, TARGET_FS_HZ)
+            rms_rads = float(np.sqrt(np.nanmean(pitch_bp ** 2)))
+            pitch_band_rms = rms_rads * 57.2958 * float(gyro_alpha)  # rad/s → deg/s → 보정
+
+    return {
+        "features": {
+            "v_jerk_rms":      float(best_feat.get("v_jerk_rms", np.nan)),
+            "v_harmonic_ratio": float(best_feat.get("v_harmonic_ratio", np.nan)),
+            "pitch_band_rms":  pitch_band_rms,
+        },
+        "window": {
+            "start_sec":    best_start / TARGET_FS_HZ,
+            "end_sec":      (best_start + win) / TARGET_FS_HZ,
+            "quality_score": float(best_feat.get("quality_score", np.nan)),
+            "duration_sec": float(duration_sec or len(vmlap) / TARGET_FS_HZ),
+        },
+    }
+
+
 def _axis_scale_array(axis_scale: dict | None) -> np.ndarray | None:
     if not axis_scale:
         return None
@@ -435,7 +489,8 @@ def extract_axis_aligned_gait_features(source: str | BinaryIO, axis_scale: dict 
     return extracted
 
 
-DAILY_FEATURES = ["v_jerk_rms_median", "v_jerk_rms_iqr", "v_harmonic_ratio_iqr"]
+DAILY_FEATURES     = ["v_jerk_rms_median", "v_jerk_rms_iqr", "v_harmonic_ratio_iqr"]
+BEST10_FEATURES    = ["v_jerk_rms", "v_harmonic_ratio", "pitch_band_rms"]
 
 _DAILY_WIN20   = int(20 * TARGET_FS_HZ)
 _DAILY_SUB_WIN = int(10 * TARGET_FS_HZ)
@@ -462,10 +517,16 @@ def transform_signal(vmlap: np.ndarray, alpha: float, tau: float) -> np.ndarray:
     ])
 
 
-def extract_subwindow_daily_features_from_vmlap(vmlap: np.ndarray, duration_sec: float | None = None) -> dict:
+def extract_subwindow_daily_features_from_vmlap(
+    vmlap: np.ndarray,
+    duration_sec: float | None = None,
+    gyro_pitch: np.ndarray | None = None,
+    gyro_alpha: float = 1.0,
+) -> dict:
     """
-    VMLAP 100Hz 배열 → v_jerk_rms_median/iqr, v_harmonic_ratio_iqr
-    extract_subwindow_daily_features()와 동일 로직이나 CSV 로드 없이 배열 직접 수신.
+    VMLAP 100Hz 배열 → acc-only daily 피처 집계.
+    기본 서비스 모델은 v_jerk_rms_median, v_jerk_rms_iqr, v_harmonic_ratio_iqr만 사용한다.
+    gyro_pitch가 있으면 실험용 pitch_band_rms_median도 함께 계산한다.
     """
     sub_feats: list[dict] = []
     n = len(vmlap)
@@ -482,10 +543,21 @@ def extract_subwindow_daily_features_from_vmlap(vmlap: np.ndarray, duration_sec:
                 continue
             try:
                 f = window_features(sub)
-                sub_feats.append({
+                row: dict = {
                     "v_harmonic_ratio": f.get("v_harmonic_ratio", np.nan),
                     "v_jerk_rms":       f.get("v_jerk_rms",       np.nan),
-                })
+                    "pitch_band_rms":   np.nan,
+                }
+                if gyro_pitch is not None:
+                    abs_s = w0 + s
+                    sub_g = gyro_pitch[abs_s : abs_s + _DAILY_SUB_WIN]
+                    if len(sub_g) >= int(0.8 * _DAILY_SUB_WIN):
+                        pitch_bp = bandpass(sub_g, TARGET_FS_HZ)
+                        rms_rads = float(np.sqrt(np.nanmean(pitch_bp ** 2)))
+                        # rad/s → deg/s 변환 후 gyro_alpha 도메인 보정
+                        rms_dps = rms_rads * 57.2958
+                        row["pitch_band_rms"] = rms_dps * float(gyro_alpha)
+                sub_feats.append(row)
             except Exception:
                 continue
 
@@ -498,12 +570,14 @@ def extract_subwindow_daily_features_from_vmlap(vmlap: np.ndarray, duration_sec:
     arr      = pd.DataFrame(sub_feats)
     hr_vals  = arr["v_harmonic_ratio"].dropna()
     jrk_vals = arr["v_jerk_rms"].dropna()
+    pit_vals = arr["pitch_band_rms"].dropna()
 
     return {
         "features": {
             "v_jerk_rms_median":    float(jrk_vals.median())                                   if len(jrk_vals) >= 2 else np.nan,
             "v_jerk_rms_iqr":       float(jrk_vals.quantile(0.75) - jrk_vals.quantile(0.25))  if len(jrk_vals) >= 2 else np.nan,
             "v_harmonic_ratio_iqr": float(hr_vals.quantile(0.75)  - hr_vals.quantile(0.25))   if len(hr_vals)  >= 2 else np.nan,
+            "pitch_band_rms_median": float(pit_vals.median())                                  if len(pit_vals) >= 2 else np.nan,
         },
         "window": {
             "n_sub_windows": len(sub_feats),

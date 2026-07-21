@@ -59,7 +59,7 @@
           </g>
         </g>
       </svg>
-      <svg class="walk-figure user-figure" viewBox="0 0 140 220" aria-hidden="true">
+      <svg id="userWalkFig" class="walk-figure user-figure" viewBox="0 0 140 220" aria-hidden="true">
         <defs>
           <linearGradient id="userTorsoGradient" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stop-color="#69E6FF"></stop>
@@ -132,4 +132,37 @@
 
   <a class="btn btn-primary btn-lg avatar-next-btn" href="/final-result?panel=gait">다음</a>
 </section>
+
+<script>
+(() => {
+  const preview = {{ gait.signal_preview|default(none)|tojson }};
+  if (!preview || !Array.isArray(preview.v) || !Array.isArray(preview.ml) || preview.v.length === 0) {
+    return;
+  }
+
+  const fig = document.getElementById('userWalkFig');
+  if (!fig) return;
+
+  fig.style.animation = 'none';
+  const v = preview.v;
+  const ml = preview.ml;
+  const dt = Math.max(Number(preview.dt_ms) || 67, 33);
+  const started = performance.now();
+
+  function tick(now) {
+    const idx = Math.floor((now - started) / dt) % v.length;
+    const vertical = Number(v[idx]) || 0;
+    const lateral = Number(ml[idx % ml.length]) || 0;
+    const swayPx = lateral * 16;
+    const bobPx = -Math.abs(vertical) * 13;
+    const scale = 1 + Math.min(0.035, Math.abs(vertical) * 0.018);
+    const rotate = lateral * 4.5;
+
+    fig.style.transform = `translateX(calc(-50% + ${swayPx.toFixed(2)}px)) translateY(${bobPx.toFixed(2)}px) rotate(${rotate.toFixed(2)}deg) scale(${scale.toFixed(3)})`;
+    requestAnimationFrame(tick);
+  }
+
+  requestAnimationFrame(tick);
+})();
+</script>
 {% endblock %}
