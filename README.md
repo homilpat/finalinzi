@@ -314,31 +314,36 @@ CSV 권장 컬럼: `Timestamp_ns`, `Acc_Vertical_g`, `Acc_ML_g`, `Acc_AP_g`
 | 항목 | 내용 |
 |------|------|
 | 피처 | `v_jerk_rms_median`, `v_jerk_rms_iqr`, `v_harmonic_ratio_iqr` (3개 동일) |
-| 훈련/평가 단위 | **Subject 71명** (window 집계 후 subject 1행 = 중앙값) |
+| 훈련/평가 단위 | **Subject 71명** (subject 1행 = 자신의 window 피처 중앙값) |
 | 분할 | 5-fold StratifiedKFold on subjects |
-| LSTM/CNN 입력 | subject당 20s 윈도우 시퀀스 (max_len=100 × 3 features, GPU CUDA 12.4) |
+| 스케일링 | **fold 안에서만** (전통 ML: pipeline 내부, DL: fold-내 IMP+SC fit) |
+| threshold | **fold-train Youden** → test fold에 적용 (OOF 전체 최적화 금지) |
+| LSTM/CNN | subject당 20s 윈도우 시퀀스 (max_len=100 × 3 features, GPU CUDA 12.4) |
 | 스크립트 | `analysis_scripts/model_comparison.py` |
 
-### 결과 (Subject-level AUC 내림차순)
+> 이전 버전 버그: ① 글로벌 스케일러가 test 포함 71명 전체에 fit → 누수, ② threshold를 OOF 전체에서 Youden 최적화 후 같은 데이터에 적용 → Sen 부풀림. 두 버그 모두 수정.
 
-| 순위 | 모델 | AUC | Sensitivity | Specificity | 비고 |
-|------|------|-----|-------------|-------------|------|
-| 1 | CNN-1D | 0.887 | 1.000 | 0.722 | GPU, thr=0.22 (민감도 최우선) |
-| 2 | SVM | 0.885 | 0.971 | 0.722 | RBF kernel |
-| 3 | **LR (채택)** | **0.852** | **0.971** | **0.694** | **최종 서비스 모델** |
-| 4 | Stacking | 0.833 | 0.914 | 0.750 | RF+XGB+SVM → LR meta |
-| 5 | RF | 0.833 | 1.000 | 0.611 | thr=0.22 (민감도 최우선) |
-| 6 | Voting | 0.828 | 0.943 | 0.722 | LR+RF+XGB soft voting |
-| 7 | LSTM | 0.822 | 0.971 | 0.583 | GPU |
-| 8 | GBM | 0.799 | 0.800 | 0.750 | |
-| 9 | XGBoost | 0.796 | 0.943 | 0.694 | |
+### 결과 (Subject-level AUC 내림차순, 5-fold 평균)
+
+| 순위 | 모델 | AUC | Sen (mean±std) | Spec (mean±std) | 비고 |
+|------|------|-----|----------------|-----------------|------|
+| 1 | SVM | **0.887** | 0.971 ± 0.057 | 0.689 ± 0.170 | RBF kernel |
+| 2 | CNN-1D | 0.869 | 0.886 ± 0.107 | 0.746 ± 0.212 | GPU, 시퀀스 입력 |
+| 3 | **LR (채택)** | **0.852** | **0.943 ± 0.070** | **0.636 ± 0.151** | **최종 서비스 모델** |
+| 4 | RF | 0.833 | 0.914 ± 0.070 | 0.664 ± 0.216 | |
+| 5 | Stacking | 0.833 | 0.829 ± 0.057 | 0.746 ± 0.169 | RF+XGB+SVM → LR meta |
+| 6 | LSTM | 0.829 | 0.771 ± 0.070 | 0.750 ± 0.166 | GPU, 시퀀스 입력 |
+| 7 | Voting | 0.828 | 0.800 ± 0.114 | 0.746 ± 0.169 | LR+RF+XGB soft |
+| 8 | GBM | 0.799 | 0.886 ± 0.107 | 0.586 ± 0.194 | |
+| 9 | XGBoost | 0.796 | 0.714 ± 0.181 | 0.721 ± 0.157 | |
 
 ### 해석
 
-- **SVM·CNN1D가 AUC 1~2위**이지만 LR(3위)과 차이 0.033~0.035 수준
-- **GBM·XGB가 LR보다 낮음** — 71명 소규모 데이터에서 트리 기반 부스팅이 과적합 경향
-- **앙상블(Voting)도 LR보다 낮음** — 다수결이 소규모에서 이점 없음
-- **LR 최종 채택 근거**: AUC 3위 × 해석 가능(계수 직접 확인) × 5KB 미만 모델 × 배포 용이
+- **AUC 기준 SVM(0.887)이 가장 높지만 LR(0.852)과 차이 0.035** — fold 변동성(std) 고려 시 통계적으로 유의하지 않을 수 있음
+- **Sen std가 크다** (0.07~0.18) — test fold당 임상저하 피험자 ~7명이어서 불안정한 게 정상
+- **GBM·XGB가 LR보다 낮음** — 71명 소규모에서 부스팅이 과적합 경향
+- **LSTM도 LR보다 낮음** — 시퀀스 구조(window 순서 무작위 추출)가 신호를 주지 못함
+- **LR 최종 채택 근거**: AUC 3위지만 SVM과 통계적 차이 불명확 + 해석 가능 + 5KB 배포
 
 ### 저장 파일
 
