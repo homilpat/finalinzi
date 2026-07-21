@@ -1,8 +1,10 @@
-# Final Project Demo
+# 파이널 프로젝트 데모
 
-## Current Applied App
+## 개요
 
-The deployable app is in `MOCA/`.
+스마트폰 기반 인지·보행 이중 선별 시스템. 병원 방문 없이 태블릿/스마트폰만으로 MoCA-K 인지검사와 보행 운동기능 평가를 동시에 수행하고, 케어타입(A~D형)을 자동 분류한다.
+
+배포 앱: `MOCA/` 디렉토리
 
 ```bash
 cd MOCA
@@ -10,7 +12,68 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Render uses the root `render.yaml`, with `rootDir: MOCA`.
+Render 배포: 루트 `render.yaml`, 대시보드 Root Directory = `MOCA`
+
+---
+
+## MoCA-K 인지검사 모듈
+
+### 개요
+
+**MoCA-K (Montreal Cognitive Assessment - Korean)** 한국판 인지 선별 검사를 웹 기반으로 구현. 총 30점 만점이며 23점 미만 시 MCI(경도인지장애) 의심으로 판정한다.
+
+- 저작권: © Z. Nasreddine MD, 한국판 JY. Lee / www.mocatest.org
+- 교육 보정: 교육연수 6년 이하 → +1점 (최대 30점)
+
+### 검사 버전 로테이션
+
+반복 검사 시 문항 암기 효과를 방지하기 위해 **6개월 주기**로 버전을 자동 교체한다.
+
+| 버전 | 기억 단어 | 유창성 과제 | 동물 (어휘력) | 추상력 쌍 |
+|------|-----------|-------------|---------------|-----------|
+| **MoCA-K** | 얼굴·비단·교회·진달래·빨강 | 시장에서 살 수 있는 것 11개↑ | 사자·코뿔소·낙타 | 기차-자전거 / 시계-자 |
+| **K-MoCA** | 얼굴·비단·학교·피리·노랑 | ㄱ으로 시작하는 단어 6개↑ | 사자·박쥐·낙타 | 기차-비행기 / 시계-저울 |
+
+→ 관련 파일: `MOCA/version_manager.py`
+
+### 검사 항목 (총 30점)
+
+| 항목 | 배점 | 입력 방식 | 채점 모듈 |
+|------|------|-----------|-----------|
+| **길만들기** | 1점 | 터치 드로잉 (숫자-한글 교차 연결) | `trail_making.py` |
+| **드로잉** | 4점 | 손으로 그리기 (육면체 1점 + 시계 3점) | `cube.py`, `clock.py` + CNN |
+| **어휘력** | 3점 | 동물 3마리 이름 말하기 (STT) | `naming.py` |
+| **기억력** | 5점 | 단어 5개 즉각회상(×2) + 지연회상 (STT) | `memory.py` |
+| **주의력** | 6점 | 숫자 따라하기·거꾸로·박수치기·연속빼기7 (STT) | `attention.py` |
+| **언어** | 3점 | 문장 따라 말하기 + 유창성 (STT) | `language.py` |
+| **추상력** | 2점 | 공통점 말하기 (STT) | `abstraction.py` |
+| **지남력** | 6점 | 연·월·일·요일·장소·시군구 말하기 (STT) | `orientation.py` |
+
+### 드로잉 CNN 채점
+
+손으로 그린 육면체·시계를 CNN 모델이 자동 채점한다. 모델 파일이 없으면 규칙 기반(rule-based)으로 자동 폴백.
+
+| 과제 | 모델 | 점수 | 논문 |
+|------|------|------|------|
+| 육면체 그리기 | `cube_cnn_inference_v2.py` | 0~1점 | - |
+| 시계 윤곽 (DeepC) | `clock_cnn_inference.py` | 0~1점 | Park & Lee 2021 mCDT |
+| 시계 숫자 (DeepN) | `clock_cnn_inference.py` | 0~1점 | Park & Lee 2021 mCDT |
+| 시계 바늘 (DeepH) | `clock_cnn_inference.py` | 0~1점 | Park & Lee 2021 mCDT |
+
+### STT (음성인식)
+
+모든 구술 응답은 `whisper_stt.py`를 통해 Whisper(OpenAI) 기반으로 전사한다. 브라우저에서 녹음 → 서버 전송 → 전사 → 채점 순으로 처리.
+
+### MCI 판정 기준
+
+```
+최종점수 = 원점수 + 교육보정(교육연수 ≤ 6년이면 +1, 최대 30점)
+
+최종점수 ≥ 23점 → 정상
+최종점수 < 23점  → MCI 의심
+```
+
+→ 관련 파일: `MOCA/total_scorer.py`
 
 ---
 
