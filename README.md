@@ -162,3 +162,52 @@ python app.py
 ```
 
 Render 배포: 루트 `render.yaml`, `rootDir: MOCA`
+
+---
+
+## 분석 스크립트 파일 목록 (`analysis_scripts/`)
+
+### 전처리 · 피처 추출
+
+| 파일 | 역할 |
+|------|------|
+| `build_75h_subwindow_median_iqr.py` | PhysioNet 75h 일상보행 → 20s/10s 서브윈도우 슬라이딩 → v_jerk_rms / v_harmonic_ratio 집계 (최종 모델 입력 피처 산출) |
+| `build_75h_median_iqr_model.py` | 서브윈도우 median+IQR 피처로 로지스틱 회귀 학습 |
+| `build_75h_daily_walk_model.py` | 75h 일상보행 전체 대상 초기 모델 학습 |
+| `extract_physionet_labwalks_shape_features_all_or.py` | PhysioNet LabWalks 파형 형상 피처 추출 |
+
+### 라벨링
+
+| 파일 | 역할 |
+|------|------|
+| `reclabel_clinical_model.py` | CO/FL 이진 라벨 → 임상 운동평가 OR 조합(`motor_impairment_score ≥ 0.5`) 재라벨링 |
+| `feature_selection_clinical.py` | 재라벨 데이터 기반 피처 중요도 스크리닝 |
+
+### 모델링 · 검증
+
+| 파일 | 역할 |
+|------|------|
+| `quick_physionet_only_8020_feature_screen.py` | PhysioNet 단독 80/20 분할 피처 후보 스크리닝 |
+| `vif_and_width_test.py` | VIF 다중공선성 검사 + 신뢰구간 폭 확인 |
+| `train_test_gap_check.py` | 훈련/테스트 AUC 갭 과적합 여부 확인 |
+| `rebuild_harmonic_ratio_model.py` | Harmonic Ratio 기반 모델 재학습 |
+| `retrain_filtered_domain_corrected.py` | 도메인 보정 후 필터링된 데이터로 재훈련 |
+| `screen_gait_model_options_after_domain_audit.py` | 도메인 감사 후 모델 옵션 스크리닝 |
+
+### 도메인 보정
+
+| 파일 | 역할 |
+|------|------|
+| `calibrate_waist_sensor_range_loss.py` | PhysioNet 정상군 원시 수직신호 RMS 기준값 산출 → `analysis_outputs/waist_sensor_range_loss_calibration/physionet_waist_normal_raw_reference.csv` |
+| `finalize_daily_model_with_correction.py` | 보정 파라미터를 모델 artifact에 저장하여 최종 확정 |
+| `signal_level_mmd_correction.py` | 신호 레벨 amplitude(α) + time warp(τ) MMD 최적화 실험 스크립트 |
+| `upgrade_affine_correction.py` | Affine 보정 실험 (현재 미사용, 참조용) |
+
+### 서비스 파이프라인 (`MOCA/`)
+
+| 파일 | 역할 |
+|------|------|
+| `gait_axis_aligned_core.py` | 축정렬, 리샘플, 대역통과 필터, 서브윈도우 피처 추출, 신호 변환(`transform_signal`) |
+| `gait_axis_aligned_processor.py` | CSV → 신호 레벨 보정(α) → 피처 추출 → 모델 추론 |
+| `models/gait_daily_clinical_3feat.joblib` | 최종 로지스틱 회귀 모델 artifact (signal_correction, threshold 포함) |
+| `models/gait_daily_clinical_3feat_metadata.json` | 모델 메타데이터 (AUC, 피처, 보정 파라미터) |
