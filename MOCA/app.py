@@ -727,12 +727,26 @@ def exercise_complete_page():
 
 @app.route('/report/detail')
 def report_detail_page():
-    return render_template('report_detail.html', exercise=_personal_exercise_data(), back_url='/exercise/complete')
+    return render_template(
+        'report_detail.html',
+        exercise=_personal_exercise_data(),
+        back_url='/exercise/complete',
+        cognitive=_get_cognitive_result(),
+        gait=_get_gait_result(),
+        panel=request.args.get('panel', 'cognitive')
+    )
 
 
 @app.route('/mypage')
 def mypage_page():
-    return render_template('report_detail.html', exercise=_personal_exercise_data(), back_url='/?registered=1')
+    return render_template(
+        'report_detail.html',
+        exercise=_personal_exercise_data(),
+        back_url='/?registered=1',
+        cognitive=_get_cognitive_result(),
+        gait=_get_gait_result(),
+        panel=request.args.get('panel', 'cognitive')
+    )
 
 
 @app.route('/login', methods=['GET', 'POST'])

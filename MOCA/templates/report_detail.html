@@ -67,6 +67,212 @@
       <div><strong>{{ exercise.report.badges }}개</strong><span>배지</span></div>
       <div><strong>{{ exercise.growth.tree_level }}</strong><span>나무</span></div>
     </section>
+
+    <!-- 인지/신체 검사 결과 리포트 섹션 추가 -->
+    <div id="report-tabs" style="margin-top: 30px; scroll-margin-top: 20px;">
+      <nav class="final-tabs" aria-label="결과 선택" style="margin-bottom: 20px;">
+        <button type="button" class="{% if panel != 'gait' %}is-active{% endif %}" data-panel="cognitive" style="flex: 1; padding: 14px; font-weight: bold; border: none; background: #f7fafc; border-bottom: 2px solid #e2e8f0; color: #718096; cursor: pointer;">
+          인지점수 확인
+        </button>
+        <button type="button" class="{% if panel == 'gait' %}is-active{% endif %}" data-panel="gait" style="flex: 1; padding: 14px; font-weight: bold; border: none; background: #f7fafc; border-bottom: 2px solid #e2e8f0; color: #718096; cursor: pointer;">
+          신체점수 확인
+        </button>
+      </nav>
+
+      <section class="final-panel" id="cognitivePanel" {% if panel == 'gait' %}hidden{% endif %}>
+        {% if cognitive %}
+          {% set score = cognitive.score %}
+          <div class="final-score-card {% if score.mci.label == 0 %}is-normal{% else %}is-risk{% endif %}">
+            <span>{{ cognitive.version }}</span>
+            <strong>{{ score.final_score }}<small>/30</small></strong>
+            <em>{{ score.mci.interpretation }}</em>
+          </div>
+
+          {% set section_info = [
+            ('trail_making', '길 만들기', 1),
+            ('drawing', '시공간/실행', 4),
+            ('naming', '이름대기', 3),
+            ('memory', '기억', 5),
+            ('attention', '주의력', 6),
+            ('language', '언어', 3),
+            ('abstraction', '추상력', 2),
+            ('orientation', '지남력', 6)
+          ] %}
+          <div class="final-card" style="background: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 16px;">
+            <h3>영역별 점수</h3>
+            {% for key, label, max_score in section_info %}
+              {% set got = score.sections.get(key, 0) %}
+              <div class="final-score-row {% if got < max_score %}has-loss{% endif %}">
+                <span>{{ label }}</span>
+                <div><i style="width: {{ (got / max_score * 100) | int }}%"></i></div>
+                <strong>{{ got }}/{{ max_score }}</strong>
+              </div>
+            {% endfor %}
+          </div>
+
+          <div class="final-card" style="background: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 16px;">
+            <h3>확인 필요한 분야</h3>
+            <ul class="final-list">
+              {% for key, label, max_score in section_info %}
+                {% set got = score.sections.get(key, 0) %}
+                {% if got < max_score %}
+                  <li><strong>{{ label }}</strong><span>{{ max_score - got }}점 감점 또는 확인 필요</span></li>
+                {% endif %}
+              {% endfor %}
+            </ul>
+          </div>
+
+          <div class="final-card" style="background: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 16px;">
+            <h3 onclick="toggleResponseRecord()" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; margin: 0;">
+              <span>내 응답 기록</span>
+              <span id="responseToggleArrow" style="font-size: 16px; transition: transform 0.2s;">▼</span>
+            </h3>
+            <div class="answer-grid" id="responseAnswerGrid" style="display: none; margin-top: 16px;">
+              {% set key_map = {
+                'animal1': '동물 이름 말하기 (1회차)',
+                'animal2': '동물 이름 말하기 (2회차)',
+                'animal3': '동물 이름 말하기 (3회차)',
+                'immediate1': '단어 기억하기 (1회차)',
+                'immediate2': '단어 기억하기 (2회차)',
+                'forward': '숫자 말하기 (바로)',
+                'backward': '숫자 말하기 (거꾸로)',
+                'serial7': '계산하기',
+                'sentence1': '따라 말하기 (1회차)',
+                'sentence2': '따라 말하기 (2회차)',
+                'fluency': '단어 말하기',
+                'delayed_recall': '단어 기억하기 (3회차)',
+                'year': '날짜 말하기 (년도)',
+                'month': '날짜 말하기 (월)',
+                'day': '날짜 말하기 (일)',
+                'weekday': '날짜 말하기 (요일)',
+                'place': '장소 말하기 (동네)',
+                'sigungu': '장소 말하기 (시/군/구)'
+              } %}
+              {% for key, value in cognitive.raw.items() %}
+                {% if value and key.endswith('_stt') %}
+                  {% set clean_key = key.replace('_stt', '') %}
+                  <div>
+                    <span>{{ key_map.get(clean_key, clean_key) }}</span>
+                    <strong>{{ value }}</strong>
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+        {% else %}
+          <div class="final-empty" style="text-align: center; padding: 30px; color: #a0aec0;">아직 인지평가 결과가 없습니다.</div>
+        {% endif %}
+      </section>
+
+      <section class="final-panel" id="gaitPanel" {% if panel != 'gait' %}hidden{% endif %}>
+        {% if gait %}
+          <div class="final-score-card {% if gait.prediction %}is-risk{% else %}is-normal{% endif %}">
+            <span>보행 모델</span>
+            <strong>{{ '%.1f'|format(gait.probability * 100) }}<small>%</small></strong>
+            <em>{{ gait.label }}</em>
+          </div>
+
+          <div class="gait-metrics-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
+            <div style="background: #ffffff; border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
+              <span style="font-size: 13px; color: #718096;">발 들림/추진</span>
+              <strong style="display: block; font-size: 18px; margin-top: 4px;">{{ gait.visual.step_lift_pct|default(0) }}%</strong>
+            </div>
+            <div style="background: #ffffff; border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
+              <span style="font-size: 13px; color: #718096;">좌우 흔들림</span>
+              <strong style="display: block; font-size: 18px; margin-top: 4px;">{{ gait.visual.lateral_sway_pct|default(0) }}%</strong>
+            </div>
+            <div style="background: #ffffff; border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
+              <span style="font-size: 13px; color: #718096;">리듬 규칙성</span>
+              <strong style="display: block; font-size: 18px; margin-top: 4px;">{{ gait.visual.rhythm_pct|default(0) }}%</strong>
+            </div>
+            <div style="background: #ffffff; border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
+              <span style="font-size: 13px; color: #718096;">몸통 회전</span>
+              <strong style="display: block; font-size: 18px; margin-top: 4px;">{{ gait.visual.trunk_rotation_pct|default(0) }}%</strong>
+            </div>
+          </div>
+
+          <div class="final-card" style="background: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 16px;">
+            <h3>문제 가능 feature</h3>
+            <ul class="final-list">
+              {% for item in gait.insights %}
+                <li class="{% if item.is_problem %}is-risk{% endif %}">
+                  <strong>{{ item.label }}</strong>
+                  <span>{{ item.message }} · {{ '%.3f'|format(item.value) }}{{ item.unit }}</span>
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+
+          <div class="final-card" style="background: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 16px;">
+            <h3>모델 기여도</h3>
+            <p class="xai-note" style="font-size: 12px; color: #718096; margin-bottom: 12px;">현재는 로지스틱 회귀의 표준화 feature × 계수 기반 설명입니다. 최종 앱에서는 SHAP을 붙이면 더 정식 XAI로 표현할 수 있습니다.</p>
+            {% for item in gait.explainability %}
+              <div class="xai-row {{ item.direction }}">
+                <span>{{ item.label }}</span>
+                <div><i style="width: {{ item.width }}%"></i></div>
+                <strong>{% if item.direction == 'risk' %}위험 ↑{% else %}위험 ↓{% endif %}</strong>
+              </div>
+            {% endfor %}
+          </div>
+
+          <div class="final-card spectrum-card" style="background: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 16px;">
+            <h3>스펙트럼 설명</h3>
+            <div class="spectrum-preview" aria-hidden="true">
+              {% for i in range(32) %}<span style="height: {{ 20 + ((i * 17) % 58) }}%"></span>{% endfor %}
+            </div>
+            <p class="xai-note" style="font-size: 12px; color: #718096; margin-top: 12px;">스펙트로그램은 원신호의 시간-주파수 패턴을 보여주는 설명 보조 도구입니다. SHAP은 모델 판정에 feature가 얼마나 기여했는지 설명하는 XAI입니다.</p>
+          </div>
+        {% else %}
+          <div class="final-empty" style="text-align: center; padding: 30px; color: #a0aec0;">아직 신체평가 결과가 없습니다.</div>
+        {% endif %}
+      </section>
+    </div>
   </main>
 </div>
+
+<script>
+  // 탭 클릭 전환
+  const tabs = document.querySelectorAll('#report-tabs .final-tabs button');
+  const cognitivePanel = document.getElementById('cognitivePanel');
+  const gaitPanel = document.getElementById('gaitPanel');
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const isGait = tab.dataset.panel === 'gait';
+      tabs.forEach((item) => {
+        item.classList.toggle('is-active', item === tab);
+        if (item === tab) {
+          item.style.color = '#005da7';
+          item.style.borderBottom = '3px solid #005da7';
+        } else {
+          item.style.color = '#718096';
+          item.style.borderBottom = '2px solid #e2e8f0';
+        }
+      });
+      cognitivePanel.hidden = isGait;
+      gaitPanel.hidden = !isGait;
+    });
+  });
+
+  // 초기 로드 시 active 스타일 지정
+  tabs.forEach((tab) => {
+    const isActive = tab.classList.contains('is-active');
+    if (isActive) {
+      tab.style.color = '#005da7';
+      tab.style.borderBottom = '3px solid #005da7';
+    }
+  });
+
+  // 내 응답 기록 토글 기능
+  function toggleResponseRecord() {
+    const grid = document.getElementById('responseAnswerGrid');
+    const arrow = document.getElementById('responseToggleArrow');
+    if (grid.style.display === 'none') {
+      grid.style.display = 'grid';
+      arrow.textContent = '▲';
+    } else {
+      grid.style.display = 'none';
+      arrow.textContent = '▼';
+    }
+  }
+</script>
 {% endblock %}

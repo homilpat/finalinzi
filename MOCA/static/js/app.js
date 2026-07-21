@@ -577,14 +577,7 @@ function advanceMultiStep(text) {
     App.timerStarted = false;
     if (App.multiStep < (App.namingAnimals || []).length) {
       showAnimal(App.multiStep);
-      const waves = document.getElementById('ttsWaves');
-      const txt = document.getElementById('ttsText');
-      const replayBtn = document.getElementById('replayBtn');
-      if (waves) waves.style.display = 'flex';
-      if (txt) txt.style.display = 'inline';
-      if (replayBtn) replayBtn.style.display = 'none';
-      App.ttsIndex = 0;
-      playNextTTS();
+      startTimer(App.duration);
     } else {
       submitAfterCaptured();
     }
