@@ -10,7 +10,7 @@ from flask import Flask, render_template, request, jsonify, session, send_from_d
 import numpy as np
 import cv2
 from exercise_sensor_processor import analyze_exercise_csv
-from gait_axis_aligned_processor import predict_axis_aligned_gait_csv
+from gait_axis_aligned_processor import predict_axis_aligned_gait_csv, predict_daily_gait_csv
 from database import (
     EDUCATION_LEVELS,
     complete_assessment,
@@ -135,17 +135,35 @@ def _load_gait_models():
 
 
 def _gait_model_summary():
+    daily_meta_path = os.path.join(app.root_path, "models", "gait_daily_clinical_3feat_metadata.json")
+    daily_meta = {}
+    if os.path.exists(daily_meta_path):
+        try:
+            with open(daily_meta_path, "r", encoding="utf-8") as f:
+                daily_meta = json.load(f)
+        except Exception:
+            pass
+    daily_available = os.path.exists(os.path.join(app.root_path, "models", "gait_daily_clinical_3feat.joblib"))
+
     models = _load_gait_models()
-    model = models["primary"]["model"] or models["fallback"]["model"]
-    metadata = models["primary"]["metadata"] or models["fallback"]["metadata"]
-    meta = metadata or {}
+    rt_model = models["primary"]["model"] or models["fallback"]["model"]
+
+    oof = daily_meta.get("oof", {})
+    train = daily_meta.get("train", {})
     return {
-        "available": model is not None,
-        "threshold_strategy": meta.get("threshold_strategy", "nested_inner_oof_youden"),
-        "threshold": meta.get("threshold"),
-        "n_subjects": meta.get("n_subjects"),
-        "features": meta.get("features", GAIT_FEATURES),
-        "metrics": meta.get("cv_metrics", {}),
+        "available": daily_available or rt_model is not None,
+        "daily_model_available": daily_available,
+        "threshold": daily_meta.get("threshold", 0.470),
+        "threshold_strategy": "youden_subject_auc",
+        "n_subjects": train.get("n_subjects"),
+        "features": daily_meta.get("features", GAIT_FEATURES),
+        "metrics": {
+            "subject_auc": oof.get("auc"),
+            "sensitivity": oof.get("sens"),
+            "specificity": oof.get("spec"),
+        },
+        "label_source": daily_meta.get("label_source"),
+        "realtime_model_available": rt_model is not None,
     }
 
 
@@ -921,60 +939,101 @@ def gait_upload_csv():
     upload = request.files.get('file')
     if upload is None or not upload.filename:
         return jsonify({'ok': False, 'error': 'CSV 파일을 선택해 주세요.'}), 400
-    if os.path.exists(os.path.join(app.root_path, "models", "gait_axis_aligned_physionet_youden.joblib")):
+    model_dir = os.path.join(app.root_path, "models")
+    daily_model_path = os.path.join(model_dir, "gait_daily_clinical_3feat.joblib")
+    axis_model_path  = os.path.join(model_dir, "gait_axis_aligned_physionet_youden.joblib")
+
+    if os.path.exists(daily_model_path):
         try:
-            result = predict_axis_aligned_gait_csv(upload.stream, os.path.join(app.root_path, "models"))
+            result = predict_daily_gait_csv(upload.stream, model_dir)
         except Exception as e:
             return jsonify({'ok': False, 'error': f'CSV 전처리 실패: {e}'}), 400
 
+        feats = result['features']
+        jerk_med = _safe_float(feats.get('v_jerk_rms_median'))
+        hr_iqr   = _safe_float(feats.get('v_harmonic_ratio_iqr'))
         gait_result = {
-            'probability': result['probability'],
-            'threshold': result['threshold'],
-            'prediction': result['prediction'],
-            'label': result['label'],
+            'probability':        result['probability'],
+            'threshold':          result['threshold'],
+            'prediction':         result['prediction'],
+            'label':              result['label'],
             'threshold_strategy': result['threshold_strategy'],
-            'model_mode': result['model_mode'],
-            'features': result['features'],
+            'model_mode':         result['model_mode'],
+            'features':           feats,
             'insights': [
                 {
-                    'key': 'v_acf_stride_peak',
-                    'label': '수직 보행 반복성',
-                    'value': _safe_float(result['features'].get('v_acf_stride_peak')),
-                    'unit': '',
-                    'is_problem': _safe_float(result['features'].get('v_acf_stride_peak')) < 0.75,
-                    'message': '수직 보행 리듬 반복성이 낮습니다.' if _safe_float(result['features'].get('v_acf_stride_peak')) < 0.75 else '수직 보행 리듬이 비교적 안정적입니다.',
+                    'key': 'v_jerk_rms_median',
+                    'label': '보행 부드러움',
+                    'value': jerk_med,
+                    'unit': 'g/s',
+                    'is_problem': jerk_med < 1.2,
+                    'message': '보행 중 수직 가속도 변화가 작아 보행 속도가 느리거나 걸음이 작을 수 있습니다.' if jerk_med < 1.2 else '보행 중 수직 충격이 적절합니다.',
                 },
                 {
-                    'key': 'ap_spec_entropy',
-                    'label': '앞뒤 움직임 복잡도',
-                    'value': _safe_float(result['features'].get('ap_spec_entropy')),
+                    'key': 'v_harmonic_ratio_iqr',
+                    'label': '보행 리듬 일관성',
+                    'value': hr_iqr,
                     'unit': '',
-                    'is_problem': _safe_float(result['features'].get('ap_spec_entropy')) > 0.75,
-                    'message': '앞뒤 움직임 주파수 패턴이 분산되어 있습니다.' if _safe_float(result['features'].get('ap_spec_entropy')) > 0.75 else '앞뒤 움직임 주파수 패턴이 비교적 규칙적입니다.',
+                    'is_problem': hr_iqr > 0.10,
+                    'message': '보행 리듬이 불규칙합니다.' if hr_iqr > 0.10 else '보행 리듬이 비교적 일정합니다.',
                 },
             ],
             'explainability': [],
             'visual': _gait_visual_profile({
-                'v_amp_pool_median': max(0.02, _safe_float(result['features'].get('v_acf_stride_peak')) / 6),
-                'ml_amp_pool_iqr': max(0.02, (1 - _safe_float(result['features'].get('v_acf_stride_peak'))) / 4),
-                'base_v_stride_regularity': _safe_float(result['features'].get('v_acf_stride_peak'), 0.7),
-                'roll_amp_pool_iqr': 10 + (_safe_float(result['features'].get('ap_spec_entropy')) * 10),
+                'v_amp_pool_median': max(0.02, min(1.0, jerk_med / 5.0)),
+                'ml_amp_pool_iqr':   max(0.02, hr_iqr),
+                'base_v_stride_regularity': max(0.0, 1.0 - hr_iqr * 5),
+                'roll_amp_pool_iqr': 10 + hr_iqr * 20,
             }),
             'window': result['window'],
         }
         _save_gait_result(gait_result)
         return jsonify({
             'ok': True,
-            'probability': result['probability'],
-            'threshold': result['threshold'],
-            'prediction': result['prediction'],
-            'label': result['label'],
+            'probability':        result['probability'],
+            'threshold':          result['threshold'],
+            'prediction':         result['prediction'],
+            'label':              result['label'],
             'threshold_strategy': result['threshold_strategy'],
-            'model_mode': result['model_mode'],
-            'features': result['features'],
+            'model_mode':         result['model_mode'],
+            'features':           feats,
+            'window':             result['window'],
+            'extracted_features': feats,
+            'redirect_url':       url_for('gait_avatar_page'),
+        }), 200
+
+    if os.path.exists(axis_model_path):
+        try:
+            result = predict_axis_aligned_gait_csv(upload.stream, model_dir)
+        except Exception as e:
+            return jsonify({'ok': False, 'error': f'CSV 전처리 실패: {e}'}), 400
+
+        gait_result = {
+            'probability':        result['probability'],
+            'threshold':          result['threshold'],
+            'prediction':         result['prediction'],
+            'label':              result['label'],
+            'threshold_strategy': result['threshold_strategy'],
+            'model_mode':         result['model_mode'],
+            'features':           result['features'],
+            'insights': [],
+            'explainability': [],
+            'visual': _gait_visual_profile({}),
             'window': result['window'],
+        }
+        _save_gait_result(gait_result)
+        return jsonify({
+            'ok': True,
+            'probability':        result['probability'],
+            'threshold':          result['threshold'],
+            'prediction':         result['prediction'],
+            'label':              result['label'],
+            'threshold_strategy': result['threshold_strategy'],
+            'model_mode':         result['model_mode'],
+            'features':           result['features'],
+            'window':             result['window'],
             'extracted_features': result['features'],
-            'redirect_url': url_for('gait_avatar_page'),
+            'redirect_url':       url_for('gait_avatar_page'),
         }), 200
 
     try:

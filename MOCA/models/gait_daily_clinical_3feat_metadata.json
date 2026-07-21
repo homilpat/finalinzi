@@ -1,0 +1,59 @@
+{
+  "features": [
+    "v_jerk_rms_median",
+    "v_jerk_rms_iqr",
+    "v_harmonic_ratio_iqr"
+  ],
+  "domain_correction": {
+    "v_jerk_rms_median": 0.6782612206358798,
+    "v_jerk_rms_iqr": -0.054582011804789304,
+    "v_harmonic_ratio_iqr": 0.025044136843251366
+  },
+  "threshold": 0.47,
+  "label_source": "motor_impairment_score >= 0.5",
+  "oof": {
+    "auc": 0.881,
+    "sens": 0.971,
+    "spec": 0.722,
+    "thr": 0.47,
+    "unit": "subject"
+  },
+  "train": {
+    "dataset": "PhysioNet 75h",
+    "n_subjects": 71,
+    "n_normal": 3600,
+    "n_impaired": 3461
+  },
+  "vif_max": 1.75,
+  "train_test_gap": 0.012,
+  "domain_correction_affine": {
+    "v_jerk_rms_median": {
+      "scale": 1.2155795015786757,
+      "shift": 0.3603164842559694
+    },
+    "v_jerk_rms_iqr": {
+      "scale": 0.7534404124494933,
+      "shift": 0.03190450467857338
+    },
+    "v_harmonic_ratio_iqr": {
+      "scale": 4.096278849671891,
+      "shift": -0.03923483599322178
+    }
+  },
+  "domain_correction_additive": {
+    "v_jerk_rms_median": 0.6137511078866671,
+    "v_jerk_rms_iqr": -0.0014493338249109977,
+    "v_harmonic_ratio_iqr": 0.040671803858185154
+  },
+  "domain_correction_n_our_normals": 8,
+  "domain_correction_n_pn_normals": 36,
+  "signal_correction": {
+    "alpha": 1.9705093832241642,
+    "tau": 1.0,
+    "description": "sensor-level v_bp_rms ratio: OUR vs PhysioNet raw reference",
+    "our_v_bp_rms_median": 0.09838236440400697,
+    "pn_v_bp_rms_median": 0.19386337220187475,
+    "n_our_normals": 6
+  },
+  "threshold_strategy": "physionet_youden_with_sensor_level_correction"
+}
