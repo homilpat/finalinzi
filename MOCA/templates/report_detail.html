@@ -103,23 +103,11 @@
             {% for key, label, max_score in section_info %}
               {% set got = score.sections.get(key, 0) %}
               <div class="final-score-row {% if got < max_score %}has-loss{% endif %}">
-                <span>{{ label }}</span>
+                <span {% if got < max_score %}style="color: #e53e3e; font-weight: bold;"{% endif %}>{{ label }}</span>
                 <div><i style="width: {{ (got / max_score * 100) | int }}%"></i></div>
-                <strong>{{ got }}/{{ max_score }}</strong>
+                <strong {% if got < max_score %}style="color: #e53e3e;"{% endif %}>{{ got }}/{{ max_score }}</strong>
               </div>
             {% endfor %}
-          </div>
-
-          <div class="final-card" style="background: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 16px;">
-            <h3>확인 필요한 분야</h3>
-            <ul class="final-list">
-              {% for key, label, max_score in section_info %}
-                {% set got = score.sections.get(key, 0) %}
-                {% if got < max_score %}
-                  <li><strong>{{ label }}</strong><span>{{ max_score - got }}점 감점 또는 확인 필요</span></li>
-                {% endif %}
-              {% endfor %}
-            </ul>
           </div>
 
           <div class="final-card" style="background: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 16px;">
