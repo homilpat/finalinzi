@@ -9,6 +9,8 @@ from uuid import uuid4
 from flask import Flask, render_template, request, jsonify, session, send_from_directory, redirect, url_for
 import numpy as np
 import cv2
+from exercise_sensor_processor import analyze_exercise_csv
+from gait_axis_aligned_processor import predict_axis_aligned_gait_csv
 from database import (
     EDUCATION_LEVELS,
     complete_assessment,
@@ -725,6 +727,31 @@ def exercise_complete_page():
     return render_template('exercise_complete.html', exercise=exercise)
 
 
+@app.route('/exercise/sensor/analyze', methods=['POST'])
+def exercise_sensor_analyze():
+    upload = request.files.get('file')
+    exercise_type = request.form.get('exercise_type') or request.args.get('exercise_type')
+    if upload is None:
+        data = request.get_json(silent=True) or {}
+        exercise_type = exercise_type or data.get('exercise_type')
+        csv_text = data.get('csv')
+        if not csv_text:
+            return jsonify({'ok': False, 'error': 'missing_csv_file'}), 400
+        from io import StringIO
+        source = StringIO(csv_text)
+    else:
+        source = upload.stream
+
+    if not exercise_type:
+        return jsonify({'ok': False, 'error': 'missing_exercise_type'}), 400
+
+    try:
+        result = analyze_exercise_csv(source, exercise_type)
+    except Exception as e:
+        return jsonify({'ok': False, 'error': str(e)}), 400
+    return jsonify({'ok': True, 'result': result})
+
+
 @app.route('/report/detail')
 def report_detail_page():
     return render_template(
@@ -811,9 +838,14 @@ def _predict_gait_from_payload(data):
         feature_values[GAIT_STRIDE_FEATURE] = stride_value
 
     try:
-        values = [float(feature_values[feature]) for feature in model_features]
+        raw_values = [float(feature_values[feature]) for feature in model_features]
     except (KeyError, TypeError, ValueError):
         return None, ({'ok': False, 'error': '보행 feature 조합이 모델과 맞지 않습니다. 다시 측정해 주세요.'}, 400)
+
+    # Domain correction: lab→app additive shift (N=2 normal samples, 2026-07-17)
+    domain_correction = models.get("primary", {}).get("metadata", {}).get("domain_correction", {})
+    deltas = domain_correction.get("deltas", {})
+    values = [rv + deltas.get(f, 0.0) for rv, f in zip(raw_values, model_features)]
 
     import pandas as pd
     frame = pd.DataFrame([values], columns=model_features)
@@ -869,6 +901,62 @@ def gait_upload_csv():
     upload = request.files.get('file')
     if upload is None or not upload.filename:
         return jsonify({'ok': False, 'error': 'CSV 파일을 선택해 주세요.'}), 400
+    if os.path.exists(os.path.join(app.root_path, "models", "gait_axis_aligned_physionet_youden.joblib")):
+        try:
+            result = predict_axis_aligned_gait_csv(upload.stream, os.path.join(app.root_path, "models"))
+        except Exception as e:
+            return jsonify({'ok': False, 'error': f'CSV 전처리 실패: {e}'}), 400
+
+        gait_result = {
+            'probability': result['probability'],
+            'threshold': result['threshold'],
+            'prediction': result['prediction'],
+            'label': result['label'],
+            'threshold_strategy': result['threshold_strategy'],
+            'model_mode': result['model_mode'],
+            'features': result['features'],
+            'insights': [
+                {
+                    'key': 'v_acf_stride_peak',
+                    'label': '수직 보행 반복성',
+                    'value': _safe_float(result['features'].get('v_acf_stride_peak')),
+                    'unit': '',
+                    'is_problem': _safe_float(result['features'].get('v_acf_stride_peak')) < 0.75,
+                    'message': '수직 보행 리듬 반복성이 낮습니다.' if _safe_float(result['features'].get('v_acf_stride_peak')) < 0.75 else '수직 보행 리듬이 비교적 안정적입니다.',
+                },
+                {
+                    'key': 'ap_spec_entropy',
+                    'label': '앞뒤 움직임 복잡도',
+                    'value': _safe_float(result['features'].get('ap_spec_entropy')),
+                    'unit': '',
+                    'is_problem': _safe_float(result['features'].get('ap_spec_entropy')) > 0.75,
+                    'message': '앞뒤 움직임 주파수 패턴이 분산되어 있습니다.' if _safe_float(result['features'].get('ap_spec_entropy')) > 0.75 else '앞뒤 움직임 주파수 패턴이 비교적 규칙적입니다.',
+                },
+            ],
+            'explainability': [],
+            'visual': _gait_visual_profile({
+                'v_amp_pool_median': max(0.02, _safe_float(result['features'].get('v_acf_stride_peak')) / 6),
+                'ml_amp_pool_iqr': max(0.02, (1 - _safe_float(result['features'].get('v_acf_stride_peak'))) / 4),
+                'base_v_stride_regularity': _safe_float(result['features'].get('v_acf_stride_peak'), 0.7),
+                'roll_amp_pool_iqr': 10 + (_safe_float(result['features'].get('ap_spec_entropy')) * 10),
+            }),
+            'window': result['window'],
+        }
+        _save_gait_result(gait_result)
+        return jsonify({
+            'ok': True,
+            'probability': result['probability'],
+            'threshold': result['threshold'],
+            'prediction': result['prediction'],
+            'label': result['label'],
+            'threshold_strategy': result['threshold_strategy'],
+            'model_mode': result['model_mode'],
+            'features': result['features'],
+            'window': result['window'],
+            'extracted_features': result['features'],
+            'redirect_url': url_for('gait_avatar_page'),
+        }), 200
+
     try:
         from gait_csv_processor import extract_gait_features_from_csv
         extracted = extract_gait_features_from_csv(upload.stream)

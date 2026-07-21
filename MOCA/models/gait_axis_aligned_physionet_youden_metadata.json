@@ -1,0 +1,123 @@
+{
+  "features": [
+    "v_acf_stride_peak",
+    "v_acf_stride_peak_width_sec",
+    "ap_acf_stride_peak_width_sec",
+    "ap_spec_entropy"
+  ],
+  "reference_mode": "physionet_normal",
+  "threshold_mode": "youden",
+  "threshold": 0.5599999999999999,
+  "cv_metrics": {
+    "auc": 0.8506725514922236,
+    "acc": 0.81,
+    "sens": 0.9344262295081968,
+    "spec": 0.6153846153846154,
+    "f1": 0.8571428571428571,
+    "threshold": 0.27999999999999997,
+    "tn": 48,
+    "fp": 30,
+    "fn": 8,
+    "tp": 114
+  },
+  "train_metrics_at_deploy_threshold": {
+    "auc": 0.8700084068936528,
+    "acc": 0.75,
+    "sens": 0.6475409836065574,
+    "spec": 0.9102564102564102,
+    "f1": 0.7596153846153846,
+    "threshold": 0.5599999999999999,
+    "tn": 71,
+    "fp": 7,
+    "fn": 43,
+    "tp": 79
+  },
+  "oof_threshold": 0.27999999999999997,
+  "deploy_threshold_note": "OOF threshold is reported for validation. Deployed threshold is selected on the final public training set by Youden after model selection; held-out OUR_SAMPLE is not used for fitting.",
+  "fold_metrics": [
+    {
+      "auc": 0.8686868686868687,
+      "acc": 0.8,
+      "sens": 0.6666666666666666,
+      "spec": 0.9090909090909091,
+      "f1": 0.75,
+      "threshold": 0.615,
+      "tn": 20,
+      "fp": 2,
+      "fn": 6,
+      "tp": 12,
+      "fold": 1,
+      "train_n": 160,
+      "test_n": 40
+    },
+    {
+      "auc": 0.8324175824175825,
+      "acc": 0.775,
+      "sens": 0.9230769230769231,
+      "spec": 0.5,
+      "f1": 0.8421052631578947,
+      "threshold": 0.37999999999999995,
+      "tn": 7,
+      "fp": 7,
+      "fn": 2,
+      "tp": 24,
+      "fold": 2,
+      "train_n": 160,
+      "test_n": 40
+    },
+    {
+      "auc": 0.8888888888888888,
+      "acc": 0.85,
+      "sens": 0.9259259259259259,
+      "spec": 0.6923076923076923,
+      "f1": 0.8928571428571429,
+      "threshold": 0.33499999999999996,
+      "tn": 9,
+      "fp": 4,
+      "fn": 2,
+      "tp": 25,
+      "fold": 3,
+      "train_n": 160,
+      "test_n": 40
+    },
+    {
+      "auc": 0.8333333333333334,
+      "acc": 0.575,
+      "sens": 0.4642857142857143,
+      "spec": 0.8333333333333334,
+      "f1": 0.6046511627906976,
+      "threshold": 0.5049999999999999,
+      "tn": 10,
+      "fp": 2,
+      "fn": 15,
+      "tp": 13,
+      "fold": 4,
+      "train_n": 160,
+      "test_n": 40
+    },
+    {
+      "auc": 0.8772378516624041,
+      "acc": 0.725,
+      "sens": 0.8260869565217391,
+      "spec": 0.5882352941176471,
+      "f1": 0.7755102040816326,
+      "threshold": 0.38499999999999995,
+      "tn": 10,
+      "fp": 7,
+      "fn": 4,
+      "tp": 19,
+      "fold": 5,
+      "train_n": 160,
+      "test_n": 40
+    }
+  ],
+  "dataset_counts": {
+    "Chapman_PD_OFF_RAW::target_1": 20,
+    "FoG_STAR_BACK_WALK::target_1": 67,
+    "GEOTEC_SP::target_0": 10,
+    "PhysioNet_LabWalks::target_0": 38,
+    "PhysioNet_LabWalks::target_1": 35,
+    "UCI_HAR::target_0": 30
+  },
+  "service_note": "Training domains with available normal controls are median-shift corrected to PhysioNet LabWalks normal reference. OUR_SAMPLE is held out and not used for fitting or correction."
+}

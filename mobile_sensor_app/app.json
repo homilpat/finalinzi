@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Finalinzi Sensor",
+    "slug": "finalinzi-sensor",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSMotionUsageDescription": "보행 평가를 위해 가속도계와 자이로스코프 센서값을 측정합니다."
+      }
+    },
+    "android": {
+      "permissions": [
+        "HIGH_SAMPLING_RATE_SENSORS"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "보행 평가를 위해 모션 센서 접근을 허용해 주세요."
+        }
+      ]
+    ]
+  }
+}

@@ -4,7 +4,7 @@
   "data": "Labwalks 10sec lab walking",
   "model": "LogisticRegression L2 class_weight=balanced C=0.5",
   "threshold_strategy": "nested_inner_oof_youden",
-  "threshold": 0.48978492988237443,
+  "threshold": 0.48978,
   "n_subjects": 67,
   "positive": 25,
   "negative": 42,
@@ -36,5 +36,33 @@
     "fn": 4,
     "tp": 21,
     "inner_oof_threshold_auc": 0.8342857142857143
+  },
+  "domain_correction": {
+    "strategy": "additive_shift",
+    "description": "Additive feature shift: lab_Control_mean - realworld_normal_mean. Apply as: corrected_feature = raw_feature + delta before model inference.",
+    "calibration_date": "2026-07-18",
+    "calibration_n_normal": 1,
+    "sample_paths": [
+      "C:\\Users\\whdgu\\Desktop\\파이널 프로젝트\\보행SAMPLE\\hazi_gait_anatomical_14cols_20260715_163129.csv"
+    ],
+    "lab_control_mean": {
+      "v_amp_pool_median": 0.15413,
+      "ml_amp_pool_iqr": 0.04898,
+      "base_v_stride_regularity": 0.79219,
+      "roll_amp_pool_iqr": 14.06369
+    },
+    "realworld_normal_mean": {
+      "v_amp_pool_median": 0.07507942184171823,
+      "ml_amp_pool_iqr": 0.05422741363084958,
+      "base_v_stride_regularity": 0.5567056738049827,
+      "roll_amp_pool_iqr": 9.317257482814675
+    },
+    "deltas": {
+      "v_amp_pool_median": 0.07905057815828176,
+      "ml_amp_pool_iqr": -0.00524741363084958,
+      "base_v_stride_regularity": 0.23548432619501725,
+      "roll_amp_pool_iqr": 4.746432517185324
+    },
+    "note": "N=1 정상 샘플 기준. N>=10 이상 모이면 재보정 권장."
   }
 }

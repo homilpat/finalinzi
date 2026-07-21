@@ -1,0 +1,17 @@
+{
+  "method": "waist_normal_raw_range_loss_calibration",
+  "reference": "PhysioNet LabWalks normal lower-back/L5 IMU raw best-10-second windows",
+  "calibration_samples": [
+    "hazi_gait_anatomical_14cols_20260715_163129",
+    "hazi_gait_calibrated_20s_20260715_155029"
+  ],
+  "axis_scale_v_ml_ap": {
+    "vertical": 1.0774349309873383,
+    "mediolateral": 0.9657574413688311,
+    "anteroposterior": 0.9522851977699291
+  },
+  "loss_before": 0.13613909779675923,
+  "loss_after": 0.1221360015094617,
+  "warning": "Estimated from two OUR_SAMPLE normal calibration files only. Do not fit on impaired/new test measurements.",
+  "feature_note": "Final deployed ACF/entropy features are mostly scale-invariant, so this raw scale calibration is for sensor-range harmonization and QC, not a replacement for paired IMU-phone calibration."
+}
