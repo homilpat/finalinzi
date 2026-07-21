@@ -17,6 +17,8 @@ const G = 9.80665;
 const SAMPLE_INTERVAL_MS = 10;
 const UI_SAMPLE_INTERVAL_MS = 250;
 
+const SERVER_URL = 'https://moca-demo.onrender.com';
+
 const SESSION_TYPES = [
   {
     key: 'gait',
@@ -205,6 +207,8 @@ export default function App() {
   const [csvPath, setCsvPath] = useState('');
   const [csvFilename, setCsvFilename] = useState('');
   const [summary, setSummary] = useState('허리에 폰을 고정하고 시작 버튼을 눌러주세요.');
+  const [uploading, setUploading] = useState(false);
+  const [gaitResult, setGaitResult] = useState(null);
   const latestAcc = useRef([0, G, 0]);
   const latestGyro = useRef([0, 0, 0]);
   const calibrationRows = useRef([]);
@@ -434,6 +438,31 @@ export default function App() {
     await saveCsvToPhone(path);
   }
 
+  async function uploadToServer() {
+    if (!csvPath) return;
+    setUploading(true);
+    setGaitResult(null);
+    try {
+      const filename = csvFilename || csvPath.split('/').pop() || 'gait.csv';
+      const formData = new FormData();
+      formData.append('file', { uri: csvPath, name: filename, type: 'text/csv' });
+      const res = await fetch(`${SERVER_URL}/gait/upload-csv`, {
+        method: 'POST',
+        body: formData,
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) {
+        Alert.alert('서버 오류', json.error || '분석 실패');
+        return;
+      }
+      setGaitResult(json);
+    } catch (e) {
+      Alert.alert('전송 실패', e?.message || '네트워크 오류');
+    } finally {
+      setUploading(false);
+    }
+  }
+
   function reset() {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = null;
@@ -443,6 +472,7 @@ export default function App() {
     setCsvPath('');
     setCsvFilename('');
     setSampleCount(0);
+    setGaitResult(null);
     transition(PHASE.idle, 0);
     setSummary('허리에 폰을 고정하고 시작 버튼을 눌러주세요.');
   }
@@ -495,6 +525,30 @@ export default function App() {
         <TouchableOpacity style={[styles.button, styles.secondary, !csvPath && styles.buttonMuted]} onPress={handleSavePress}>
           <Text style={styles.secondaryText}>CSV 폰에 저장/공유</Text>
         </TouchableOpacity>
+
+        {selectedTypeKey === 'gait' && (
+          <TouchableOpacity
+            style={[styles.button, styles.uploadBtn, (!csvPath || uploading) && styles.buttonDisabled]}
+            onPress={uploadToServer}
+            disabled={!csvPath || uploading}
+          >
+            <Text style={styles.buttonText}>{uploading ? '분석 중...' : '서버에 보행 분석 전송'}</Text>
+          </TouchableOpacity>
+        )}
+
+        {gaitResult && (
+          <View style={[styles.resultCard, gaitResult.prediction === 0 ? styles.resultNormal : styles.resultImpaired]}>
+            <Text style={styles.resultLabel}>
+              {gaitResult.prediction === 0 ? '정상' : '운동기능저하 의심'}
+            </Text>
+            <Text style={styles.resultProb}>
+              확률 {(gaitResult.probability * 100).toFixed(1)}%
+            </Text>
+            <Text style={styles.resultSub}>
+              임계값 {gaitResult.threshold}  |  {gaitResult.model_mode ?? ''}
+            </Text>
+          </View>
+        )}
 
         <TouchableOpacity style={[styles.button, styles.ghost]} onPress={reset}>
           <Text style={styles.ghostText}>초기화</Text>
@@ -634,6 +688,35 @@ const styles = StyleSheet.create({
     color: '#425466',
     fontSize: 16,
     fontWeight: '700',
+  },
+  uploadBtn: {
+    backgroundColor: '#0d9488',
+  },
+  resultCard: {
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    gap: 6,
+  },
+  resultNormal: {
+    backgroundColor: '#d1fae5',
+  },
+  resultImpaired: {
+    backgroundColor: '#fee2e2',
+  },
+  resultLabel: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#0f172a',
+  },
+  resultProb: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  resultSub: {
+    fontSize: 13,
+    color: '#475569',
   },
   schema: {
     backgroundColor: '#dbeafe',
