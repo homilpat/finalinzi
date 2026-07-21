@@ -224,10 +224,13 @@
 {% block content %}
 <div class="exercise-screen exercise-active-screen" data-exercise-active>
 
-  <header class="exercise-topbar">
-    <a class="exercise-back" href="/exercise/today" aria-label="뒤로 가기">←</a>
-    <h1>운동 진행</h1>
-    <span aria-hidden="true"></span>
+  <header style="background: #eef5ff; border-bottom: 1px solid #d0e2ff; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; width: 100%;">
+    <a href="/exercise/today" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: #005da7; font-size: 18px; font-weight: 900;" aria-label="뒤로 가기">
+      <span style="font-size: 22px; line-height: 1;">←</span>
+      <span>뒤로</span>
+    </a>
+    <h1 style="font-size: 24px; font-weight: 900; color: #005da7; margin: 0; text-align: center; flex: 1; letter-spacing: -0.5px;">운동 진행</h1>
+    <span style="width: 60px;" aria-hidden="true"></span>
   </header>
 
   <main class="exercise-page active-page">
@@ -246,16 +249,14 @@
       <div class="active-timer" id="exerciseTimer" style="font-size: 52px; font-weight: 900; color: #005EA8;">20:00</div>
       
       <!-- Phase name -->
-      <h2 id="phaseNameLabel" style="font-size: 20px; font-weight: 900; margin-top: 10px; color: #1e293b;">1단계: 워밍업 (3분)</h2>
+      <h2 id="phaseNameLabel" style="font-size: 20px; font-weight: 900; margin-top: 10px; color: #1e293b;">1단계 (3분)</h2>
       
-      <!-- Phase description -->
-      <p id="phaseDescLabel" style="font-size: 14px; color: #64748b; font-weight: 700; margin-top: 4px; line-height: 1.4;">
-        가벼운 제자리 걷기 및 관절 돌리기 (음악 리듬에 맞춰 진행)
-      </p>
+      <!-- Phase description (hidden) -->
+      <p id="phaseDescLabel" style="display: none;"></p>
 
       <!-- Feedback Interaction Box (for sensor status and TTS texts) -->
       <div style="margin-top: 12px;">
-        <span class="interactive-feedback-badge" id="sensorBadge">대기 중</span>
+        <span class="interactive-feedback-badge" id="sensorBadge" style="display: none;"></span>
         <div class="interactive-cue-box" id="sensorCueBox">
           화면을 클릭하여 운동을 진행해 주세요.
         </div>
@@ -266,10 +267,8 @@
         <span id="exerciseProgress" style="width: 0%; display: block; height: 100%; background: #005EA8; transition: width 0.3s;"></span>
       </div>
       
-      <!-- BGM Playing Text -->
-      <div class="bgm-playing-text" id="bgmPlayingText">
-        재생 중인 배경음: A_1단계워밍업.mp3
-      </div>
+      <!-- BGM Playing Text (hidden) -->
+      <div class="bgm-playing-text" id="bgmPlayingText" style="display: none;"></div>
 
       <!-- Dotted Separator -->
       <div class="divider-dotted"></div>
@@ -286,10 +285,10 @@
       <!-- [시연용 단계 건너뛰기] -->
       <div class="demo-section-title">[시연용 단계 건너뛰기]</div>
       <div class="demo-btn-row">
-        <button class="btn-phase active" id="btnPhase1" onclick="jumpToPhase(1)">1단계(워밍업)</button>
-        <button class="btn-phase" id="btnPhase2" onclick="jumpToPhase(2)">2단계(강화)</button>
-        <button class="btn-phase" id="btnPhase3" onclick="jumpToPhase(3)">3단계(본운동)</button>
-        <button class="btn-phase" id="btnPhase4" onclick="jumpToPhase(4)">4단계(쿨다운)</button>
+        <button class="btn-phase active" id="btnPhase1" onclick="jumpToPhase(1)">1단계</button>
+        <button class="btn-phase" id="btnPhase2" onclick="jumpToPhase(2)">2단계</button>
+        <button class="btn-phase" id="btnPhase3" onclick="jumpToPhase(3)">3단계</button>
+        <button class="btn-phase" id="btnPhase4" onclick="jumpToPhase(4)">4단계</button>
       </div>
 
       <!-- Dotted Separator -->
