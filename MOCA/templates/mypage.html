@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% block header %}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="/static/css/exercise.css">
+{% endblock %}
+
+{% block content %}
+<div class="exercise-screen report-detail-screen">
+  <header class="report-topbar">
+    <a class="exercise-back" href="{{ back_url or '/main_home' }}" aria-label="뒤로 가기">←</a>
+    <div>
+      <h1 style="font-size: 24px; font-weight: 900;">마이페이지</h1>
+      <p style="font-size: 14px;">{{ exercise.report.date }}</p>
+    </div>
+  </header>
+
+  <main class="exercise-page report-page" style="padding-top: 16px;">
+    <!-- 내 건강 유형 카드 (Flex Column Center 적용으로 줄바꿈 방지 및 중앙 정렬) -->
+    <section class="mypage-type-card" style="background: linear-gradient(135deg, #005da7 0%, #006b5a 100%); border-radius: 24px; padding: 28px 20px; color: #ffffff; text-align: center; margin-bottom: 22px; box-shadow: 0 8px 20px rgba(0, 93, 167, 0.25); display: flex; flex-direction: column; align-items: center; justify-content: center;">
+      <p style="font-size: 20px; font-weight: 800; opacity: 0.95; margin: 0 0 10px;">내 건강 유형</p>
+      <div style="font-size: 34px; font-weight: 900; line-height: 1.2; margin-bottom: 8px; white-space: nowrap;">
+        {% if care_type.code %}
+          {{ care_type.code }}유형 <span style="font-size: 26px; font-weight: 800;">({{ care_type.name }})</span>
+        {% else %}
+          <span style="font-size: 32px; font-weight: 900;">{{ care_type.name }}</span>
+        {% endif %}
+      </div>
+      <p style="font-size: 15px; opacity: 0.95; margin: 0; font-weight: 700; white-space: nowrap;">{{ care_type.sub|default('인지 및 신체 검사 완료 후 유형이 결정됩니다.') }}</p>
+    </section>
+
+    <!-- 성장 현황 카드 -->
+    <section style="background: #ffffff; border-radius: 22px; padding: 22px; box-shadow: 0 6px 16px rgba(0,0,0,0.06); margin-bottom: 22px;">
+      <div style="margin-bottom: 14px;">
+        <strong style="font-size: 22px; font-weight: 900; color: #1a202c;">성장 현황</strong>
+      </div>
+      <h2 style="font-size: 24px; font-weight: 900; color: #005da7; margin-bottom: 14px;">{{ exercise.growth.title }} {{ exercise.growth.tree_level }}</h2>
+      <div style="display: flex; gap: 18px; align-items: center;">
+        <div style="font-size: 64px; line-height: 1;" aria-hidden="true">🌳</div>
+        <div style="flex: 1;">
+          <p style="font-size: 16px; font-weight: 700; color: #4a5568; margin: 0 0 10px; line-height: 1.3;">{{ exercise.growth.message }}</p>
+          <div style="width: 100%; background: #e2e8f0; height: 14px; border-radius: 999px; overflow: hidden; margin-bottom: 6px;">
+            <span style="display: block; width: {{ exercise.growth.progress_pct }}%; background: #006b5a; height: 100%; border-radius: 999px;"></span>
+          </div>
+          <strong style="font-size: 14px; font-weight: 800; color: #718096;">{{ exercise.growth.remaining }}</strong>
+        </div>
+      </div>
+    </section>
+
+    <!-- Attendance Calendar (출석부 카드) -->
+    <section style="background: #ffffff; border-radius: 22px; padding: 22px; box-shadow: 0 6px 16px rgba(0,0,0,0.06); margin-bottom: 22px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
+        <h2 style="font-weight: 900; font-size: 22px; color: #1a202c; margin: 0;">🗓️ 출석부</h2>
+        <span style="color: #005da7; font-weight: 900; font-size: 16px;">2026년 7월</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; margin-bottom: 20px; text-align: center;">
+        <div style="color: #6B7A8D; font-size: 14px; font-weight: 900;">일</div>
+        <div style="color: #6B7A8D; font-size: 14px; font-weight: 900;">월</div>
+        <div style="color: #6B7A8D; font-size: 14px; font-weight: 900;">화</div>
+        <div style="color: #6B7A8D; font-size: 14px; font-weight: 900;">수</div>
+        <div style="color: #6B7A8D; font-size: 14px; font-weight: 900;">목</div>
+        <div style="color: #6B7A8D; font-size: 14px; font-weight: 900;">금</div>
+        <div style="color: #6B7A8D; font-size: 14px; font-weight: 900;">토</div>
+        <!-- Calendar Items -->
+        <div style="grid-column: span 3;"></div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #9af3dc; color: #00705e; font-size: 15px; font-weight: 900;">1</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #9af3dc; color: #00705e; font-size: 15px; font-weight: 900;">2</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #9af3dc; color: #00705e; font-size: 15px; font-weight: 900;">3</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #9af3dc; color: #00705e; font-size: 15px; font-weight: 900;">4</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #9af3dc; color: #00705e; font-size: 15px; font-weight: 900;">5</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #ffdad6; color: #93000a; font-size: 15px; font-weight: 900;">6</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #9af3dc; color: #00705e; font-size: 15px; font-weight: 900;">7</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #9af3dc; color: #00705e; font-size: 15px; font-weight: 900;">8</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #9af3dc; color: #00705e; font-size: 15px; font-weight: 900;">9</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #9af3dc; color: #00705e; font-size: 15px; font-weight: 900;">10</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #9af3dc; color: #00705e; font-size: 15px; font-weight: 900;">11</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #ffdad6; color: #93000a; font-size: 15px; font-weight: 900;">12</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #9af3dc; color: #00705e; font-size: 15px; font-weight: 900;">13</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #9af3dc; color: #00705e; font-size: 15px; font-weight: 900;">14</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #ffdad6; color: #93000a; font-size: 15px; font-weight: 900;">15</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #9af3dc; color: #00705e; font-size: 15px; font-weight: 900;">16</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #005da7; color: #ffffff; font-size: 15px; font-weight: 900; position: relative; transform: scale(1.15); box-shadow: 0 4px 10px rgba(0,93,167,0.35);">
+          17
+          <span style="position: absolute; top: -7px; right: -5px; font-size: 12px;">🔥</span>
+        </div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; color: #cbd5e0; font-size: 15px; font-weight: 700;">18</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; color: #cbd5e0; font-size: 15px; font-weight: 700;">19</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; color: #cbd5e0; font-size: 15px; font-weight: 700;">20</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; color: #cbd5e0; font-size: 15px; font-weight: 700;">21</div>
+        <div style="aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; color: #cbd5e0; font-size: 15px; font-weight: 700;">22</div>
+      </div>
+      <!-- 출석, 결석, 연속 요약 통계 -->
+      <div style="display: flex; justify-content: space-around; align-items: center; padding: 16px 12px; background: #eef4ff; border-radius: 16px; text-align: center;">
+        <div>
+          <p style="font-size: 15px; color: #6B7A8D; font-weight: 800; margin: 0 0 4px;">출석</p>
+          <p style="color: #005da7; font-weight: 900; font-size: 24px; margin: 0;">14일</p>
+        </div>
+        <div style="width: 1.5px; height: 32px; background: #cbd5e0;"></div>
+        <div>
+          <p style="font-size: 15px; color: #6B7A8D; font-weight: 800; margin: 0 0 4px;">결석</p>
+          <p style="color: #994030; font-weight: 900; font-size: 24px; margin: 0;">3일</p>
+        </div>
+        <div style="width: 1.5px; height: 32px; background: #cbd5e0;"></div>
+        <div>
+          <p style="font-size: 15px; color: #6B7A8D; font-weight: 800; margin: 0 0 4px;">연속</p>
+          <p style="color: #006b5a; font-weight: 900; font-size: 24px; margin: 0;">4일</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Spacer to prevent bottom nav from covering content -->
+    <div style="height: 75px;"></div>
+
+    <!-- Bottom Navigation Bar ('내정보' Active) -->
+    <nav style="position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; height: 72px; background: #ffffff; border-top: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-around; z-index: 100; box-shadow: 0 -4px 16px rgba(0,0,0,0.06); box-sizing: border-box; padding: 0 16px;">
+      <a href="/main_home" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: #718096; font-size: 13px; font-weight: 700; gap: 3px;">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        <span>홈</span>
+      </a>
+
+      <a href="/report/detail" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: #718096; font-size: 13px; font-weight: 700; gap: 3px;">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-2.5l-1.5-4.5L11 15l-1.5-3L8.5 13H7v-2h2.5l1.5 3 2-6.5 1.5 4.5H17v2z"/></svg>
+        <span>건강기록</span>
+      </a>
+
+      <a href="/mypage" style="display: flex; align-items: center; justify-content: center; text-decoration: none; color: #ffffff; background: #005da7; padding: 8px 18px; border-radius: 16px; font-size: 14px; font-weight: 800; gap: 6px; box-shadow: 0 3px 8px rgba(0, 93, 167, 0.3);">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        <span>내정보</span>
+      </a>
+    </nav>
+  </main>
+</div>
+{% endblock %}

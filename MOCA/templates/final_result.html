@@ -140,17 +140,17 @@
     <!-- B 유형 -->
     <div class="quadrant-card {% if care_type.code == 'B' %}active{% endif %}">
       <span class="type-name">B 유형</span>
-      <span class="type-label">신체관리형<br><small style="font-size: 11px; opacity: 0.8; font-weight: normal;">(신체 저하 · 인지 양호)</small></span>
+      <span class="type-label">인지관리형<br><small style="font-size: 11px; opacity: 0.8; font-weight: normal;">(신체 저하 · 인지 양호)</small></span>
     </div>
     <!-- C 유형 -->
     <div class="quadrant-card {% if care_type.code == 'C' %}active{% endif %}">
       <span class="type-name">C 유형</span>
-      <span class="type-label">통합관리형<br><small style="font-size: 11px; opacity: 0.8; font-weight: normal;">(신체 양호 · 인지 저하)</small></span>
+      <span class="type-label">신체관리형<br><small style="font-size: 11px; opacity: 0.8; font-weight: normal;">(신체 양호 · 인지 저하)</small></span>
     </div>
     <!-- D 유형 -->
     <div class="quadrant-card {% if care_type.code == 'D' %}active{% endif %}">
       <span class="type-name">D 유형</span>
-      <span class="type-label">인지관리형<br><small style="font-size: 11px; opacity: 0.8; font-weight: normal;">(신체 저하 · 인지 저하)</small></span>
+      <span class="type-label">통합관리형<br><small style="font-size: 11px; opacity: 0.8; font-weight: normal;">(신체 저하 · 인지 저하)</small></span>
     </div>
   </div>
 
@@ -176,6 +176,16 @@
       {% set phys_score_100 = 0 %}
       {% set phys_threshold_100 = 53 %}
     {% endif %}
+
+    {% set total_score_100 = ((cog_score_100 + phys_score_100) / 2) | int %}
+    {% set star_count = (total_score_100 / 20) | int %}
+
+    <!-- 종합 건강점수 카드 -->
+    <div style="background: linear-gradient(135deg, #005da7 0%, #006b5a 100%); border-radius: 20px; padding: 22px; text-align: center; color: #ffffff; margin-bottom: 20px; box-shadow: 0 6px 18px rgba(0, 93, 167, 0.22);">
+      <p style="font-size: 16px; font-weight: 700; opacity: 0.9; margin: 0 0 4px;">통합 건강점수</p>
+      <div style="font-size: 46px; font-weight: 900; line-height: 1.1;">{{ total_score_100 }}<small style="font-size: 24px; font-weight: 700;">점</small></div>
+      <div style="font-size: 18px; color: #f59e0b; margin-top: 6px;">{{ '★' * star_count }}{{ '☆' * (5 - star_count) }}</div>
+    </div>
 
     <!-- Physical Function Gauge -->
     <div class="gauge-card">
@@ -232,11 +242,37 @@
     </div>
   </div>
 
-  <!-- 분석 결과 자세히 보기 버튼 -->
-  <div style="text-align: center; margin-top: 30px; margin-bottom: 20px; width: 100%;">
-    <a href="/mypage#report-tabs" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none; padding: 16px 32px; border-radius: 14px; font-weight: 900; font-size: 18px; color: #ffffff; background: #005da7; box-shadow: 0 4px 12px rgba(0, 93, 167, 0.22); transition: all 0.2s; width: 100%; box-sizing: border-box;">
+  <!-- 운동하러 가기 버튼 & 분석 결과 자세히 보기 버튼 -->
+  <div style="text-align: center; margin-top: 30px; margin-bottom: 30px; width: 100%; display: flex; flex-direction: column; gap: 12px;">
+    <a href="/exercise/today" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none; padding: 18px 32px; border-radius: 16px; font-weight: 900; font-size: 20px; color: #ffffff; background: linear-gradient(135deg, #005da7 0%, #0077d9 100%); box-shadow: 0 6px 16px rgba(0, 93, 167, 0.28); transition: all 0.2s; width: 100%; box-sizing: border-box; gap: 10px;">
+      <span>운동하러 가기</span>
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+    </a>
+
+    <a href="/report/detail#report-tabs" style="display: inline-flex; align-items: center; justify-content: center; text-decoration: none; padding: 14px 28px; border-radius: 14px; font-weight: 800; font-size: 16px; color: #005da7; background: #ffffff; border: 2px solid #005da7; transition: all 0.2s; width: 100%; box-sizing: border-box;">
       분석 결과 자세히 보기
     </a>
   </div>
+
+  <!-- Spacer to prevent bottom nav from covering content -->
+  <div style="height: 75px;"></div>
+
+  <!-- Bottom Navigation Bar (Design Reference: design/result) -->
+  <nav style="position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; height: 72px; background: #ffffff; border-top: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-around; z-index: 100; box-shadow: 0 -4px 16px rgba(0,0,0,0.06); box-sizing: border-box; padding: 0 16px;">
+    <a href="/main_home" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: #718096; font-size: 13px; font-weight: 700; gap: 3px;">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+      <span>홈</span>
+    </a>
+
+    <a href="/report/detail" style="display: flex; align-items: center; justify-content: center; text-decoration: none; color: #ffffff; background: #005da7; padding: 8px 18px; border-radius: 16px; font-size: 14px; font-weight: 800; gap: 6px; box-shadow: 0 3px 8px rgba(0, 93, 167, 0.3);">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-2.5l-1.5-4.5L11 15l-1.5-3L8.5 13H7v-2h2.5l1.5 3 2-6.5 1.5 4.5H17v2z"/></svg>
+      <span>건강기록</span>
+    </a>
+
+    <a href="/mypage" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: #718096; font-size: 13px; font-weight: 700; gap: 3px;">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      <span>내정보</span>
+    </a>
+  </nav>
 </section>
 {% endblock %}

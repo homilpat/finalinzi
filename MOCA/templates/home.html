@@ -99,7 +99,7 @@
           <strong>인지기능검사</strong>
           <small>MoCA-K 문항으로 검사 시작</small>
         </span>
-        <span class="mode-arrow">재검사</span>
+        <span class="mode-arrow">검사하기</span>
       </button>
 
       <div class="mode-grid">
@@ -114,7 +114,7 @@
             <strong>신체기능검사</strong>
             <small>허리밴드 IMU 보행 평가</small>
           </span>
-          <span class="mode-arrow">재검사</span>
+          <span class="mode-arrow">검사하기</span>
         </button>
 
         <a class="mode-card mode-card-secondary mode-card-link" href="/physical/guide">
@@ -433,7 +433,7 @@
     4: 'AI와 함께 운동'
   };
 
-  window.toggleFlowSub = function(stepNum) {
+    window.toggleFlowSub = function(stepNum) {
     const panel = document.getElementById('flowDetailPanel');
     if (!panel) return;
     const isOpenSameStep = panel.dataset.step === String(stepNum) && panel.style.display !== 'none';
@@ -446,5 +446,10 @@
       panel.style.display = 'block';
     }
   };
+
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('select') === '1' || urlParams.get('registered') === '1') {
+    showHomeMain();
+  }
 </script>
 {% endblock %}

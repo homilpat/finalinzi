@@ -19,6 +19,13 @@
   </section>
 
   <main class="exercise-page complete-page">
+    <!-- 오늘의 운동 점수 카드 -->
+    <section class="complete-card" style="background: #ffffff; border-radius: 20px; padding: 22px; text-align: center; box-shadow: 0 4px 14px rgba(0,0,0,0.06); margin-bottom: 16px;">
+      <p style="font-size: 15px; font-weight: 700; color: #718096; margin: 0 0 6px;">오늘의 운동 점수</p>
+      <div style="font-size: 44px; font-weight: 900; color: #005da7; line-height: 1.1;">95<small style="font-size: 22px;">점</small></div>
+      <p style="font-size: 13px; color: #718096; margin: 8px 0 0;">3단계 미션 수행 점수</p>
+    </section>
+
     <section class="complete-card attendance-card">
       <div class="complete-card-title">
         <strong>출석</strong>
@@ -56,12 +63,6 @@
           <strong>{{ exercise.growth.remaining }}</strong>
         </div>
       </div>
-    </section>
-
-    <section class="mini-stat-row">
-      <article><span>🏃</span><strong>{{ exercise.today.duration_min }}분</strong><small>운동</small></article>
-      <article><span>🧠</span><strong>{{ exercise.report.cognitive_score }}점</strong><small>인지</small></article>
-      <article><span>🚶</span><strong>{{ exercise.report.gait_score }}점</strong><small>보행</small></article>
     </section>
   </main>
 
