@@ -3,7 +3,7 @@ MoCA-K 시연용 Flask 웹앱
 폰 브라우저에서 접속: http://<서버IP>:5000
 """
 
-import os, base64, json, hmac, secrets
+import os, io, base64, json, hmac, secrets
 from datetime import datetime, timedelta
 from uuid import uuid4
 from flask import Flask, render_template, request, jsonify, session, send_from_directory, redirect, url_for
@@ -304,6 +304,53 @@ def _gait_visual_profile(features):
     }
 
 
+def _extract_signal_preview(csv_bytes: bytes, window_info: dict, model_dir: str) -> dict | None:
+    """CSV 바이트 → 3초 bandpass V/ML 신호 (15Hz) 아바타 애니메이션용."""
+    try:
+        import joblib
+        from gait_axis_aligned_core import (
+            load_sensor_csv_with_metadata, _acc_columns,
+            align_to_vmlap, resample_array_to_100hz,
+            transform_signal, bandpass, TARGET_FS_HZ,
+        )
+        df, meta = load_sensor_csv_with_metadata(io.BytesIO(csv_bytes))
+        acc, already_vmlap, _, _ = _acc_columns(df, meta)
+        t = df["Timestamp_ns"].to_numpy(float)
+        dur = (float(t.max()) - float(t.min())) / 1e9
+        obs_fs = float(len(df) / dur) if dur > 0 else TARGET_FS_HZ
+        aligned, _ = align_to_vmlap(acc, already_vmlap=already_vmlap, fs=obs_fs)
+        vmlap = resample_array_to_100hz(aligned, obs_fs)   # (N, 3)
+
+        art = joblib.load(os.path.join(model_dir, "gait_daily_clinical_3feat.joblib"))
+        alpha = float(art.get("signal_correction", {}).get("alpha", 1.0))
+        corrected = transform_signal(vmlap, alpha, 1.0)
+
+        v_bp  = bandpass(corrected[:, 0], TARGET_FS_HZ)
+        ml_bp = bandpass(corrected[:, 1], TARGET_FS_HZ)
+
+        start_sec = float(window_info.get("start_sec", 0) or 0)
+        s0  = max(0, int(start_sec * TARGET_FS_HZ))
+        win = int(3 * TARGET_FS_HZ)
+        v_w  = v_bp[s0: s0 + win]
+        ml_w = ml_bp[s0: s0 + win]
+
+        DISP_FS = 15
+        step = max(1, int(TARGET_FS_HZ / DISP_FS))
+        v_d  = v_w[::step].tolist()
+        ml_d = ml_w[::step].tolist()
+
+        v_max  = max(max(abs(x) for x in v_d),  1e-6)
+        ml_max = max(max(abs(x) for x in ml_d), 1e-6)
+        return {
+            "v":     [round(x / v_max,  3) for x in v_d],
+            "ml":    [round(x / ml_max, 3) for x in ml_d],
+            "dt_ms": int(round(1000 / DISP_FS)),
+        }
+    except Exception as e:
+        print(f"[signal preview error] {e}")
+        return None
+
+
 def _get_cognitive_result():
     uid = session.get('uid')
     if not uid or uid not in _store:
@@ -337,18 +384,18 @@ CARE_TYPE_MAP = {
         "physical_status": "양호",
     },
     (0, 1): {
-        "code": "C",
-        "name": "통합관리형",
-        "title": "C 유형",
+        "code": "B",
+        "name": "신체관리형",
+        "title": "B 유형",
         "summary": "인지기능은 양호하지만 신체기능 관리가 필요한 상태입니다. 안전한 맞춤 운동으로 하체 근력과 균형 능력을 함께 길러보겠습니다.",
         "focus": "보행 및 근력 관리",
         "cognitive_status": "양호",
         "physical_status": "저하",
     },
     (1, 0): {
-        "code": "B",
-        "name": "인지관리형",
-        "title": "B 유형",
+        "code": "C",
+        "name": "통합관리형",
+        "title": "C 유형",
         "summary": "신체기능은 양호하지만 인지기능 변화 확인과 통합 관리가 필요한 상태입니다. 지금부터 꾸준히 두뇌 운동을 하면 인지 건강을 관리하는 데 도움이 됩니다.",
         "focus": "인지 훈련 중심 통합 관리",
         "cognitive_status": "저하",
@@ -924,13 +971,15 @@ def gait_upload_csv():
     axis_model_path  = os.path.join(model_dir, "gait_axis_aligned_physionet_youden.joblib")
 
     if os.path.exists(daily_model_path):
+        csv_bytes = upload.read()
         try:
-            result = predict_daily_gait_csv(upload.stream, model_dir)
+            result = predict_daily_gait_csv(io.BytesIO(csv_bytes), model_dir)
         except Exception as e:
             return jsonify({'ok': False, 'error': f'CSV 전처리 실패: {e}'}), 400
 
-        feats = result['features']
+        feats    = result['features']
         jerk_med = _safe_float(feats.get('v_jerk_rms_median'))
+        jerk_iqr = _safe_float(feats.get('v_jerk_rms_iqr'))
         hr_iqr   = _safe_float(feats.get('v_harmonic_ratio_iqr'))
         gait_result = {
             'probability':        result['probability'],
@@ -942,30 +991,42 @@ def gait_upload_csv():
             'features':           feats,
             'insights': [
                 {
-                    'key': 'v_jerk_rms_median',
-                    'label': '보행 부드러움',
-                    'value': jerk_med,
-                    'unit': 'g/s',
+                    'key':        'v_jerk_rms_median',
+                    'label':      '보행 추진력 (Jerk 중앙값)',
+                    'value':      jerk_med,
+                    'unit':       'g/s',
+                    'ref_normal': '≥ 1.2',
                     'is_problem': jerk_med < 1.2,
-                    'message': '보행 중 수직 가속도 변화가 작아 보행 속도가 느리거나 걸음이 작을 수 있습니다.' if jerk_med < 1.2 else '보행 중 수직 충격이 적절합니다.',
+                    'message':    '걸음 추진력이 낮습니다. 보행 속도가 느리거나 보폭이 작을 수 있습니다.' if jerk_med < 1.2 else '걸음 추진력이 양호합니다.',
                 },
                 {
-                    'key': 'v_harmonic_ratio_iqr',
-                    'label': '보행 리듬 일관성',
-                    'value': hr_iqr,
-                    'unit': '',
+                    'key':        'v_jerk_rms_iqr',
+                    'label':      '보행 에너지 변동성 (Jerk IQR)',
+                    'value':      jerk_iqr,
+                    'unit':       'g/s',
+                    'ref_normal': '≥ 0.08',
+                    'is_problem': jerk_iqr < 0.08,
+                    'message':    '보행 에너지 변동이 작습니다. 발의 힘 조절이 과도하게 균일하거나 걸음이 약할 수 있습니다.' if jerk_iqr < 0.08 else '보행 에너지 변동이 정상 범위입니다.',
+                },
+                {
+                    'key':        'v_harmonic_ratio_iqr',
+                    'label':      '좌우 보행 리듬 변동성 (HR IQR)',
+                    'value':      hr_iqr,
+                    'unit':       '',
+                    'ref_normal': '≤ 0.10',
                     'is_problem': hr_iqr > 0.10,
-                    'message': '보행 리듬이 불규칙합니다.' if hr_iqr > 0.10 else '보행 리듬이 비교적 일정합니다.',
+                    'message':    '보행 리듬이 구간마다 불규칙합니다. 좌우 발걸음 대칭성이 흔들리고 있습니다.' if hr_iqr > 0.10 else '보행 리듬이 일정합니다.',
                 },
             ],
             'explainability': [],
             'visual': _gait_visual_profile({
-                'v_amp_pool_median': max(0.02, min(1.0, jerk_med / 5.0)),
-                'ml_amp_pool_iqr':   max(0.02, hr_iqr),
-                'base_v_stride_regularity': max(0.0, 1.0 - hr_iqr * 5),
-                'roll_amp_pool_iqr': 10 + hr_iqr * 20,
+                'v_amp_pool_median':        max(0.02, min(1.0, jerk_med / 5.0)),
+                'ml_amp_pool_iqr':          max(0.02, hr_iqr),
+                'base_v_stride_regularity': max(0.0,  1.0 - hr_iqr * 5),
+                'roll_amp_pool_iqr':        10 + hr_iqr * 20,
             }),
-            'window': result['window'],
+            'window':         result['window'],
+            'signal_preview': _extract_signal_preview(csv_bytes, result.get('window', {}), model_dir),
         }
         _save_gait_result(gait_result)
         return jsonify({
