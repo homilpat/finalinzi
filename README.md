@@ -307,6 +307,67 @@ CSV 권장 컬럼: `Timestamp_ns`, `Acc_Vertical_g`, `Acc_ML_g`, `Acc_AP_g`
 
 ---
 
+## 모델 비교 실험 (동일 3피처 기반)
+
+### 실험 설정
+
+| 항목 | 내용 |
+|------|------|
+| 피처 | `v_jerk_rms_median`, `v_jerk_rms_iqr`, `v_harmonic_ratio_iqr` (3개 동일) |
+| 훈련/평가 단위 | **Subject 71명** (window 집계 후 subject 1행 = 중앙값) |
+| 분할 | 5-fold StratifiedKFold on subjects |
+| LSTM/CNN 입력 | subject당 20s 윈도우 시퀀스 (max_len=100 × 3 features, GPU CUDA 12.4) |
+| 스크립트 | `analysis_scripts/model_comparison.py` |
+
+### 결과 (Subject-level AUC 내림차순)
+
+| 순위 | 모델 | AUC | Sensitivity | Specificity | 비고 |
+|------|------|-----|-------------|-------------|------|
+| 1 | CNN-1D | 0.887 | 1.000 | 0.722 | GPU, thr=0.22 (민감도 최우선) |
+| 2 | SVM | 0.885 | 0.971 | 0.722 | RBF kernel |
+| 3 | **LR (채택)** | **0.852** | **0.971** | **0.694** | **최종 서비스 모델** |
+| 4 | Stacking | 0.833 | 0.914 | 0.750 | RF+XGB+SVM → LR meta |
+| 5 | RF | 0.833 | 1.000 | 0.611 | thr=0.22 (민감도 최우선) |
+| 6 | Voting | 0.828 | 0.943 | 0.722 | LR+RF+XGB soft voting |
+| 7 | LSTM | 0.822 | 0.971 | 0.583 | GPU |
+| 8 | GBM | 0.799 | 0.800 | 0.750 | |
+| 9 | XGBoost | 0.796 | 0.943 | 0.694 | |
+
+### 해석
+
+- **SVM·CNN1D가 AUC 1~2위**이지만 LR(3위)과 차이 0.033~0.035 수준
+- **GBM·XGB가 LR보다 낮음** — 71명 소규모 데이터에서 트리 기반 부스팅이 과적합 경향
+- **앙상블(Voting)도 LR보다 낮음** — 다수결이 소규모에서 이점 없음
+- **LR 최종 채택 근거**: AUC 3위 × 해석 가능(계수 직접 확인) × 5KB 미만 모델 × 배포 용이
+
+### 저장 파일
+
+```
+analysis_outputs/model_comparison/
+├── model_comparison_results.csv        # AUC / Sen / Spec 요약 테이블
+├── roc_all_models.png                  # 전체 모델 ROC 통합 비교
+├── roc_curve_LR.png                    # 개별 ROC (LR)
+├── roc_curve_SVM.png
+├── roc_curve_RF.png
+├── roc_curve_GBM.png
+├── roc_curve_XGB.png
+├── roc_curve_Voting.png
+├── roc_curve_Stacking.png
+├── roc_curve_LSTM.png
+├── roc_curve_CNN1D.png
+├── confusion_matrix_LR.png             # 혼동행렬 (LR)
+├── confusion_matrix_SVM.png
+├── confusion_matrix_RF.png
+├── confusion_matrix_GBM.png
+├── confusion_matrix_XGB.png
+├── confusion_matrix_Voting.png
+├── confusion_matrix_Stacking.png
+├── confusion_matrix_LSTM.png
+└── confusion_matrix_CNN1D.png
+```
+
+---
+
 ## 모델 개발 히스토리
 
 | 버전 | 피처 | AUC (OOF) | 라벨 | 비고 |
