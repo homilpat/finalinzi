@@ -273,16 +273,10 @@
               </div>
             </section>
 
-            <section class="avatar-blend-strip">
-              <div><span>정상</span><strong>{{ gait.visual.normal_blend_pct|default(0) }}%</strong></div>
-              <div><span>좌우</span><strong>{{ gait.visual.lateral_blend_pct|default(0) }}%</strong></div>
-              <div><span>리듬</span><strong>{{ gait.visual.rhythm_blend_pct|default(0) }}%</strong></div>
-              <div><span>몸통</span><strong>{{ gait.visual.trunk_blend_pct|default(0) }}%</strong></div>
-            </section>
           </div>
 
           <div class="final-card" style="background: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 16px;">
-            <h3>문제 가능 feature</h3>
+            <h3>보행 피처 확인</h3>
             <ul class="final-list">
               {% for item in gait.insights %}
                 <li class="{% if item.is_problem %}is-risk{% endif %}">
@@ -295,7 +289,11 @@
 
           <div class="final-card" style="background: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 16px;">
             <h3>모델 기여도</h3>
-            <p class="xai-note" style="font-size: 12px; color: #718096; margin-bottom: 12px;">현재는 로지스틱 회귀의 표준화 feature × 계수 기반 설명입니다. 최종 앱에서는 SHAP을 붙이면 더 정식 XAI로 표현할 수 있습니다.</p>
+            <div class="pengteu-explain-box">
+              <img src="/pengt.png" alt="" aria-hidden="true">
+              <p>펭트가 보기엔 이 표는 이번 보행 판단에서 어떤 피처가 위험 쪽으로 작용했고, 어떤 피처가 정상 쪽으로 도왔는지 보여주는 설명이에요.</p>
+            </div>
+            <p class="xai-note" style="font-size: 12px; color: #718096; margin-bottom: 12px;">현재는 로지스틱 회귀의 표준화 피처 × 계수 기반 설명입니다. 추후 SHAP을 붙이면 더 정식 XAI로 표현할 수 있습니다.</p>
             {% for item in gait.explainability %}
               <div class="xai-row {{ item.direction }}">
                 <span>{{ item.label }}</span>
@@ -303,14 +301,20 @@
                 <strong>{% if item.direction == 'risk' %}위험 ↑{% else %}위험 ↓{% endif %}</strong>
               </div>
             {% endfor %}
+            <button class="pengteu-explain-btn" type="button" data-pengteu-prompt="모델 기여도를 펭트가 쉽게 설명해줘">펭트에게 설명 듣기</button>
           </div>
 
           <div class="final-card spectrum-card" style="background: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 16px;">
             <h3>스펙트럼 설명</h3>
+            <div class="pengteu-explain-box">
+              <img src="/pengt.png" alt="" aria-hidden="true">
+              <p>스펙트럼은 허리 가속도 신호의 리듬과 주파수 흐름을 그림처럼 보여주는 보조 자료예요. 모델 판단은 최종 3개 보행 피처를 기준으로 해요.</p>
+            </div>
             <div class="spectrum-preview" aria-hidden="true">
               {% for i in range(32) %}<span style="height: {{ 20 + ((i * 17) % 58) }}%"></span>{% endfor %}
             </div>
-            <p class="xai-note" style="font-size: 12px; color: #718096; margin-top: 12px;">스펙트로그램은 원신호의 시간-주파수 패턴을 보여주는 설명 보조 도구입니다. SHAP은 모델 판정에 feature가 얼마나 기여했는지 설명하는 XAI입니다.</p>
+            <p class="xai-note" style="font-size: 12px; color: #718096; margin-top: 12px;">스펙트럼은 원신호의 시간-주파수 패턴을 보여주는 설명 보조 도구입니다. 모델 기여도는 피처가 판정에 미친 방향을 설명합니다.</p>
+            <button class="pengteu-explain-btn" type="button" data-pengteu-prompt="스펙트럼 설명을 펭트가 쉽게 설명해줘">펭트에게 설명 듣기</button>
           </div>
         {% else %}
           <div class="final-empty" style="text-align: center; padding: 30px; color: #a0aec0;">아직 신체평가 결과가 없습니다.</div>

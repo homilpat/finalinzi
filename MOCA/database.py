@@ -347,6 +347,23 @@ def get_member(member_id):
         return dict(row) if row else None
 
 
+def find_member_by_phone(phone):
+    normalized = normalize_phone(phone)
+    if len(normalized) < 9:
+        return None
+    with get_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT * FROM members
+             WHERE phone_hash = ?
+             ORDER BY updated_at DESC, id DESC
+             LIMIT 1
+            """,
+            (phone_hash(normalized),),
+        ).fetchone()
+        return dict(row) if row else None
+
+
 def get_latest_member():
     with get_conn() as conn:
         row = conn.execute(

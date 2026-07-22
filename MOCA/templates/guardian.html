@@ -483,22 +483,6 @@
       }
   }
 
-  // Retrieve saved Parent Name from Session Storage
-  const savedParentName = sessionStorage.getItem('guardian_parent_name');
-  if (savedParentName) {
-      const greetingEl = document.getElementById('guardianGreeting');
-      const subTextEl = document.getElementById('parentSubText');
-      const nameDispEl = document.getElementById('parentNameDisplay');
-      const avatarEl = document.getElementById('parentAvatar');
-
-      if (greetingEl) greetingEl.textContent = `안녕하세요, 보호자님 👋`;
-      if (subTextEl) subTextEl.textContent = `${savedParentName} 어르신 현황을 확인해보세요`;
-      if (nameDispEl) nameDispEl.textContent = `${savedParentName} 어르신`;
-      if (avatarEl && savedParentName.length > 0) {
-          avatarEl.textContent = savedParentName.charAt(0);
-      }
-  }
-
   // Cheering elements
   const cheerInput = document.getElementById('cheerInput');
   const cheerSendBtn = document.getElementById('cheerSendBtn');

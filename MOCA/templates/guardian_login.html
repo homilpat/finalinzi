@@ -54,33 +54,31 @@
       
       <!-- Input Fields Stack -->
       <div class="flex flex-col space-y-6">
-        <!-- Field 1 -->
-        <div class="space-y-3" id="parentNameField">
-          <label class="flex items-center text-[16px] font-bold text-[#243B53]">
-            <span class="mr-2">부모님 성함</span>
-          </label>
-          <div class="relative">
-            <span class="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-[#6B7A8D] text-[24px]">person</span>
-            <input class="w-full h-[56px] pl-14 pr-6 bg-[#eef4ff] border-2 border-transparent rounded-xl text-[18px] placeholder:text-[#c1c7d3] font-medium transition-all" placeholder="어르신 이름 입력" type="text" id="parentName" required>
-          </div>
-        </div>
-        
-        <!-- Field 2 -->
         <div class="space-y-3" id="guardianPhoneField">
           <div class="flex flex-col">
-            <label class="text-[16px] font-bold text-[#243B53]">보호자 전화번호</label>
-            <span class="text-[12px] text-[#6B7A8D]">어르신이 등록한 번호</span>
+            <label class="text-[16px] font-bold text-[#243B53]">등록 전화번호</label>
+            <span class="text-[12px] text-[#6B7A8D]">사용자 화면에서 입력한 번호</span>
           </div>
           <div class="relative">
             <span class="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-[#6B7A8D] text-[24px]">smartphone</span>
             <input class="w-full h-[56px] pl-14 pr-6 bg-[#eef4ff] border-2 border-transparent rounded-xl text-[18px] placeholder:text-[#c1c7d3] font-medium transition-all" placeholder="010-0000-0000" type="tel" id="guardianPhone" required>
           </div>
         </div>
+        <div class="space-y-3 hidden" id="guardianCodeField">
+          <div class="flex flex-col">
+            <label class="text-[16px] font-bold text-[#243B53]">인증번호</label>
+            <span class="text-[12px] text-[#6B7A8D]" id="guardianCodeHint">전송된 6자리 번호를 입력해 주세요</span>
+          </div>
+          <div class="relative">
+            <span class="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-[#6B7A8D] text-[24px]">password</span>
+            <input class="w-full h-[56px] pl-14 pr-6 bg-[#eef4ff] border-2 border-transparent rounded-xl text-[18px] placeholder:text-[#c1c7d3] font-medium transition-all" placeholder="000000" type="text" inputmode="numeric" maxlength="6" id="guardianCode">
+          </div>
+        </div>
       </div>
       
       <!-- Action Button -->
       <button type="submit" class="squishy-press mt-10 w-full h-[56px] bg-[#4A90E2] text-white rounded-full flex items-center justify-center space-x-2 custom-shadow active:shadow-inner transition-all">
-        <span class="text-[18px] font-bold">부모님 건강 확인하기</span>
+        <span class="text-[18px] font-bold" id="guardianSubmitText">인증번호 받기</span>
         <span class="material-symbols-outlined text-[24px]">arrow_forward</span>
       </button>
     </div>
@@ -110,20 +108,55 @@
 
   // Submission validation and redirection
   const loginForm = document.getElementById('guardianLoginForm');
-  loginForm.addEventListener('submit', function(e) {
+  const phoneInput = document.getElementById('guardianPhone');
+  const codeInput = document.getElementById('guardianCode');
+  const codeField = document.getElementById('guardianCodeField');
+  const codeHint = document.getElementById('guardianCodeHint');
+  const submitText = document.getElementById('guardianSubmitText');
+  let codeSent = false;
+
+  loginForm.addEventListener('submit', async function(e) {
       e.preventDefault();
       
-      const parentName = document.getElementById('parentName').value;
-      const guardianPhone = document.getElementById('guardianPhone').value;
+      const guardianPhone = phoneInput.value.trim();
       
-      sessionStorage.setItem('guardian_parent_name', parentName);
+      sessionStorage.removeItem('guardian_parent_name');
       sessionStorage.setItem('guardian_phone', guardianPhone);
-      
-      const params = new URLSearchParams({
-          parent_name: parentName,
-          guardian_phone: guardianPhone
+
+      if (!codeSent) {
+          const res = await fetch('/guardian/send-code', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({member_phone: guardianPhone}),
+          });
+          const data = await res.json();
+          if (!data.ok) {
+              codeHint.textContent = data.error || '인증번호 발급에 실패했습니다.';
+              codeHint.classList.add('text-[#ba1a1a]');
+              return;
+          }
+          codeSent = true;
+          codeField.classList.remove('hidden');
+          phoneInput.readOnly = true;
+          codeInput.required = true;
+          submitText.textContent = '인증하고 결과 보기';
+          codeHint.textContent = data.demo_code ? `데모 인증번호: ${data.demo_code}` : '전송된 6자리 번호를 입력해 주세요';
+          codeInput.focus();
+          return;
+      }
+
+      const res = await fetch('/guardian/verify-code', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({member_phone: guardianPhone, code: codeInput.value.trim()}),
       });
-      window.location.href = `/guardian?${params.toString()}`;
+      const data = await res.json();
+      if (!data.ok) {
+          codeHint.textContent = data.error || '인증에 실패했습니다.';
+          codeHint.classList.add('text-[#ba1a1a]');
+          return;
+      }
+      window.location.href = data.redirect_url || '/guardian';
   });
 </script>
 {% endblock %}
