@@ -6,10 +6,13 @@
 
 {% block content %}
 <div class="exercise-screen exercise-today-screen">
-  <header class="exercise-topbar">
-    <a class="exercise-back" href="/?registered=1" aria-label="뒤로 가기">←</a>
-    <h1>오늘의 운동</h1>
-    <span aria-hidden="true"></span>
+  <header style="background: #eef5ff; border-bottom: 1px solid #d0e2ff; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; width: 100%;">
+    <a href="/main_home" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: #005da7; font-size: 18px; font-weight: 900;" aria-label="뒤로 가기">
+      <span style="font-size: 22px; line-height: 1;">←</span>
+      <span>뒤로</span>
+    </a>
+    <h1 style="font-size: 24px; font-weight: 900; color: #005da7; margin: 0; text-align: center; flex: 1; letter-spacing: -0.5px;">오늘의 운동</h1>
+    <span style="width: 60px;" aria-hidden="true"></span>
   </header>
 
   <main class="exercise-page">

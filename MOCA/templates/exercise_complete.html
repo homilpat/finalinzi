@@ -2,66 +2,109 @@
 {% block header %}{% endblock %}
 {% block extra_head %}
 <link rel="stylesheet" href="/static/css/exercise.css">
+<style>
+  @keyframes todayStampPulse {
+    0% {
+      background-color: #e53e3e;
+      color: #ffffff;
+      box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.7);
+      transform: scale(1);
+    }
+    50% {
+      background-color: #ff6b6b;
+      color: #ffffff;
+      box-shadow: 0 0 14px 5px rgba(229, 62, 62, 0.5);
+      transform: scale(1.12);
+    }
+    100% {
+      background-color: #e53e3e;
+      color: #ffffff;
+      box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.7);
+      transform: scale(1);
+    }
+  }
+  .week-day.today-stamp-pulse strong {
+    animation: todayStampPulse 1.4s infinite ease-in-out !important;
+    border-color: transparent !important;
+  }
+
+  @keyframes todayGrowthPulse {
+    0% {
+      background-color: #e53e3e;
+      box-shadow: 0 0 2px rgba(229, 62, 62, 0.4);
+    }
+    50% {
+      background-color: #ff6b6b;
+      box-shadow: 0 0 12px rgba(229, 62, 62, 0.85);
+    }
+    100% {
+      background-color: #e53e3e;
+      box-shadow: 0 0 2px rgba(229, 62, 62, 0.4);
+    }
+  }
+  .today-growth-pulse {
+    animation: todayGrowthPulse 1.4s infinite ease-in-out !important;
+    border-radius: 0 !important;
+  }
+</style>
 {% endblock %}
 
 {% block content %}
 <div class="exercise-screen exercise-complete-screen">
-  <header class="exercise-topbar complete-topbar">
-    <a class="exercise-back" href="/exercise/today" aria-label="뒤로 가기">&larr;</a>
-    <h1>운동 완료</h1>
-    <span aria-hidden="true"></span>
+  <header style="background: #eef5ff; border-bottom: 1px solid #d0e2ff; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; width: 100%;">
+    <a href="/exercise/today" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: #005da7; font-size: 18px; font-weight: 900;" aria-label="뒤로 가기">
+      <span style="font-size: 22px; line-height: 1;">←</span>
+      <span>뒤로</span>
+    </a>
+    <h1 style="font-size: 24px; font-weight: 900; color: #005da7; margin: 0; text-align: center; flex: 1; letter-spacing: -0.5px;">운동 완료</h1>
+    <span style="width: 60px;" aria-hidden="true"></span>
   </header>
 
-  <section class="complete-hero">
-    <div class="complete-check" aria-hidden="true">&#10003;</div>
-    <h1>운동 완료!</h1>
-    <p>정말 잘하셨어요!</p>
+  <section class="complete-hero" style="padding: 30px 24px 26px; text-align: center;">
+    <h1 style="font-size: 34px; font-weight: 900; line-height: 1.1; margin: 0;">정말 잘하셨어요!</h1>
+    <p style="font-size: 16px; font-weight: 800; color: rgba(255,255,255,0.92); margin: 16px 0 4px;">오늘의 운동 점수</p>
+    <div style="font-size: 52px; font-weight: 900; color: #ffffff; line-height: 1.0;">95<small style="font-size: 26px;">점</small></div>
   </section>
 
   <main class="exercise-page complete-page">
+
+    <!-- 일주일치 출석부 카드 (Request 15: 연속/요약 문구 제거) -->
     <section class="complete-card attendance-card">
-      <div class="complete-card-title">
-        <strong>출석</strong>
-        <span>🔥 {{ exercise.attendance.streak_days }}일 연속!</span>
+      <div class="complete-card-title" style="margin-bottom: 14px;">
+        <strong style="font-size: 22px; font-weight: 900; color: #1a202c;">출석부</strong>
       </div>
       <div class="week-row">
         {% for day in exercise.attendance.days %}
-        <div class="week-day {{ day.state }}">
+        <div class="week-day {{ day.state }} {% if day.state == 'fire' %}today-stamp-pulse{% endif %}">
           <span>{{ day.label }}</span>
           <strong>
-            {% if day.state == 'done' %}✓{% elif day.state == 'fire' %}🔥{% endif %}
+            {% if day.state == 'done' or day.state == 'fire' %}✓{% endif %}
           </strong>
         </div>
         {% endfor %}
       </div>
-      <div class="attendance-summary">
-        <div><strong>{{ exercise.attendance.present_days }}일</strong><span>출석</span></div>
-        <div><strong>{{ exercise.attendance.missed_days }}일</strong><span>결석</span></div>
-        <div><strong>{{ exercise.attendance.best_streak }}일</strong><span>최장</span></div>
-      </div>
     </section>
 
-    <section class="complete-card growth-card">
-      <div class="complete-card-title">
-        <strong>성장 현황</strong>
+    <!-- 성장 현황 카드 (Request 16: 큰 나무 아이콘 & 좌측 정렬 파란색 타이틀) -->
+    <section class="complete-card growth-card" style="background: #ffffff; border-radius: 22px; padding: 22px; box-shadow: 0 6px 16px rgba(0,0,0,0.06); margin-bottom: 22px;">
+      <div style="margin-bottom: 14px;">
+        <strong style="font-size: 22px; font-weight: 900; color: #1a202c;">성장 현황</strong>
       </div>
-      <h2>{{ exercise.growth.title }} {{ exercise.growth.tree_level }}</h2>
-      <div class="growth-content">
-        <div class="tree-visual" aria-hidden="true">🌳</div>
-        <div>
-          <p>{{ exercise.growth.message }}</p>
-          <div class="growth-progress">
-            <span style="width: {{ exercise.growth.progress_pct }}%"></span>
+      <h2 style="font-size: 24px; font-weight: 900; color: #005da7; margin: 0 0 14px; text-align: left;">{{ exercise.growth.title }} {{ exercise.growth.tree_level }}</h2>
+      <div style="display: flex; gap: 18px; align-items: center;">
+        <div style="font-size: 72px; line-height: 1; padding: 8px;" aria-hidden="true">🌳</div>
+        <div style="flex: 1;">
+          <p style="font-size: 16px; font-weight: 700; color: #4a5568; margin: 0 0 10px; line-height: 1.3;">{{ exercise.growth.message }}</p>
+          {% set total_pct = exercise.growth.progress_pct %}
+          {% set base_green_pct = (total_pct * 0.75) | int %}
+          {% set today_red_pct = total_pct - base_green_pct %}
+          <div class="growth-progress" style="width: 100%; background: #e2e8f0; height: 14px; border-radius: 999px; overflow: hidden; display: flex; margin-bottom: 6px;">
+            <span style="display: block; width: {{ base_green_pct }}%; background: #006b5a; height: 100%; border-radius: 0; margin: 0;"></span>
+            <span class="today-growth-pulse" style="display: block; width: {{ today_red_pct }}%; height: 100%; border-radius: 0; margin: 0;"></span>
           </div>
-          <strong>{{ exercise.growth.remaining }}</strong>
+          <strong style="font-size: 14px; font-weight: 800; color: #718096;">{{ exercise.growth.remaining }}</strong>
         </div>
       </div>
-    </section>
-
-    <section class="mini-stat-row">
-      <article><span>🏃</span><strong>{{ exercise.today.duration_min }}분</strong><small>운동</small></article>
-      <article><span>🧠</span><strong>{{ exercise.report.cognitive_score }}점</strong><small>인지</small></article>
-      <article><span>🚶</span><strong>{{ exercise.report.gait_score }}점</strong><small>보행</small></article>
     </section>
   </main>
 

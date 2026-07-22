@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% block header %}{% endblock %}
+
+{% block content %}
+<div class="main-home-screen" style="max-width: 480px; margin: 0 auto; min-height: 100vh; background-color: #f8f9ff; display: flex; flex-direction: column; position: relative;">
+  {% set cog_score_val = (((cognitive.score.final_score / 30.0) * 100) | int) if (cognitive and cognitive.score) else exercise.report.cognitive_score %}
+  {% set gait_score_val = (((1.0 - gait.probability) * 100) | int) if gait else exercise.report.gait_score %}
+  {% set total_score_val = ((cog_score_val + gait_score_val) / 2) | int %}
+
+  <!-- TOP LIGHT BLUE HEADER BAR (Request 8) -->
+  <header style="background: #eef5ff; border-bottom: 1px solid #d0e2ff; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; width: 100%;">
+    <a href="/?select=1" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: #005da7; font-size: 18px; font-weight: 900;" aria-label="뒤로 가기">
+      <span style="font-size: 22px; line-height: 1;">←</span>
+      <span>뒤로</span>
+    </a>
+    <h1 style="font-size: 24px; font-weight: 900; color: #005da7; margin: 0; text-align: center; flex: 1; letter-spacing: -0.5px;">기억하지</h1>
+    <span style="width: 60px;" aria-hidden="true"></span>
+  </header>
+
+  <!-- TOP HERO BANNER -->
+  <header style="background: linear-gradient(135deg, #005da7 0%, #006b5a 100%); padding: 20px 20px 40px; border-bottom-left-radius: 32px; border-bottom-right-radius: 32px; position: relative; overflow: hidden; color: #ffffff;">
+    <div style="position: absolute; top: -30px; right: -30px; width: 160px; height: 160px; background: rgba(255, 255, 255, 0.1); border-radius: 50%; blur: 20px; pointer-events: none;"></div>
+    
+    <div style="position: relative; z-index: 10; display: flex; flex-direction: column; padding-top: 12px;">
+      <span style="font-size: 40px; margin-bottom: 4px;">👋</span>
+      <h2 style="font-size: 30px; font-weight: 900; color: #ffffff; margin: 0; line-height: 1.2;">
+        오늘도 운동하러 오셨네요!
+      </h2>
+      
+      <div style="margin-top: 16px;">
+        <div style="background: rgba(255, 255, 255, 0.95); width: fit-content; padding: 8px 18px; border-radius: 999px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+          <span style="font-size: 16px; font-weight: 900; color: #005da7;">🔥 {{ exercise.attendance.present_days }}일 연속 출석 중!</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- HEALTH SCORE CARD -->
+  <section style="padding: 0 20px; margin-top: -24px; position: relative; z-index: 20;">
+    <div style="background: #ffffff; border-radius: 24px; display: flex; align-items: center; padding: 20px; gap: 16px; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08); border: 1.5px solid rgba(0, 93, 167, 0.1);">
+      <div style="flex: 1;">
+        <p style="font-size: 15px; font-weight: 700; color: #718096; margin: 0 0 4px;"> 종합 건강점수</p>
+        <div style="display: flex; flex-direction: column;">
+          <span style="font-size: 36px; font-weight: 900; color: #005da7; line-height: 1;">{{ total_score_val }}점</span>
+          {% set star_count = (total_score_val / 20) | int %}
+          <span style="font-size: 16px; color: #f59e0b; margin-top: 4px;">{{ '★' * star_count }}{{ '☆' * (5 - star_count) }}</span>
+        </div>
+      </div>
+
+      <div style="width: 1px; height: 60px; background: #e2e8f0;"></div>
+
+      <div style="flex: 1;">
+        <p style="font-size: 15px; font-weight: 700; color: #718096; margin: 0 0 4px;">오늘 미션</p>
+        <div style="display: flex; flex-direction: column;">
+          <p style="font-size: 19px; font-weight: 900; color: #1a202c; margin: 0 0 4px; line-height: 1.2;">{{ exercise.today.mission }}</p>
+          <span style="display: inline-flex; width: fit-content; background: #e6fffa; color: #006b5a; padding: 3px 10px; border-radius: 999px; font-size: 13px; font-weight: 900;">
+            약 {{ exercise.today.duration_min }}분 소요
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN BUTTON SECTION -->
+  <section style="padding: 24px 20px; display: flex; flex-direction: column; gap: 16px; flex: 1; justify-content: center;">
+    <!-- PRIMARY BUTTON: 운동하러 가기 -->
+    <a href="/exercise/today" style="width: 100%; height: 105px; background: linear-gradient(135deg, #005da7 0%, #0077d9 100%); border-radius: 24px; box-shadow: 0 8px 20px rgba(0, 93, 167, 0.25); display: flex; align-items: center; padding: 20px; gap: 16px; text-decoration: none; box-sizing: border-box;">
+      <div style="width: 56px; height: 56px; background: rgba(255, 255, 255, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <span style="font-size: 34px;">🏃</span>
+      </div>
+      <div style="display: flex; flex-direction: column;">
+        <span style="font-size: 25px; font-weight: 900; color: #ffffff; line-height: 1.2;">운동하러 가기</span>
+        <span style="font-size: 14px; color: rgba(255, 255, 255, 0.9); font-weight: 500; margin-top: 2px;">맞춤 운동 시작하기</span>
+      </div>
+    </a>
+
+    <!-- SECONDARY BUTTON: 다시 검사 (Full Width, Href=/?select=1) -->
+    <a href="/?select=1" style="width: 100%; height: 70px; background: #ffffff; border: 2.5px solid #005da7; border-radius: 22px; display: flex; align-items: center; justify-content: center; gap: 10px; text-decoration: none; padding: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); box-sizing: border-box;">
+      <span style="font-size: 26px;">🔄</span>
+      <span style="font-size: 21px; font-weight: 900; color: #005da7;">다시 검사</span>
+    </a>
+  </section>
+
+  <!-- Spacer to prevent bottom nav from covering content -->
+  <div style="height: 85px;"></div>
+
+  <!-- Unified Bottom Navigation Bar -->
+  <nav style="position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; height: 80px; background: #ffffff; border-top: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-around; z-index: 100; box-shadow: 0 -4px 16px rgba(0,0,0,0.06); box-sizing: border-box; padding: 6px 16px;">
+    <a href="/main_home" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: #005da7; font-size: 15px; font-weight: 900; gap: 3px;">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+      <span>홈</span>
+    </a>
+
+    <a href="/report/detail" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: #718096; font-size: 15px; font-weight: 800; gap: 3px;">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-2.5l-1.5-4.5L11 15l-1.5-3L8.5 13H7v-2h2.5l1.5 3 2-6.5 1.5 4.5H17v2z"/></svg>
+      <span>건강기록</span>
+    </a>
+
+    <a href="/mypage" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: #718096; font-size: 15px; font-weight: 800; gap: 3px;">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      <span>내정보</span>
+    </a>
+  </nav>
+</div>
+{% endblock %}

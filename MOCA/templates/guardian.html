@@ -37,7 +37,7 @@
 
 {% block content %}
 <!-- Calculate dynamic scores -->
-{% set cog_score = ((dashboard.latest_cognitive.final_score / 30 * 100) | int) if dashboard.latest_cognitive else 0 %}
+{% set cog_score = ((dashboard.latest_cognitive.final_score / 30 * 100) | int) if (dashboard.latest_cognitive and dashboard.latest_cognitive.final_score is not none) else 0 %}
 {% set gait_score = 82 if dashboard.gait_done else 0 %}
 {% set overall_score = (((cog_score + (gait_score if dashboard.gait_done else 75)) / 2) | int) if dashboard.latest_cognitive else 0 %}
 

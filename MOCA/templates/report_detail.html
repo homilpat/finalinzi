@@ -6,20 +6,26 @@
 
 {% block content %}
 <div class="exercise-screen report-detail-screen">
-  <header class="report-topbar">
-    <a class="exercise-back" href="{{ back_url or '/exercise/complete' }}" aria-label="뒤로 가기">←</a>
-    <div>
-      <h1>상세 리포트</h1>
-      <p>{{ exercise.report.date }}</p>
-    </div>
+  <header style="background: #eef5ff; border-bottom: 1px solid #d0e2ff; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; width: 100%;">
+    <a href="{{ back_url or '/main_home' }}" style="display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: #005da7; font-size: 18px; font-weight: 900;" aria-label="뒤로 가기">
+      <span style="font-size: 22px; line-height: 1;">←</span>
+      <span>뒤로</span>
+    </a>
+    <h1 style="font-size: 24px; font-weight: 900; color: #005da7; margin: 0; text-align: center; flex: 1; letter-spacing: -0.5px;">상세 리포트</h1>
+    <span style="width: 60px;" aria-hidden="true"></span>
   </header>
 
   <main class="exercise-page report-page">
+    {% set cog_score_val = (((cognitive.score.final_score / 30.0) * 100) | int) if (cognitive and cognitive.score) else 0 %}
+    {% set gait_score_val = (((1.0 - gait.probability) * 100) | int) if gait else 0 %}
+    {% set total_score_val = ((cog_score_val + gait_score_val) / 2) | int %}
+
     <section class="report-score-hero">
       <div>
         <p>종합 건강점수</p>
-        <strong>{{ exercise.report.total_score }}점</strong>
-        <span aria-label="{{ exercise.user.stars }}점">★★★★</span>
+        <strong>{{ total_score_val }}점</strong>
+        {% set star_count = (total_score_val / 20) | int %}
+        <span aria-label="{{ star_count }}점" style="color: #f59e0b;">{{ '★' * star_count }}{{ '☆' * (5 - star_count) }}</span>
       </div>
       <div>
         <p>지난주 대비</p>
@@ -31,7 +37,7 @@
       <div class="report-section-title">
         <strong>점수 변화</strong>
         <span>최근 7일</span>
-        <em>오늘 {{ exercise.report.total_score }}점</em>
+        <em>오늘 {{ total_score_val }}점</em>
       </div>
       <div class="score-chart" aria-label="최근 7일 점수 변화 그래프">
         <span class="chart-line"></span>
@@ -43,14 +49,14 @@
       <article class="metric-card blue">
         <span>🧠</span>
         <strong>인지 기능</strong>
-        <p>{{ exercise.report.cognitive_score }}점 <small>▲{{ exercise.report.cognitive_delta }}</small></p>
-        <div><span style="width: {{ exercise.report.cognitive_score }}%"></span></div>
+        <p>{{ cog_score_val }}점 <small>▲{{ exercise.report.cognitive_delta }}</small></p>
+        <div><span style="width: {{ cog_score_val }}%"></span></div>
       </article>
       <article class="metric-card green">
         <span>🚶</span>
         <strong>보행 기능</strong>
-        <p>{{ exercise.report.gait_score }}점 <small>▲{{ exercise.report.gait_delta }}</small></p>
-        <div><span style="width: {{ exercise.report.gait_score }}%"></span></div>
+        <p>{{ gait_score_val }}점 <small>▲{{ exercise.report.gait_delta }}</small></p>
+        <div><span style="width: {{ gait_score_val }}%"></span></div>
       </article>
       <article class="metric-card red">
         <span>⏱</span>
@@ -59,13 +65,6 @@
         <div><span style="width: {{ (exercise.report.exercise_minutes / exercise.report.exercise_goal_minutes * 100) | int }}%"></span></div>
         <small>목표 {{ exercise.report.exercise_goal_minutes }}분</small>
       </article>
-    </section>
-
-    <section class="report-summary-strip">
-      <div><strong>{{ exercise.attendance.present_days }}일</strong><span>출석</span></div>
-      <div><strong>{{ exercise.attendance.streak_days }}일</strong><span>연속</span></div>
-      <div><strong>{{ exercise.report.badges }}개</strong><span>배지</span></div>
-      <div><strong>{{ exercise.growth.tree_level }}</strong><span>나무</span></div>
     </section>
 
     <!-- 인지/신체 검사 결과 리포트 섹션 추가 -->
@@ -160,23 +159,126 @@
             <em>{{ gait.label }}</em>
           </div>
 
-          <div class="gait-metrics-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 16px;">
-            <div style="background: #ffffff; border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
-              <span style="font-size: 13px; color: #718096;">발 들림/추진</span>
-              <strong style="display: block; font-size: 18px; margin-top: 4px;">{{ gait.visual.step_lift_pct|default(0) }}%</strong>
+          <!-- 아바타 보행 스테이지 & 결과 카드 (gait_avatar.html 동일 화면) -->
+          <div style="margin-top: 16px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 12px;">
+            <div class="avatar-stage-wrap">
+              <div class="walk-stage avatar-full-stage"
+                   aria-label="보행 아바타"
+                   style="--walk-speed: {{ gait.visual.animation_sec|default(1.0) }}s; --sway: {{ gait.visual.sway_px|default(8) }}px; --bob: {{ gait.visual.bob_px|default(6) }}px; --trunk-rot: {{ gait.visual.rotation_deg|default(10) }}deg; --stride: {{ gait.visual.stride_px|default(36) }}px;">
+                <div class="walk-grid"></div>
+                <div class="motion-road">
+                  {% for i in range(9) %}<span></span>{% endfor %}
+                </div>
+                <div class="walk-depth depth-a"></div>
+                <div class="walk-depth depth-b"></div>
+                <div class="walk-floor"></div>
+                <div class="walk-shadow"></div>
+                <svg class="walk-figure reference-figure" viewBox="0 0 140 220" aria-hidden="true">
+                  <g class="figure-body">
+                    <circle class="figure-head" cx="70" cy="24" r="19"></circle>
+                    <rect class="figure-neck" x="63" y="40" width="14" height="16" rx="7"></rect>
+                    <rect class="figure-torso" x="50" y="55" width="40" height="70" rx="17"></rect>
+                    <rect class="figure-pelvis" x="44" y="118" width="52" height="22" rx="12"></rect>
+                  </g>
+                  <g class="figure-arm left" transform="translate(45 64)">
+                    <line x1="0" y1="0" x2="-11" y2="61"></line>
+                    <animateTransform attributeName="transform" type="rotate" values="16 0 0;-12 0 0;16 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"></animateTransform>
+                  </g>
+                  <g class="figure-arm right" transform="translate(95 64)">
+                    <line x1="0" y1="0" x2="11" y2="61"></line>
+                    <animateTransform attributeName="transform" type="rotate" values="-12 0 0;16 0 0;-12 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"></animateTransform>
+                  </g>
+                  <g class="figure-leg left" transform="translate(58 136)">
+                    <animateTransform attributeName="transform" type="translate" values="0 0;0 -3;0 4;0 -2;0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                    <animateTransform attributeName="transform" type="rotate" values="-5 0 0;-1 0 0;5 0 0;1 0 0;-5 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                    <line class="figure-thigh" x1="0" y1="0" x2="0" y2="48"></line>
+                    <g class="figure-shin" transform="translate(0 48)">
+                      <animateTransform attributeName="transform" type="rotate" values="5 0 0;-8 0 0;3 0 0;-5 0 0;5 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                      <line x1="0" y1="0" x2="0" y2="52"></line>
+                      <ellipse class="figure-foot" cx="0" cy="56" rx="8" ry="5"></ellipse>
+                    </g>
+                  </g>
+                  <g class="figure-leg right" transform="translate(82 136)">
+                    <animateTransform attributeName="transform" type="translate" values="0 4;0 -2;0 0;0 -3;0 4" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                    <animateTransform attributeName="transform" type="rotate" values="5 0 0;1 0 0;-5 0 0;-1 0 0;5 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                    <line class="figure-thigh" x1="0" y1="0" x2="0" y2="48"></line>
+                    <g class="figure-shin" transform="translate(0 48)">
+                      <animateTransform attributeName="transform" type="rotate" values="3 0 0;-5 0 0;5 0 0;-8 0 0;3 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                      <line x1="0" y1="0" x2="0" y2="52"></line>
+                      <ellipse class="figure-foot" cx="0" cy="56" rx="8" ry="5"></ellipse>
+                    </g>
+                  </g>
+                </svg>
+                <svg class="walk-figure user-figure" viewBox="0 0 140 220" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="userTorsoGradient" x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="0%" stop-color="#69E6FF"></stop>
+                      <stop offset="100%" stop-color="#2477CB"></stop>
+                    </linearGradient>
+                    <linearGradient id="userHeadGradient" x1="0" x2="1" y1="0" y2="1">
+                      <stop offset="0%" stop-color="#2E7DD7"></stop>
+                      <stop offset="100%" stop-color="#8BD5F8"></stop>
+                    </linearGradient>
+                  </defs>
+                  <g class="figure-body">
+                    <circle class="figure-head" cx="70" cy="24" r="21"></circle>
+                    <rect class="figure-neck" x="62" y="42" width="16" height="17" rx="8"></rect>
+                    <rect class="figure-torso" x="48" y="56" width="44" height="72" rx="18"></rect>
+                    <rect class="figure-pelvis" x="42" y="121" width="56" height="24" rx="13"></rx>
+                  </g>
+                  <g class="figure-arm left" transform="translate(45 66)">
+                    <line x1="0" y1="0" x2="-13" y2="66"></line>
+                    <animateTransform attributeName="transform" type="rotate" values="20 0 0;5 0 0;-22 0 0;5 0 0;20 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                  </g>
+                  <g class="figure-arm right" transform="translate(95 66)">
+                    <line x1="0" y1="0" x2="13" y2="66"></line>
+                    <animateTransform attributeName="transform" type="rotate" values="-22 0 0;5 0 0;20 0 0;5 0 0;-22 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                  </g>
+                  <g class="figure-leg left" transform="translate(57 141)">
+                    <animateTransform attributeName="transform" type="translate" values="0 0;0 -4;0 6;0 -2;0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                    <animateTransform attributeName="transform" type="rotate" values="-6 0 0;-2 0 0;7 0 0;2 0 0;-6 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                    <line class="figure-thigh" x1="0" y1="0" x2="0" y2="50"></line>
+                    <g class="figure-shin" transform="translate(0 50)">
+                      <animateTransform attributeName="transform" type="rotate" values="5 0 0;-7 0 0;3 0 0;-5 0 0;5 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                      <line x1="0" y1="0" x2="0" y2="54"></line>
+                      <ellipse class="figure-foot" cx="0" cy="58" rx="10" ry="6"></ellipse>
+                    </g>
+                  </g>
+                  <g class="figure-leg right" transform="translate(83 141)">
+                    <animateTransform attributeName="transform" type="translate" values="0 6;0 -2;0 0;0 -4;0 6" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                    <animateTransform attributeName="transform" type="rotate" values="7 0 0;2 0 0;-6 0 0;-2 0 0;7 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                    <line class="figure-thigh" x1="0" y1="0" x2="0" y2="50"></line>
+                    <g class="figure-shin" transform="translate(0 50)">
+                      <animateTransform attributeName="transform" type="rotate" values="3 0 0;-5 0 0;5 0 0;-7 0 0;3 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                      <line x1="0" y1="0" x2="0" y2="54"></line>
+                      <ellipse class="figure-foot" cx="0" cy="58" rx="10" ry="6"></ellipse>
+                    </g>
+                  </g>
+                </svg>
+                <div class="walk-axis axis-v">V</div>
+                <div class="walk-axis axis-ml">ML</div>
+                <div class="motion-label label-user">사용자</div>
+                <div class="motion-label label-ref">정상 reference</div>
+              </div>
             </div>
-            <div style="background: #ffffff; border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
-              <span style="font-size: 13px; color: #718096;">좌우 흔들림</span>
-              <strong style="display: block; font-size: 18px; margin-top: 4px;">{{ gait.visual.lateral_sway_pct|default(0) }}%</strong>
-            </div>
-            <div style="background: #ffffff; border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
-              <span style="font-size: 13px; color: #718096;">리듬 규칙성</span>
-              <strong style="display: block; font-size: 18px; margin-top: 4px;">{{ gait.visual.rhythm_pct|default(0) }}%</strong>
-            </div>
-            <div style="background: #ffffff; border-radius: 12px; padding: 12px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.03);">
-              <span style="font-size: 13px; color: #718096;">몸통 회전</span>
-              <strong style="display: block; font-size: 18px; margin-top: 4px;">{{ gait.visual.trunk_rotation_pct|default(0) }}%</strong>
-            </div>
+
+            <section class="avatar-overlay-card">
+              <div>
+                <span>예측 확률</span>
+                <strong>{{ '%.1f'|format(gait.probability * 100) }}%</strong>
+              </div>
+              <div>
+                <span>선택 구간</span>
+                <strong>{{ gait.window.start_offset_sec|default(0) }}초부터 10초</strong>
+              </div>
+            </section>
+
+            <section class="avatar-blend-strip">
+              <div><span>정상</span><strong>{{ gait.visual.normal_blend_pct|default(0) }}%</strong></div>
+              <div><span>좌우</span><strong>{{ gait.visual.lateral_blend_pct|default(0) }}%</strong></div>
+              <div><span>리듬</span><strong>{{ gait.visual.rhythm_blend_pct|default(0) }}%</strong></div>
+              <div><span>몸통</span><strong>{{ gait.visual.trunk_blend_pct|default(0) }}%</strong></div>
+            </section>
           </div>
 
           <div class="final-card" style="background: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 16px;">
@@ -215,6 +317,27 @@
         {% endif %}
       </section>
     </div>
+
+    <!-- Spacer to prevent bottom nav from covering content -->
+    <div style="height: 85px;"></div>
+
+    <!-- Unified Bottom Navigation Bar -->
+    <nav style="position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; height: 80px; background: #ffffff; border-top: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-around; z-index: 100; box-shadow: 0 -4px 16px rgba(0,0,0,0.06); box-sizing: border-box; padding: 6px 16px;">
+      <a href="/main_home" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: #718096; font-size: 15px; font-weight: 800; gap: 3px;">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        <span>홈</span>
+      </a>
+
+      <a href="/report/detail" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: #005da7; font-size: 15px; font-weight: 900; gap: 3px;">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-2.5l-1.5-4.5L11 15l-1.5-3L8.5 13H7v-2h2.5l1.5 3 2-6.5 1.5 4.5H17v2z"/></svg>
+        <span>건강기록</span>
+      </a>
+
+      <a href="/mypage" style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-decoration: none; color: #718096; font-size: 15px; font-weight: 800; gap: 3px;">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+        <span>내정보</span>
+      </a>
+    </nav>
   </main>
 </div>
 
