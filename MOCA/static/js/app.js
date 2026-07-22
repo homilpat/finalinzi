@@ -1116,6 +1116,65 @@ function redrawCanvas() {
     }
   }
 
+  async function persistProfile(nextProfile) {
+    const payload = {
+      voice_rate: Number(nextProfile.voice_rate ?? profile.voice_rate ?? 0.85),
+      tts_volume: Number(nextProfile.tts_volume ?? profile.tts_volume ?? 0.85),
+      text_scale: Number(nextProfile.text_scale ?? profile.text_scale ?? 1),
+      high_contrast: Boolean(Number(nextProfile.high_contrast ?? profile.high_contrast)),
+      reduced_motion: Boolean(Number(nextProfile.reduced_motion ?? profile.reduced_motion)),
+    };
+    applyProfile(payload);
+    try {
+      const res = await fetch('/assistant/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.ok) applyProfile(data.profile);
+    } catch (err) {
+      console.warn('[pengteu profile command save]', err);
+    }
+  }
+
+  function getPengteuCommand(message) {
+    const text = (message || '').replace(/\s+/g, '').toLowerCase();
+    if (!text) return null;
+    const next = { ...profile };
+
+    if (text.includes('잘안보') || text.includes('안보여') || text.includes('글씨키') || text.includes('크게보') || text.includes('화면키')) {
+      next.text_scale = Math.min(1.45, Math.max(Number(profile.text_scale || 1), 1.25) + 0.1);
+      next.high_contrast = 1;
+      return { profile: next, reply: '좋아요. 글씨를 더 키우고 대비도 높였어요. 이제 화면이 더 또렷하게 보일 거예요.' };
+    }
+    if (text.includes('글씨작') || text.includes('작게보') || text.includes('화면줄')) {
+      next.text_scale = Math.max(1, Number(profile.text_scale || 1) - 0.1);
+      return { profile: next, reply: '좋아요. 글씨 크기를 조금 줄였어요.' };
+    }
+    if (text.includes('천천히') || text.includes('느리게') || text.includes('말속도줄')) {
+      next.voice_rate = Math.max(0.65, Number(profile.voice_rate || 0.85) - 0.1);
+      return { profile: next, reply: '네, 제가 더 천천히 말할게요.' };
+    }
+    if (text.includes('빨리말') || text.includes('빠르게말') || text.includes('말속도올')) {
+      next.voice_rate = Math.min(1.15, Number(profile.voice_rate || 0.85) + 0.1);
+      return { profile: next, reply: '알겠어요. 말하는 속도를 조금 빠르게 바꿨어요.' };
+    }
+    if (text.includes('소리키') || text.includes('볼륨키') || text.includes('크게말')) {
+      next.tts_volume = Math.min(1, Number(profile.tts_volume || 0.85) + 0.15);
+      return { profile: next, reply: '좋아요. 제 목소리 볼륨을 더 크게 했어요.' };
+    }
+    if (text.includes('소리줄') || text.includes('볼륨줄') || text.includes('작게말')) {
+      next.tts_volume = Math.max(0.15, Number(profile.tts_volume || 0.85) - 0.15);
+      return { profile: next, reply: '네, 제 목소리 볼륨을 조금 낮췄어요.' };
+    }
+    if (text.includes('움직임줄') || text.includes('어지러') || text.includes('애니메이션줄')) {
+      next.reduced_motion = 1;
+      return { profile: next, reply: '알겠어요. 화면 움직임을 줄여서 더 편하게 보이도록 했어요.' };
+    }
+    return null;
+  }
+
   function speak(text) {
     if (!('speechSynthesis' in window) || !text || Number(profile.tts_volume) <= 0) return;
     window.speechSynthesis.cancel();
@@ -1196,6 +1255,13 @@ function redrawCanvas() {
   async function askPengteu(message) {
     openPanel();
     appendMessage('user', message);
+    const command = getPengteuCommand(message);
+    if (command) {
+      await persistProfile(command.profile);
+      appendMessage('assistant', command.reply);
+      speak(command.reply);
+      return;
+    }
     appendMessage('assistant', '잠깐만요. 기록을 확인하고 있어요.');
     const waitingNode = messages.lastElementChild;
     try {
