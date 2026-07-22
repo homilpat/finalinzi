@@ -9,6 +9,9 @@
   let timerInterval = null;
   let simulatedDuration = 180; // 현재 단계의 전체 초 (1단계: 180초, 2단계: 300초, 3단계: 540초, 4단계: 180초)
   let activeTtsAudio = null;
+  let pausedByPengteu = false;
+  let wasPlayingBeforePengteu = false;
+  let bgmWasPlayingBeforePengteu = false;
 
   // DOM Elements
   const activeScreen = document.querySelector('[data-exercise-active]');
@@ -190,6 +193,11 @@
   // 3. 네이티브 안드로이드 브릿지 정의
   window.ExerciseAudioControl = {
     duckForPengteu: function() {
+      if (pausedByPengteu) return;
+      pausedByPengteu = true;
+      wasPlayingBeforePengteu = isPlaying;
+      bgmWasPlayingBeforePengteu = Boolean(bgmAudio && !bgmAudio.paused);
+      isPlaying = false;
       if (activeTtsAudio) {
         try {
           activeTtsAudio.pause();
@@ -201,12 +209,7 @@
         window.speechSynthesis.cancel();
       }
       if (bgmAudio && !bgmAudio.paused) {
-        if (bgmAudio.originalVolume === undefined) {
-          bgmAudio.originalVolume = bgmAudio.volume;
-        }
-        bgmAudio.isDucked = true;
-        bgmAudio.duckedVolume = Math.min(0.02, bgmAudio.originalVolume * 0.10);
-        bgmAudio.volume = bgmAudio.duckedVolume;
+        bgmAudio.pause();
       }
       if (effectAudio && !effectAudio.paused) {
         try {
@@ -216,10 +219,16 @@
       }
     },
     restoreAfterPengteu: function() {
-      if (bgmAudio && bgmAudio.isDucked) {
-        bgmAudio.isDucked = false;
-        bgmAudio.volume = bgmAudio.originalVolume || 0.4;
+      if (!pausedByPengteu) return;
+      pausedByPengteu = false;
+      if (wasPlayingBeforePengteu) {
+        isPlaying = true;
+        if (motionPulse) motionPulse.classList.add('moving');
       }
+      if (bgmAudio && bgmWasPlayingBeforePengteu) {
+        bgmAudio.play().catch(e => console.warn(e));
+      }
+      updateUI();
     }
   };
 
