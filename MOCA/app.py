@@ -83,7 +83,7 @@ def require_access_password():
     password = _access_password()
     if not password:
         return None
-    if request.endpoint in ('login',):
+    if request.endpoint in ('login', 'api_mobile_remember_login'):
         return None
     if session.get('access_granted') is True:
         return None
@@ -536,6 +536,9 @@ def _basic_pengteu_reply(message, context, knowledge=None):
         return f"{name}가 설명해드릴게요. 스펙트럼은 허리 가속도 원신호가 시간에 따라 어떤 리듬과 주파수 패턴을 보였는지 보여주는 보조 그림이에요. 모델은 최종 3개 보행 피처로 판단하고, 스펙트럼은 그 판단을 이해하기 쉽게 돕는 시각 자료예요.{evidence_hint}"
 
     if knowledge:
+        if "tts" in lowered or "bgm" in lowered or "mp3" in lowered or "음악" in message or "소리" in message:
+            return f"{name}예요. 운동 음악은 그대로 배경음으로 두고, 제가 말할 때만 운동 안내음과 효과음을 잠깐 낮추거나 멈추게 할게요. 제 말이 끝나면 운동 화면의 음악은 원래 볼륨으로 돌아가요."
+        return f"{name}예요. 관련 자료는 제가 참고만 했고, 화면에는 회원님께 필요한 내용만 짧게 말할게요. 더 자세히 알고 싶은 부분을 말해주시면 보행, 인지, 운동 기록에 맞춰 쉽게 풀어드릴게요."
         top = knowledge[0]
         return f"{name}예요. 질문과 가까운 자료를 찾아봤어요. {top.get('text', '')} 이 내용을 바탕으로 {member_code}에게 맞게 더 쉽게 설명해드릴게요."
 
@@ -650,6 +653,26 @@ def _openai_pengteu_fallback(message, context, knowledge=None):
         return None
 
 
+def _clean_pengteu_reply(reply, message=""):
+    text = (reply or "").strip()
+    blocked = (
+        "질문과 가까운 자료를 찾아봤어요",
+        "이 내용을 바탕으로",
+        "retrieved_knowledge",
+        "RAG",
+        "/static/audio",
+        "`/static/audio`",
+    )
+    if any(token in text for token in blocked):
+        lowered = (message or "").lower()
+        if "tts" in lowered or "bgm" in lowered or "mp3" in lowered or "음악" in message or "소리" in message:
+            return "펭트예요. 운동 음악은 배경음으로 그대로 두고, 제가 말할 때만 운동 안내음과 효과음을 잠깐 낮추거나 멈출게요. 제 말이 끝나면 음악은 다시 원래 볼륨으로 돌아가요."
+        return "펭트예요. 자료는 제가 참고만 하고, 화면에는 필요한 말만 짧게 설명할게요. 궁금한 부분을 한 번 더 말해주시면 쉽게 풀어드릴게요."
+    if len(text) > 320:
+        text = text[:317].rstrip() + "..."
+    return text
+
+
 def _save_gait_result(gait_result):
     gait_result_id = session.get('gait_result_id') or uuid4().hex
     _gait_result_store[gait_result_id] = gait_result
@@ -710,6 +733,19 @@ def _ensure_member_from_phone(phone, education_level="high"):
     session["education_level"] = level
     session["phone_last4"] = phone_last4(normalized)
     return member_id, int(edu), member_code, level
+
+
+def _restore_member_session(member, education_level=None):
+    level = education_level or member.get("education_level") or "high"
+    item = EDUCATION_LEVELS.get(level, EDUCATION_LEVELS["high"])
+    session["access_granted"] = True
+    session["member_id"] = member["id"]
+    session["member_code"] = member["name"]
+    session["education_years"] = int(member.get("education_years") or item["years"])
+    session["education_level"] = level
+    session["education_label"] = education_label(level)
+    session["phone_last4"] = member.get("phone_last4", "")
+    session["is_new_member"] = False
 
 
 def _exercise_mock_data():
@@ -1670,6 +1706,26 @@ def mobile_moca_score_api():
     })
 
 
+@app.route('/api/mobile/remember-login', methods=['POST'])
+def api_mobile_remember_login():
+    data = request.get_json(silent=True) or {}
+    phone = normalize_phone(data.get("member_phone") or data.get("phone") or "")
+    if len(phone) < 9:
+        return jsonify({"ok": False, "error": "phone_required"}), 400
+
+    member = find_member_by_phone(phone)
+    if not member:
+        return jsonify({"ok": False, "error": "member_not_found"}), 404
+
+    _restore_member_session(member, data.get("education_level") or member.get("education_level"))
+    return jsonify({
+        "ok": True,
+        "member_id": member["id"],
+        "member_code": member["name"],
+        "redirect_url": url_for("main_home_page"),
+    })
+
+
 @app.route('/guardian/login')
 def guardian_login_page():
     return render_template('guardian_login.html')
@@ -1849,6 +1905,7 @@ def assistant_chat_api():
         else:
             reply_source = "local_fallback"
             reply = _basic_pengteu_reply(user_message, context, knowledge=knowledge)
+    reply = _clean_pengteu_reply(reply, user_message)
     save_assistant_message(member_id, "assistant", reply, context=message_context)
     return jsonify({
         "ok": True,

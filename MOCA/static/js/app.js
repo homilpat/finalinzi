@@ -1123,9 +1123,16 @@ function redrawCanvas() {
     utterance.lang = 'ko-KR';
     utterance.rate = Number(profile.voice_rate || 0.85);
     utterance.volume = Number(profile.tts_volume || 0.85);
-    utterance.onstart = () => { pengteuSpeaking = true; };
-    utterance.onend = () => { pengteuSpeaking = false; };
-    utterance.onerror = () => { pengteuSpeaking = false; };
+    const finishSpeaking = () => {
+      pengteuSpeaking = false;
+      window.dispatchEvent(new CustomEvent('pengteu-speaking-end'));
+    };
+    utterance.onstart = () => {
+      pengteuSpeaking = true;
+      window.dispatchEvent(new CustomEvent('pengteu-speaking-start'));
+    };
+    utterance.onend = finishSpeaking;
+    utterance.onerror = finishSpeaking;
     window.speechSynthesis.speak(utterance);
   }
 

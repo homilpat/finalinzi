@@ -188,6 +188,49 @@
   };
 
   // 3. 네이티브 안드로이드 브릿지 정의
+  window.ExerciseAudioControl = {
+    duckForPengteu: function() {
+      if (activeTtsAudio) {
+        try {
+          activeTtsAudio.pause();
+          activeTtsAudio.onended = null;
+        } catch (e) {}
+        activeTtsAudio = null;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      if (bgmAudio && !bgmAudio.paused) {
+        if (bgmAudio.originalVolume === undefined) {
+          bgmAudio.originalVolume = bgmAudio.volume;
+        }
+        bgmAudio.isDucked = true;
+        bgmAudio.duckedVolume = Math.min(0.02, bgmAudio.originalVolume * 0.10);
+        bgmAudio.volume = bgmAudio.duckedVolume;
+      }
+      if (effectAudio && !effectAudio.paused) {
+        try {
+          effectAudio.pause();
+          effectAudio.currentTime = 0;
+        } catch (e) {}
+      }
+    },
+    restoreAfterPengteu: function() {
+      if (bgmAudio && bgmAudio.isDucked) {
+        bgmAudio.isDucked = false;
+        bgmAudio.volume = bgmAudio.originalVolume || 0.4;
+      }
+    }
+  };
+
+  window.addEventListener('pengteu-speaking-start', () => {
+    window.ExerciseAudioControl.duckForPengteu();
+  });
+
+  window.addEventListener('pengteu-speaking-end', () => {
+    window.ExerciseAudioControl.restoreAfterPengteu();
+  });
+
   const SensorBridge = {
     isAndroid: typeof window.AndroidBridge !== 'undefined',
     startCalibration: function() {

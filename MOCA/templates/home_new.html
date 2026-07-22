@@ -322,6 +322,17 @@
     return (value || '').replace(/\D+/g, '');
   }
 
+  function rememberMemberOnDevice() {
+    const phone = normalizePhone(phoneInput.value);
+    const level = educationLevel.value || 'high';
+    if (!phone) return;
+    localStorage.setItem('member_phone', phone);
+    localStorage.setItem('member_education_level', level);
+    if (window.AndroidBridge && typeof window.AndroidBridge.rememberMember === 'function') {
+      window.AndroidBridge.rememberMember(phone, level);
+    }
+  }
+
   phoneInput.addEventListener('input', () => {
     setVerified(false, '전화번호가 변경되었습니다. 인증을 다시 진행해 주세요.');
   });
@@ -358,6 +369,7 @@
       body: JSON.stringify({phone, code}),
     });
     const data = await res.json();
+    if (data.ok) rememberMemberOnDevice();
     setVerified(Boolean(data.ok), data.message || data.error || '인증에 실패했습니다.');
   });
 
