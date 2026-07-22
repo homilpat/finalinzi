@@ -28,6 +28,10 @@
     </main>
   </div>
 
+  {% if session.get('member_id') and not request.path.startswith('/guardian') %}
+    {% include 'partials/pengteu_widget.html' %}
+  {% endif %}
+
   <script src="/static/js/app.js"></script>
   {% block scripts %}{% endblock %}
 </body>
