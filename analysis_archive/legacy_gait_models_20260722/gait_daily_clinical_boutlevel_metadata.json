@@ -1,0 +1,28 @@
+{
+  "features": [
+    "v_jerk_rms_median",
+    "v_harmonic_ratio_iqr",
+    "pitch_band_rms_median"
+  ],
+  "threshold": 0.41999999999999993,
+  "threshold_strategy": "boutlevel_GroupKFold_Youden_subjectavg",
+  "model_mode": "daily_boutlevel_3feat_pitch_gyro",
+  "label_source": "motor_impairment_score >= 0.5",
+  "train_n_normal": 32,
+  "train_n_impaired": 32,
+  "train_n_bouts": 6400,
+  "oof_bout_auc": 0.7344,
+  "oof_subject_auc": 0.8272,
+  "oof_subject_sens": 0.9062,
+  "oof_subject_spec": 0.5938,
+  "signal_correction": {
+    "alpha": 1.9705093832241642,
+    "tau": 1.0,
+    "description": "sensor-level v_bp_rms ratio: OUR vs PhysioNet raw reference",
+    "our_v_bp_rms_median": 0.09838236440400697,
+    "pn_v_bp_rms_median": 0.19386337220187475,
+    "n_our_normals": 6
+  },
+  "gyro_alpha": 1.4816774459123812,
+  "gyro_alpha_method": "feature_level_moment_matching"
+}

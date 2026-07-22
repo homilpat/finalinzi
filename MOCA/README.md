@@ -40,7 +40,7 @@
 | 서버 신호처리 | 100 Hz 리샘플 + 0.6~3.0 Hz Butterworth 밴드패스 |
 | 특징 추출 | `v_jerk_rms_median`, `v_jerk_rms_iqr`, `v_harmonic_ratio_iqr` |
 | 수집 프로토콜 | 20초 이상 걷기 → 20s/10s 서브윈도우 집계 |
-| ML 추론 | 로지스틱 회귀 — acc-only 클린 재학습 모델 (AUC 0.861 ± 0.020, threshold 0.345) |
+| ML 추론 | 로지스틱 회귀 — acc-only 클린 재학습 모델 (확장 OR 라벨 AUC 0.866 ± 0.009, threshold 0.50) |
 
 ### 공통 기능
 

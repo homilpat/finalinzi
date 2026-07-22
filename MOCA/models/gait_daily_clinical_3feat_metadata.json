@@ -4,17 +4,72 @@
     "v_jerk_rms_iqr",
     "v_harmonic_ratio_iqr"
   ],
-  "threshold": 0.3449999999999999,
-  "threshold_strategy": "StratifiedGroupKFold_Youden_subject_level",
+  "threshold": 0.5,
+  "threshold_strategy": "fixed_screening_threshold_sensitivity_prioritized",
   "model_mode": "daily_3feat_acconly",
-  "label_source": "motor_impairment_score >= 0.5",
+  "label_source": "TUG >= 12 OR FSST >= 15 OR BERG < 52 OR DGI <= 19 OR base_velocity < 1.0 OR s3_velocity < 1.0",
+  "clinical_label_criteria": {
+    "TUG": ">= 12 seconds",
+    "FSST": ">= 15 seconds",
+    "BERG": "< 52",
+    "DGI": "<= 19",
+    "base_velocity": "< 1.0 m/s",
+    "s3_velocity": "< 1.0 m/s"
+  },
+  "criterion_positive_counts": {
+    "TUG_ge_12": 22,
+    "FSST_ge_15": 16,
+    "BERG_lt_52": 20,
+    "DGI_le_19": 17,
+    "base_velocity_lt_1p0": 21,
+    "s3_velocity_lt_1p0": 28
+  },
   "train_n_subjects": 71,
-  "train_n_normal": 36,
-  "train_n_impaired": 35,
-  "oof_subject_auc": 0.8614,
-  "oof_subject_auc_std": 0.0202,
-  "oof_subject_sens": 0.9429,
-  "oof_subject_spec": 0.7222,
+  "train_n_normal": 31,
+  "train_n_impaired": 40,
+  "feature_summary_by_label": {
+    "v_jerk_rms_median": {
+      "normal_median": 1.7673015951969793,
+      "impaired_median": 1.104617661330034,
+      "difference": -0.6626839338669452,
+      "impaired_to_normal_ratio": 0.6250306480410979
+    },
+    "v_jerk_rms_iqr": {
+      "normal_median": 0.13221253778743897,
+      "impaired_median": 0.07252852714502894,
+      "difference": -0.059684010642410024,
+      "impaired_to_normal_ratio": 0.5485752588883414
+    },
+    "v_harmonic_ratio_iqr": {
+      "normal_median": 0.0537109762115907,
+      "impaired_median": 0.07575294438414587,
+      "difference": 0.022041968172555174,
+      "impaired_to_normal_ratio": 1.410381075289385
+    }
+  },
+  "vif": {
+    "v_jerk_rms_median": 2.1742076073991363,
+    "v_jerk_rms_iqr": 1.536108032451109,
+    "v_harmonic_ratio_iqr": 1.5909424981800928
+  },
+  "oof_subject_auc": 0.8794,
+  "oof_subject_auc_std": 0.0159,
+  "oof_subject_auc_95ci": [
+    0.8483,
+    0.9076
+  ],
+  "seed42_oof_auc": 0.8669,
+  "seed42_youden_threshold": 0.485,
+  "seed42_youden_sens": 0.825,
+  "seed42_youden_spec": 0.7742,
+  "oof_subject_sens": 0.8,
+  "oof_subject_spec": 0.7742,
+  "confusion_matrix_seed42": {
+    "tn": 24,
+    "fp": 7,
+    "fn": 8,
+    "tp": 32
+  },
   "signal_correction": {
     "alpha": 1.9705093832241642,
     "tau": 1.0,
@@ -22,5 +77,31 @@
     "our_v_bp_rms_median": 0.09838236440400697,
     "pn_v_bp_rms_median": 0.19386337220187475,
     "n_our_normals": 6
+  },
+  "validation_protocol": "subject-level StratifiedGroupKFold 5-fold x 100 repeats; threshold fixed at 0.50 for service screening",
+  "fixed_threshold_100rep_oof": {
+    "threshold": 0.5,
+    "auc_mean": 0.8661,
+    "auc_std": 0.0089,
+    "auc_95ci": [
+      0.8488,
+      0.8782
+    ],
+    "sensitivity_mean": 0.8287,
+    "sensitivity_std": 0.0207,
+    "sensitivity_95ci": [
+      0.8,
+      0.8631
+    ],
+    "specificity_mean": 0.7361,
+    "specificity_std": 0.0271,
+    "specificity_95ci": [
+      0.6774,
+      0.7742
+    ],
+    "accuracy_mean": 0.7883,
+    "accuracy_std": 0.0171,
+    "f1_mean": 0.8152,
+    "f1_std": 0.0151
   }
 }

@@ -1,0 +1,14 @@
+{
+  "features": [
+    "v_acf_stride_peak",
+    "v_acf_stride_peak_width_sec",
+    "ap_acf_stride_peak_width_sec",
+    "ap_spec_entropy"
+  ],
+  "threshold": 0.4599999999999999,
+  "excluded": [
+    "Chapman_PD_OFF_RAW",
+    "FoG_STAR_BACK_WALK"
+  ],
+  "reason": "no within-domain normal controls — domain correction impossible"
+}
