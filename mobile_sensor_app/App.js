@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -17,7 +18,7 @@ const G = 9.80665;
 const SAMPLE_INTERVAL_MS = 10;
 const UI_SAMPLE_INTERVAL_MS = 250;
 
-const SERVER_URL = 'https://moca-demo.onrender.com';
+const DEFAULT_SERVER_URL = 'http://192.168.0.2:5000';
 
 const SESSION_TYPES = [
   {
@@ -207,6 +208,8 @@ export default function App() {
   const [csvPath, setCsvPath] = useState('');
   const [csvFilename, setCsvFilename] = useState('');
   const [summary, setSummary] = useState('허리에 폰을 고정하고 시작 버튼을 눌러주세요.');
+  const [serverUrl, setServerUrl] = useState(DEFAULT_SERVER_URL);
+  const [memberPhone, setMemberPhone] = useState('');
   const [uploading, setUploading] = useState(false);
   const [gaitResult, setGaitResult] = useState(null);
   const latestAcc = useRef([0, G, 0]);
@@ -446,7 +449,9 @@ export default function App() {
       const filename = csvFilename || csvPath.split('/').pop() || 'gait.csv';
       const formData = new FormData();
       formData.append('file', { uri: csvPath, name: filename, type: 'text/csv' });
-      const res = await fetch(`${SERVER_URL}/gait/upload-csv`, {
+      if (memberPhone.trim()) formData.append('member_phone', memberPhone.trim());
+      const baseUrl = serverUrl.replace(/\/+$/, '');
+      const res = await fetch(`${baseUrl}/gait/upload-csv`, {
         method: 'POST',
         body: formData,
       });
@@ -485,7 +490,27 @@ export default function App() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.title}>Finalinzi Sensor</Text>
-        <Text style={styles.subtitle}>기존 APK와 동일한 14컬럼 CSV 수집</Text>
+        <Text style={styles.subtitle}>노트북 Flask 서버로 14컬럼 CSV 전송</Text>
+
+        <View style={styles.configPanel}>
+          <Text style={styles.inputLabel}>노트북 서버 주소</Text>
+          <TextInput
+            style={styles.input}
+            value={serverUrl}
+            onChangeText={setServerUrl}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="http://노트북IP:5000"
+          />
+          <Text style={styles.inputLabel}>사용자 등록 전화번호</Text>
+          <TextInput
+            style={styles.input}
+            value={memberPhone}
+            onChangeText={setMemberPhone}
+            keyboardType="phone-pad"
+            placeholder="010-0000-0000"
+          />
+        </View>
 
         <View style={styles.selector}>
           {SESSION_TYPES.map((item) => (
@@ -591,6 +616,27 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: '#425466',
+  },
+  configPanel: {
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    padding: 16,
+    gap: 8,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#425466',
+  },
+  input: {
+    minHeight: 46,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    paddingHorizontal: 12,
+    color: '#102a43',
+    backgroundColor: '#f8fafc',
+    fontSize: 15,
   },
   selector: {
     gap: 8,

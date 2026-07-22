@@ -3,9 +3,30 @@ MoCA-K 시연용 Flask 웹앱
 폰 브라우저에서 접속: http://<서버IP>:5000
 """
 
-import os, io, base64, json, hmac, secrets
+import os, io, base64, json, hmac, secrets, urllib.request
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 from uuid import uuid4
+
+
+def _load_env_file():
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if not os.path.exists(env_path):
+        return
+    with open(env_path, "r", encoding="utf-8") as f:
+        for raw_line in f:
+            line = raw_line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
+
+_load_env_file()
+
 from flask import Flask, render_template, request, jsonify, session, send_from_directory, redirect, url_for
 import numpy as np
 import cv2
@@ -18,6 +39,7 @@ from database import (
     create_assessment,
     education_label,
     find_member_by_code_or_name,
+    find_member_by_phone,
     get_exercise_summary,
     get_guardian_dashboard,
     get_guardian_cheers,
@@ -197,47 +219,36 @@ def _has_final_gait_features(features):
 def _gait_feature_insights(features):
     checks = [
         {
-            "key": "v_amp_pool_median",
-            "label": "수직 보행 활력",
-            "value": _safe_float(features.get("v_amp_pool_median")),
-            "unit": "",
-            "problem": "수직 움직임이 작아 보폭/추진력이 약한 패턴",
-            "ok": "수직 움직임이 비교적 안정적",
+            "key": "v_jerk_rms_median",
+            "label": "수직 충격/추진 대표값",
+            "value": _safe_float(features.get("v_jerk_rms_median")),
+            "unit": " g/s",
+            "problem": "걸음의 수직 충격과 추진 수준이 낮아 보폭이나 보행 힘을 확인할 필요가 있습니다.",
+            "ok": "걸음의 수직 충격과 추진 수준이 비교적 양호합니다.",
             "risk_when": "low",
+            "cut": 1.20,
+        },
+        {
+            "key": "v_jerk_rms_iqr",
+            "label": "수직 충격 변동성",
+            "value": _safe_float(features.get("v_jerk_rms_iqr")),
+            "unit": " g/s",
+            "problem": "걸음 중 충격과 추진의 흔들림 폭이 커져 보행 일관성 확인이 필요합니다.",
+            "ok": "걸음 중 충격과 추진의 변동 폭이 비교적 안정적입니다.",
+            "risk_when": "high",
+            "cut": 0.80,
+        },
+        {
+            "key": "v_harmonic_ratio_iqr",
+            "label": "수직 리듬 변동성",
+            "value": _safe_float(features.get("v_harmonic_ratio_iqr")),
+            "unit": "",
+            "problem": "보행 리듬의 구간별 변동이 커져 일정한 보행 리듬 확인이 필요합니다.",
+            "ok": "보행 리듬의 구간별 변동이 비교적 낮습니다.",
+            "risk_when": "high",
             "cut": 0.10,
         },
-        {
-            "key": "ml_amp_pool_iqr",
-            "label": "좌우 흔들림",
-            "value": _safe_float(features.get("ml_amp_pool_iqr")),
-            "unit": "",
-            "problem": "좌우 흔들림 변동성이 커 균형 안정성 확인 필요",
-            "ok": "좌우 흔들림 변동성이 낮은 편",
-            "risk_when": "high",
-            "cut": 0.08,
-        },
-        {
-            "key": "roll_amp_pool_iqr",
-            "label": "몸통 회전 안정성",
-            "value": _safe_float(features.get("roll_amp_pool_iqr")),
-            "unit": "deg/s",
-            "problem": "몸통 회전 변동성이 커 자세 안정성 확인 필요",
-            "ok": "몸통 회전 변동성이 낮은 편",
-            "risk_when": "high",
-            "cut": 18.0,
-        },
     ]
-    if "base_v_stride_regularity" in features:
-        checks.insert(2, {
-            "key": "base_v_stride_regularity",
-            "label": "보행 리듬 규칙성",
-            "value": _safe_float(features.get("base_v_stride_regularity")),
-            "unit": "",
-            "problem": "걸음 리듬이 불규칙한 패턴",
-            "ok": "걸음 리듬이 비교적 규칙적",
-            "risk_when": "low",
-            "cut": 0.72,
-        })
     for item in checks:
         item["is_problem"] = item["value"] < item["cut"] if item["risk_when"] == "low" else item["value"] > item["cut"]
         item["message"] = item["problem"] if item["is_problem"] else item["ok"]
@@ -255,10 +266,9 @@ def _gait_explainability(model_artifact, features):
             {
                 "key": name,
                 "label": {
-                    "v_amp_pool_median": "수직 보행 활력",
-                    "ml_amp_pool_iqr": "좌우 흔들림",
-                    "base_v_stride_regularity": "보행 리듬",
-                    "roll_amp_pool_iqr": "몸통 회전",
+                    "v_jerk_rms_median": "수직 충격/추진 대표값",
+                    "v_jerk_rms_iqr": "수직 충격 변동성",
+                    "v_harmonic_ratio_iqr": "수직 리듬 변동성",
                 }.get(name, name),
                 "value": float(features[name]),
                 "contribution": float(coef * val),
@@ -519,11 +529,125 @@ def _basic_pengteu_reply(message, context, knowledge=None):
             return f"{name}가 응원합니다. 지금 {streak}일 연속 운동 기록이 있어요. 오늘은 무리하지 말고 화면 안내에 맞춰 천천히 이어가면 됩니다.{evidence_hint}"
         return f"{name}가 오늘 운동을 같이 도와드릴게요. 먼저 현재 유형에 맞는 운동을 시작하고, 센서 기준값이 준비되면 동작 성공 여부도 자동으로 확인할 수 있어요.{evidence_hint}"
 
+    if "기여도" in message or "xai" in lowered or "shap" in lowered:
+        return f"{name}가 쉽게 말해드릴게요. 모델 기여도는 이번 보행 판단에서 어떤 보행 피처가 위험 쪽으로 밀었고, 어떤 피처가 정상 쪽으로 도왔는지 보여주는 설명이에요. 지금은 로지스틱 회귀의 표준화 피처와 계수를 이용한 설명이고, 나중에 SHAP을 붙이면 더 정식 XAI로 보여줄 수 있어요.{evidence_hint}"
+
+    if "스펙트럼" in message or "주파수" in message:
+        return f"{name}가 설명해드릴게요. 스펙트럼은 허리 가속도 원신호가 시간에 따라 어떤 리듬과 주파수 패턴을 보였는지 보여주는 보조 그림이에요. 모델은 최종 3개 보행 피처로 판단하고, 스펙트럼은 그 판단을 이해하기 쉽게 돕는 시각 자료예요.{evidence_hint}"
+
     if knowledge:
         top = knowledge[0]
         return f"{name}예요. 질문과 가까운 자료를 찾아봤어요. {top.get('text', '')} 이 내용을 바탕으로 {member_code}에게 맞게 더 쉽게 설명해드릴게요."
 
     return f"{name}예요. 저는 {member_code}의 인지평가, 보행평가, 운동기록을 함께 보면서 상황에 맞게 설명하고 안내할 준비가 되어 있어요."
+
+
+def _pengteu_local_answer_ready(message, knowledge=None):
+    text = (message or "").lower()
+    keywords = (
+        "보행", "걷", "걸음", "운동", "오늘", "moca", "인지", "점수",
+        "낙상", "센서", "보정", "보호자", "글씨", "볼륨", "속도",
+        "기준", "모델", "라벨", "기여도", "스펙트럼", "주파수", "xai", "shap",
+        "threshold", "gait", "fall", "sensor", "exercise", "score",
+    )
+    return any(keyword in text for keyword in keywords)
+
+
+def _compact_pengteu_context(context, knowledge=None):
+    context = context or {}
+    member = context.get("member") or {}
+    assessment = context.get("latest_assessment") or {}
+    physical = context.get("latest_physical") or {}
+    exercise = context.get("exercise_summary") or {}
+    profile = context.get("assistant_profile") or {}
+    raw_gait = physical.get("raw_json") if isinstance(physical, dict) else {}
+    if not isinstance(raw_gait, dict):
+        raw_gait = {}
+    return {
+        "member_code": member.get("member_code"),
+        "moca_final_score": assessment.get("final_score"),
+        "gait_prediction": raw_gait.get("prediction"),
+        "gait_probability": raw_gait.get("probability"),
+        "exercise_streak_days": exercise.get("streak_days"),
+        "exercise_present_days": exercise.get("present_days"),
+        "assistant_profile": {
+            "voice_rate": profile.get("voice_rate"),
+            "tts_volume": profile.get("tts_volume"),
+            "text_scale": profile.get("text_scale"),
+            "high_contrast": profile.get("high_contrast"),
+        },
+        "retrieved_knowledge": [
+            {
+                "source": item.get("source"),
+                "title": item.get("title"),
+                "text": (item.get("text") or "")[:700],
+            }
+            for item in (knowledge or [])[:3]
+        ],
+    }
+
+
+def _extract_response_text(payload):
+    if not isinstance(payload, dict):
+        return ""
+    if payload.get("output_text"):
+        return str(payload["output_text"]).strip()
+    texts = []
+    for item in payload.get("output", []) or []:
+        for content in item.get("content", []) or []:
+            if content.get("type") in ("output_text", "text") and content.get("text"):
+                texts.append(str(content.get("text")))
+    return "\n".join(texts).strip()
+
+
+def _openai_pengteu_fallback(message, context, knowledge=None):
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        return None
+
+    model = os.environ.get("OPENAI_ASSISTANT_MODEL", "gpt-4.1-mini").strip()
+    system_prompt = (
+        "너는 고령 사용자를 돕는 펭트 AI 어시스턴트다. "
+        "진단을 확정하지 말고 선별/주의 표현을 사용한다. "
+        "답변은 한국어로 2~4문장, 쉽고 따뜻하게 말한다. "
+        "사용자 기록과 검색 지식 안에서만 개인 결과를 설명하고, 모르는 것은 모른다고 말한다."
+    )
+    body = {
+        "model": model,
+        "input": [
+            {
+                "role": "developer",
+                "content": [{"type": "input_text", "text": system_prompt}],
+            },
+            {
+                "role": "user",
+                "content": [{
+                    "type": "input_text",
+                    "text": json.dumps({
+                        "question": message,
+                        "context": _compact_pengteu_context(context, knowledge),
+                    }, ensure_ascii=False),
+                }],
+            },
+        ],
+        "max_output_tokens": 220,
+    }
+    req = urllib.request.Request(
+        "https://api.openai.com/v1/responses",
+        data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+        return _extract_response_text(payload) or None
+    except Exception as exc:
+        print(f"[pengteu openai fallback error] {exc}")
+        return None
 
 
 def _save_gait_result(gait_result):
@@ -565,6 +689,27 @@ def _current_assessment_id():
     if uid in _store:
         return _store[uid].get('assessment_id')
     return session.get('assessment_id')
+
+
+def _ensure_member_from_phone(phone, education_level="high"):
+    normalized = normalize_phone(phone)
+    if len(normalized) < 9:
+        raise ValueError("전화번호를 다시 확인해 주세요.")
+    existing = find_member_by_phone(normalized)
+    if existing:
+        member_id = existing["id"]
+        member_code = existing.get("member_code") or existing.get("name")
+        edu = existing.get("education_years")
+        level = existing.get("education_level") or education_level
+    else:
+        member_id, edu, member_code, _ = get_or_create_member(normalized, education_level)
+        level = education_level
+    session["member_id"] = member_id
+    session["member_code"] = member_code
+    session["education_years"] = edu
+    session["education_level"] = level
+    session["phone_last4"] = phone_last4(normalized)
+    return member_id, int(edu), member_code, level
 
 
 def _exercise_mock_data():
@@ -1037,6 +1182,12 @@ def gait_upload_csv():
     upload = request.files.get('file')
     if upload is None or not upload.filename:
         return jsonify({'ok': False, 'error': 'CSV 파일을 선택해 주세요.'}), 400
+    member_phone = request.form.get("member_phone") or request.form.get("phone") or request.args.get("member_phone") or ""
+    if member_phone:
+        try:
+            _ensure_member_from_phone(member_phone, request.form.get("education_level") or "high")
+        except ValueError as exc:
+            return jsonify({"ok": False, "error": str(exc)}), 400
     model_dir = os.path.join(app.root_path, "models")
     daily_model_path = os.path.join(model_dir, "gait_daily_clinical_3feat.joblib")
 
@@ -1061,6 +1212,7 @@ def gait_upload_csv():
         jerk_med = _safe_float(feats.get('v_jerk_rms_median'))
         jerk_iqr = _safe_float(feats.get('v_jerk_rms_iqr'))
         hr_iqr   = _safe_float(feats.get('v_harmonic_ratio_iqr'))
+        model_artifact = (_load_gait_models().get("daily") or {}).get("model")
         gait_result = {
             'probability':        result['probability'],
             'threshold':          result['threshold'],
@@ -1072,33 +1224,33 @@ def gait_upload_csv():
             'insights': [
                 {
                     'key':        'v_jerk_rms_median',
-                    'label':      '보행 추진력 (Jerk 중앙값)',
+                    'label':      '수직 충격/추진 대표값',
                     'value':      jerk_med,
-                    'unit':       'g/s',
+                    'unit':       ' g/s',
                     'ref_normal': '≥ 1.2',
                     'is_problem': jerk_med < 1.2,
-                    'message':    '걸음 추진력이 낮습니다. 보행 속도가 느리거나 보폭이 작을 수 있습니다.' if jerk_med < 1.2 else '걸음 추진력이 양호합니다.',
+                    'message':    '걸음의 수직 충격과 추진 수준이 낮아 보폭이나 보행 힘을 확인할 필요가 있습니다.' if jerk_med < 1.2 else '걸음의 수직 충격과 추진 수준이 비교적 양호합니다.',
                 },
                 {
                     'key':        'v_jerk_rms_iqr',
-                    'label':      '보행 에너지 변동성 (Jerk IQR)',
+                    'label':      '수직 충격 변동성',
                     'value':      jerk_iqr,
-                    'unit':       'g/s',
-                    'ref_normal': '≥ 0.08',
-                    'is_problem': jerk_iqr < 0.08,
-                    'message':    '보행 에너지 변동이 작습니다. 발의 힘 조절이 과도하게 균일하거나 걸음이 약할 수 있습니다.' if jerk_iqr < 0.08 else '보행 에너지 변동이 정상 범위입니다.',
+                    'unit':       ' g/s',
+                    'ref_normal': '≤ 0.80',
+                    'is_problem': jerk_iqr > 0.80,
+                    'message':    '걸음 중 충격과 추진의 흔들림 폭이 커져 보행 일관성 확인이 필요합니다.' if jerk_iqr > 0.80 else '걸음 중 충격과 추진의 변동 폭이 비교적 안정적입니다.',
                 },
                 {
                     'key':        'v_harmonic_ratio_iqr',
-                    'label':      '좌우 보행 리듬 변동성 (HR IQR)',
+                    'label':      '수직 리듬 변동성',
                     'value':      hr_iqr,
                     'unit':       '',
                     'ref_normal': '≤ 0.10',
                     'is_problem': hr_iqr > 0.10,
-                    'message':    '보행 리듬이 구간마다 불규칙합니다. 좌우 발걸음 대칭성이 흔들리고 있습니다.' if hr_iqr > 0.10 else '보행 리듬이 일정합니다.',
+                    'message':    '보행 리듬의 구간별 변동이 커져 일정한 보행 리듬 확인이 필요합니다.' if hr_iqr > 0.10 else '보행 리듬의 구간별 변동이 비교적 낮습니다.',
                 },
             ],
-            'explainability': [],
+            'explainability': _gait_explainability(model_artifact, feats) if model_artifact else [],
             'visual': _gait_visual_profile({
                 'v_amp_pool_median':        max(0.02, min(1.0, jerk_med / 5.0)),
                 'ml_amp_pool_iqr':          max(0.02, hr_iqr),
@@ -1477,15 +1629,117 @@ def care_type_api():
     return jsonify(_classify_care_type(cognitive, gait_result))
 
 
+@app.route('/api/mobile/moca/score', methods=['POST'])
+def mobile_moca_score_api():
+    data = request.get_json(silent=True) or {}
+    phone = data.get("member_phone") or data.get("phone") or ""
+    education_level = data.get("education_level") or "high"
+    version = data.get("version") or "MoCA-K"
+    loc = (data.get("location") or "").strip()
+    sgg = (data.get("sigungu") or "").strip()
+
+    try:
+        member_id, edu, member_code, level = _ensure_member_from_phone(phone, education_level)
+    except ValueError as exc:
+        return jsonify({"ok": False, "error": str(exc)}), 400
+
+    raw = _empty_raw()
+    raw.update(data.get("raw") or {})
+    responses = data.get("responses") or {}
+    for item, response in responses.items():
+        if isinstance(response, dict):
+            _store_response(raw, item, response)
+
+    uid = f"{member_code}_mobile_{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid4().hex[:8]}"
+    assessment_id = create_assessment(uid, member_id, version, loc, sgg)
+    score = _compute_score(
+        raw,
+        {"location": loc, "sigungu": sgg},
+        SimpleNamespace(education_years=edu, version=version),
+    )
+    complete_assessment(assessment_id, raw, score)
+    session["assessment_id"] = assessment_id
+    return jsonify({
+        "ok": True,
+        "member_id": member_id,
+        "member_code": member_code,
+        "assessment_id": assessment_id,
+        "version": version,
+        "score": score,
+        "redirect_url": url_for("final_result", panel="cognitive"),
+    })
+
+
 @app.route('/guardian/login')
 def guardian_login_page():
     return render_template('guardian_login.html')
 
 
-def _resolve_guardian_member(parent_name=""):
+@app.route('/guardian/send-code', methods=['POST'])
+def guardian_send_code():
+    data = request.get_json(silent=True) or {}
+    member_phone = normalize_phone(data.get("member_phone") or data.get("phone") or "")
+    member = find_member_by_phone(member_phone)
+    if not member:
+        return jsonify({"ok": False, "error": "등록된 사용자 번호를 찾지 못했습니다."}), 404
+
+    code = f"{secrets.randbelow(1000000):06d}"
+    expires_at = datetime.now() + timedelta(minutes=5)
+    session["guardian_verification"] = {
+        "member_phone_hash": phone_hash(member_phone),
+        "member_id": member["id"],
+        "code": code,
+        "expires_at": expires_at.isoformat(),
+        "verified": False,
+    }
+    return jsonify({
+        "ok": True,
+        "message": "인증번호가 발급되었습니다.",
+        "demo_code": code,
+        "expires_in": 300,
+    })
+
+
+@app.route('/guardian/verify-code', methods=['POST'])
+def guardian_verify_code():
+    data = request.get_json(silent=True) or {}
+    member_phone = normalize_phone(data.get("member_phone") or data.get("phone") or "")
+    code = (data.get("code") or "").strip()
+    saved = session.get("guardian_verification") or {}
+    if not saved or saved.get("member_phone_hash") != phone_hash(member_phone):
+        return jsonify({"ok": False, "error": "인증번호를 다시 발급해 주세요."}), 400
+    try:
+        expires_at = datetime.fromisoformat(saved.get("expires_at", ""))
+    except ValueError:
+        return jsonify({"ok": False, "error": "인증번호를 다시 발급해 주세요."}), 400
+    if datetime.now() > expires_at:
+        return jsonify({"ok": False, "error": "인증번호가 만료되었습니다."}), 400
+    if not hmac.compare_digest(saved.get("code", ""), code):
+        return jsonify({"ok": False, "error": "인증번호가 맞지 않습니다."}), 400
+
+    saved["verified"] = True
+    session["guardian_verification"] = saved
+    session["guardian_member_id"] = saved["member_id"]
+    guardian_id = get_or_create_guardian(member_phone, name="보호자")
+    session["guardian_id"] = guardian_id
+    link_guardian_member(guardian_id, saved["member_id"])
+    return jsonify({
+        "ok": True,
+        "message": "보호자 인증이 완료되었습니다.",
+        "redirect_url": url_for("guardian_page"),
+    })
+
+
+def _resolve_guardian_member(parent_name="", member_phone=""):
     member_id = _current_member_id()
     if member_id:
         return member_id
+    member_id = session.get("guardian_member_id")
+    if member_id:
+        return member_id
+    member = find_member_by_phone(member_phone)
+    if member:
+        return member["id"]
     member = find_member_by_code_or_name(parent_name)
     if member:
         return member["id"]
@@ -1495,13 +1749,21 @@ def _resolve_guardian_member(parent_name=""):
 @app.route('/guardian')
 def guardian_page():
     parent_name = (request.args.get('parent_name') or request.args.get('parentName') or '').strip()
-    guardian_phone = request.args.get('guardian_phone') or request.args.get('guardianPhone') or ''
+    member_phone = request.args.get('member_phone') or request.args.get('guardian_phone') or request.args.get('guardianPhone') or ''
     guardian_id = session.get('guardian_id')
-    member_id = _resolve_guardian_member(parent_name)
+    member_id = _resolve_guardian_member(parent_name, member_phone)
+    verification = session.get("guardian_verification") or {}
+    if member_phone and (
+        not verification.get("verified")
+        or verification.get("member_phone_hash") != phone_hash(member_phone)
+    ):
+        return redirect(url_for("guardian_login_page"))
+    if member_id:
+        session["guardian_member_id"] = member_id
 
-    if guardian_phone:
+    if member_phone:
         try:
-            guardian_id = get_or_create_guardian(guardian_phone, name=parent_name or "보호자")
+            guardian_id = get_or_create_guardian(member_phone, name="보호자")
             session['guardian_id'] = guardian_id
             if member_id:
                 link_guardian_member(guardian_id, member_id)
@@ -1516,7 +1778,7 @@ def guardian_page():
 def guardian_cheer():
     data = request.get_json(silent=True) or {}
     message = (data.get('message') or '').strip()
-    member_id = _current_member_id()
+    member_id = _current_member_id() or session.get("guardian_member_id")
     if not member_id:
         dashboard = get_guardian_dashboard(limit=1)
         member = dashboard.get("member")
@@ -1577,11 +1839,21 @@ def assistant_chat_api():
     knowledge = retrieve_knowledge(user_message, top_k=4)
     message_context = {**context, "retrieved_knowledge": knowledge}
     save_assistant_message(member_id, "user", user_message, context=message_context)
-    reply = _basic_pengteu_reply(user_message, context, knowledge=knowledge)
+    reply_source = "local"
+    if _pengteu_local_answer_ready(user_message, knowledge):
+        reply = _basic_pengteu_reply(user_message, context, knowledge=knowledge)
+    else:
+        reply = _openai_pengteu_fallback(user_message, context, knowledge=knowledge)
+        if reply:
+            reply_source = "openai_fallback"
+        else:
+            reply_source = "local_fallback"
+            reply = _basic_pengteu_reply(user_message, context, knowledge=knowledge)
     save_assistant_message(member_id, "assistant", reply, context=message_context)
     return jsonify({
         "ok": True,
         "reply": reply,
+        "reply_source": reply_source,
         "context": context,
         "knowledge": knowledge,
     })

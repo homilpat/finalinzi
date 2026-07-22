@@ -79,4 +79,4 @@ Then scan the Expo QR code on iPhone or Android.
 - Expo `Accelerometer` returns acceleration in `g`; this app converts raw `Acc_X/Y/Z` to `m/s^2` to match Android sensor CSV samples.
 - Expo `Gyroscope` returns `rad/s`, matching the existing APK raw gyro columns.
 - Anatomical V / ML / AP columns are computed from the 3-second still gravity vector.
-- Server inference is not included here. Share/upload the CSV to Flask `/gait/upload-csv`.
+- For the laptop-server demo, run Flask on the notebook and enter `http://<노트북IP>:5000` in the app. Gait CSV upload goes to `/gait/upload-csv` with `member_phone`, so the result is saved to the same member DB record.

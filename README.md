@@ -1,5 +1,23 @@
 # 파이널 프로젝트 데모
 
+## 최종 보행 모델 재현 파일 색인
+
+최종 확정 모델은 `MOCA/models/gait_daily_clinical_3feat.joblib`이며, 아래 파일들이 학습·전처리·보정·검증·시각화 재현에 사용되는 핵심 스크립트입니다.
+
+| 목적 | 파일명 | 역할 |
+|------|--------|------|
+| 최종 모델링 / 재학습 | `analysis_scripts/retrain_acconly_clean.py` | 최종 acc-only 3피처 로지스틱 회귀 모델 재학습, 100회 반복 5-fold 검증, VIF 확인, `gait_daily_clinical_3feat.joblib` 및 metadata 저장 |
+| 보행 구간 추출 / 20s→10s 서브윈도우 | `analysis_scripts/build_75h_subwindow_median_iqr.py` | PhysioNet 75h 일상보행에서 20초 구간을 만들고 내부 10초 슬라이딩 서브윈도우 피처를 median/IQR로 집계 |
+| 런타임 전처리 / 피처 추출 | `MOCA/gait_axis_aligned_core.py` | CSV 파싱, 축 정렬(V/ML/AP), 100Hz 리샘플링, 밴드패스 필터, 서브윈도우 피처 추출 |
+| 서버 예측 파이프라인 | `MOCA/gait_axis_aligned_processor.py` | 앱/APK CSV를 최종 모델 입력으로 변환하고 `predict_daily_gait_csv()`로 추론 |
+| 스마트폰-허리센서 보정 | `analysis_scripts/calibrate_waist_sensor_range_loss.py` | 실제 스마트폰 샘플과 PhysioNet 기준 신호 범위 차이를 비교해 sensor-level 보정 계수 산출 |
+| 최종 ML/DL 모델 비교 | `analysis_scripts/compare_final_speed_or6_models.py` | LR, RF, SVM, GBM, XGB, Voting, Stacking, CNN1D, LSTM 비교 평가 |
+| 혼동행렬/ROC 시각화 출력 | `analysis_scripts/compare_final_speed_or6_models.py` | `analysis_outputs/final_model_comparison_speed_or6/`에 모델별 confusion matrix, ROC curve, 전체 ROC 비교 이미지 저장 |
+| 후보 피처/도메인 민감도 시각 분석 | `analysis_scripts/summarize_comprehensive_gait_feature_analysis.py` | 서비스 후보 피처, 도메인 민감도, 조합 후보를 요약 CSV/Markdown으로 정리 |
+| 정상/저하 보행 패턴 비교 시각화 | `analysis_scripts/compare_normal_impaired_gait_patterns.py` | 정상 보행 기준 데이터와 저하군 보행 패턴의 피처 차이 및 분리 가능성 분석 |
+
+최종 서비스 라벨은 `TUG >= 12 OR FSST >= 15 OR BERG < 52 OR DGI <= 19 OR base_velocity < 1.0 OR s3_velocity < 1.0`이며, 최종 입력 피처는 `v_jerk_rms_median`, `v_jerk_rms_iqr`, `v_harmonic_ratio_iqr` 3개입니다.
+
 ## 개요
 
 스마트폰 기반 인지·보행 이중 선별 시스템. 병원 방문 없이 태블릿/스마트폰만으로 MoCA-K 인지검사와 보행 운동기능 평가를 동시에 수행하고, 케어타입(A~D형)을 자동 분류한다.

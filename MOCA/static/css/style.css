@@ -2290,7 +2290,7 @@ body {
 .pengteu-input-row {
   padding: 12px;
   display: grid;
-  grid-template-columns: 1fr 72px;
+  grid-template-columns: 1fr 64px 72px;
   gap: 8px;
   background: white;
   border-top: 1px solid #e4eaf2;
@@ -2317,6 +2317,58 @@ body {
   color: white;
   font-weight: 900;
   cursor: pointer;
+}
+.pengteu-mic-btn {
+  background: #e4efff !important;
+  color: #005da7 !important;
+  font-size: 13px;
+}
+.pengteu-mic-btn.is-listening {
+  background: #ba1a1a !important;
+  color: white !important;
+}
+.pengteu-mic-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.pengteu-explain-box {
+  display: grid;
+  grid-template-columns: 46px 1fr;
+  gap: 12px;
+  align-items: center;
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 16px;
+  background: #eef7ff;
+  border: 1px solid #d4e8ff;
+}
+.pengteu-explain-box img {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  object-fit: cover;
+  object-position: center;
+}
+.pengteu-explain-box p {
+  color: #243b53;
+  font-size: 14px;
+  line-height: 1.55;
+  font-weight: 800;
+}
+.pengteu-explain-btn {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 12px;
+  border: 0;
+  border-radius: 16px;
+  background: #005da7;
+  color: white;
+  font-size: 15px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.pengteu-explain-btn:active {
+  transform: scale(0.98);
 }
 .pengteu-settings {
   border-top: 1px solid #e4eaf2;

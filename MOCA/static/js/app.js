@@ -1034,6 +1034,7 @@ function redrawCanvas() {
   const panel = document.getElementById('pengteuPanel');
   const form = document.getElementById('pengteuForm');
   const input = document.getElementById('pengteuInput');
+  const micBtn = document.getElementById('pengteuMicBtn');
   const messages = document.getElementById('pengteuMessages');
   const textScale = document.getElementById('pengteuTextScale');
   const voiceRate = document.getElementById('pengteuVoiceRate');
@@ -1047,6 +1048,9 @@ function redrawCanvas() {
     high_contrast: 0,
     reduced_motion: 0,
   };
+  let pengteuRecognition = null;
+  let pengteuListening = false;
+  let pengteuSpeaking = false;
 
   function openPanel() {
     panel.hidden = false;
@@ -1119,10 +1123,71 @@ function redrawCanvas() {
     utterance.lang = 'ko-KR';
     utterance.rate = Number(profile.voice_rate || 0.85);
     utterance.volume = Number(profile.tts_volume || 0.85);
+    utterance.onstart = () => { pengteuSpeaking = true; };
+    utterance.onend = () => { pengteuSpeaking = false; };
+    utterance.onerror = () => { pengteuSpeaking = false; };
     window.speechSynthesis.speak(utterance);
   }
 
+  function initPengteuRecognition() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR || !micBtn) {
+      if (micBtn) micBtn.disabled = true;
+      return null;
+    }
+    const recognition = new SR();
+    recognition.lang = 'ko-KR';
+    recognition.interimResults = false;
+    recognition.continuous = false;
+    recognition.onstart = () => {
+      pengteuListening = true;
+      micBtn.classList.add('is-listening');
+      micBtn.textContent = '듣는 중';
+    };
+    recognition.onend = () => {
+      pengteuListening = false;
+      micBtn.classList.remove('is-listening');
+      micBtn.textContent = '마이크';
+    };
+    recognition.onerror = () => {
+      pengteuListening = false;
+      micBtn.classList.remove('is-listening');
+      micBtn.textContent = '마이크';
+    };
+    recognition.onresult = (event) => {
+      const text = Array.from(event.results || [])
+        .map((result) => result[0] && result[0].transcript)
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+      if (text) {
+        input.value = text;
+        askPengteu(text);
+      }
+    };
+    return recognition;
+  }
+
+  function togglePengteuMic() {
+    if (!pengteuRecognition) pengteuRecognition = initPengteuRecognition();
+    if (!pengteuRecognition || pengteuSpeaking) {
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      pengteuSpeaking = false;
+    }
+    if (!pengteuRecognition) return;
+    if (pengteuListening) {
+      pengteuRecognition.stop();
+      return;
+    }
+    try {
+      pengteuRecognition.start();
+    } catch (err) {
+      console.warn('[pengteu stt]', err);
+    }
+  }
+
   async function askPengteu(message) {
+    openPanel();
     appendMessage('user', message);
     appendMessage('assistant', '잠깐만요. 기록을 확인하고 있어요.');
     const waitingNode = messages.lastElementChild;
@@ -1154,11 +1219,27 @@ function redrawCanvas() {
     input.value = '';
     askPengteu(message);
   });
+  if (micBtn) {
+    micBtn.addEventListener('click', togglePengteuMic);
+    initPengteuRecognition();
+  }
 
   [textScale, voiceRate, volume, highContrast, reducedMotion].forEach((control) => {
     control.addEventListener('change', saveProfile);
     control.addEventListener('input', () => {
       if (control === textScale) applyProfile({ text_scale: Number(textScale.value) });
+    });
+  });
+
+  window.PengteuAssistant = {
+    ask: askPengteu,
+    open: openPanel,
+  };
+
+  document.querySelectorAll('[data-pengteu-prompt]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const prompt = button.getAttribute('data-pengteu-prompt') || '';
+      if (prompt) askPengteu(prompt);
     });
   });
 
