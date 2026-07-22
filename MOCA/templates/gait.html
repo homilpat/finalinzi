@@ -12,8 +12,6 @@
     <span class="design-header-spacer" aria-hidden="true"></span>
   </header>
 
-
-
   <section class="gait-video-tutorial" style="margin-bottom: 24px; display: flex; justify-content: center; width: 100%;">
     <video src="/static/video/gait_tutorial.mp4" controls autoplay loop playsinline style="width: 100%; max-width: 400px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);"></video>
   </section>
@@ -21,17 +19,17 @@
   <section class="gait-demo-card gait-measure-card">
     <div class="gait-demo-heading" style="text-align: left; padding: 18px; background: #f0f5ff; border-radius: 16px; border: 1px solid #dbe5ff; margin-bottom: 20px;">
       <ul style="list-style: none; padding: 0; margin: 0;">
-        <li style="font-size: 15px; color: #495057; margin-bottom: 10px; line-height: 1.4; position: relative; padding-left: 16px;">
-          <span style="position: absolute; left: 0; color: #005da7; font-weight: bold;">•</span>검사하기 버튼을 눌러주세요.
+        <li style="font-size: 15px; color: #495057; margin-bottom: 10px; line-height: 1.4; position: relative; padding-left: 18px;">
+          <span style="position: absolute; left: 0; color: #005da7; font-weight: bold;">1</span>스마트폰을 허리에 단단히 고정해 주세요.
         </li>
-        <li style="font-size: 15px; color: #495057; margin-bottom: 10px; line-height: 1.4; position: relative; padding-left: 16px;">
-          <span style="position: absolute; left: 0; color: #005da7; font-weight: bold;">•</span>허리 뒤에 스마트폰을 세로로 착용해 주세요.
+        <li style="font-size: 15px; color: #495057; margin-bottom: 10px; line-height: 1.4; position: relative; padding-left: 18px;">
+          <span style="position: absolute; left: 0; color: #005da7; font-weight: bold;">2</span>시작 버튼을 누른 뒤 평소처럼 20초 동안 걸어 주세요.
         </li>
-        <li style="font-size: 15px; color: #495057; margin-bottom: 10px; line-height: 1.4; position: relative; padding-left: 16px;">
-          <span style="position: absolute; left: 0; color: #005da7; font-weight: bold;">•</span>가만히 서서 대기하시다가 알림소리가 들리면 정면을 향해 일자로 걸어주세요.
+        <li style="font-size: 15px; color: #495057; margin-bottom: 10px; line-height: 1.4; position: relative; padding-left: 18px;">
+          <span style="position: absolute; left: 0; color: #005da7; font-weight: bold;">3</span>측정 중 화면은 그대로 유지되고, 센서 데이터는 APK가 자동으로 서버에 보냅니다.
         </li>
-        <li style="font-size: 15px; color: #495057; margin-bottom: 0; line-height: 1.4; position: relative; padding-left: 16px;">
-          <span style="position: absolute; left: 0; color: #005da7; font-weight: bold;">•</span>다시 알림소리가 들리면 걸음을 멈추시고 휴대폰을 확인해주세요.
+        <li style="font-size: 15px; color: #495057; margin-bottom: 0; line-height: 1.4; position: relative; padding-left: 18px;">
+          <span style="position: absolute; left: 0; color: #005da7; font-weight: bold;">4</span>분석이 끝나면 보행 아바타 결과 화면으로 자동 이동합니다.
         </li>
       </ul>
     </div>
@@ -41,48 +39,47 @@
         <strong id="gaitCountdown">20</strong>
         <span>초</span>
       </div>
-      <h3 id="gaitMeasureStatus">측정 진행 중</h3>
-      <p>현재는 UI 연결용 측정 화면입니다. 실제 센서 로직이 들어오면 이 화면에서 결과만 넘기면 됩니다.</p>
+      <h3 id="gaitMeasureStatus">측정 준비 중</h3>
+      <p id="gaitMeasureHelp">화면은 그대로 두고, 허리에 고정한 스마트폰 센서로 보행을 측정합니다.</p>
       <div class="gait-measure-progress">
         <span id="gaitMeasureProgress"></span>
       </div>
     </div>
 
     <button class="btn btn-primary btn-lg" type="button" id="gaitMeasureBtn">
-      20초 측정 시작
+      20초 보행 측정 시작
     </button>
+
     <div class="gait-csv-panel">
       <label>
         보행 CSV 업로드
         <input type="file" id="gaitCsvInput" accept=".csv,text/csv">
       </label>
       <button class="btn btn-secondary btn-lg" type="button" id="gaitCsvBtn" style="background: #718096; color: white;">
-        CSV로 추론
+        CSV로 분석
       </button>
     </div>
+
     <div class="gait-result" id="gaitResult" hidden></div>
+
     <details class="gait-manual-panel">
-      <summary>수동 feature 값으로 추론 확인</summary>
+      <summary>최종 feature 값으로 분석 확인</summary>
       <div class="gait-feature-grid">
         <label>
-          수직 보행 출력
-          <input class="gait-feature-input" data-feature="v_amp_pool_median" type="number" step="0.0001" value="0.1263">
+          수직 충격/추진 대표값
+          <input class="gait-feature-input" data-feature="v_jerk_rms_median" type="number" step="0.0001" value="1.2000">
         </label>
         <label>
-          좌우 흔들림 변동성
-          <input class="gait-feature-input" data-feature="ml_amp_pool_iqr" type="number" step="0.0001" value="0.0458">
+          수직 충격 변동성
+          <input class="gait-feature-input" data-feature="v_jerk_rms_iqr" type="number" step="0.0001" value="0.8000">
         </label>
         <label>
-          stride 규칙성
-          <input class="gait-feature-input" data-feature="base_v_stride_regularity" type="number" step="0.0001" value="0.8900">
-        </label>
-        <label>
-          몸통 회전 변동성
-          <input class="gait-feature-input" data-feature="roll_amp_pool_iqr" type="number" step="0.0001" value="14.2803">
+          수직 리듬 변동성
+          <input class="gait-feature-input" data-feature="v_harmonic_ratio_iqr" type="number" step="0.0001" value="0.1000">
         </label>
       </div>
       <button class="btn btn-secondary btn-lg" type="button" id="gaitPredictBtn" style="background: #718096; color: white;">
-        수동값으로 추론
+        수동값으로 분석
       </button>
     </details>
   </section>
@@ -96,185 +93,121 @@
   const gaitCsvBtn = document.getElementById('gaitCsvBtn');
   const gaitCsvInput = document.getElementById('gaitCsvInput');
   const gaitResult = document.getElementById('gaitResult');
-
+  const gaitLiveMeasure = document.getElementById('gaitLiveMeasure');
+  const gaitCountdown = document.getElementById('gaitCountdown');
+  const gaitMeasureStatus = document.getElementById('gaitMeasureStatus');
+  const gaitMeasureHelp = document.getElementById('gaitMeasureHelp');
+  const gaitMeasureProgress = document.getElementById('gaitMeasureProgress');
   const COLLECTION_SEC = 20;
-  const SELECTED_WINDOW_SEC = 10;
-  const WINDOW_MS = SELECTED_WINDOW_SEC * 1000;
-  const WINDOW_STEP_MS = 1000;
-  let gaitSamples = [];
+  let gaitCountdownTimer = null;
 
-  function percentile(values, p) {
-    if (!values.length) return 0;
-    const sorted = [...values].sort((a, b) => a - b);
-    const index = (sorted.length - 1) * p;
-    const lower = Math.floor(index);
-    const upper = Math.ceil(index);
-    if (lower === upper) return sorted[lower];
-    return sorted[lower] + (sorted[upper] - sorted[lower]) * (index - lower);
+  function getMemberPhone() {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('member_phone') || localStorage.getItem('member_phone') || '';
   }
 
-  function iqr(values) {
-    return percentile(values, 0.75) - percentile(values, 0.25);
+  function setGaitMessage(title, message) {
+    gaitResult.hidden = false;
+    gaitResult.innerHTML = `<strong>${title}</strong><span>${message}</span>`;
   }
 
-  function median(values) {
-    return percentile(values, 0.5);
+  function resetCountdown() {
+    window.clearInterval(gaitCountdownTimer);
+    gaitCountdownTimer = null;
+    if (gaitCountdown) gaitCountdown.textContent = COLLECTION_SEC;
+    if (gaitMeasureProgress) gaitMeasureProgress.style.width = '0%';
   }
 
-  function std(values) {
-    if (!values.length) return 0;
-    const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
-    const variance = values.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / values.length;
-    return Math.sqrt(variance);
-  }
+  function startCountdown() {
+    let remain = COLLECTION_SEC;
+    resetCountdown();
+    if (gaitLiveMeasure) gaitLiveMeasure.hidden = false;
+    if (gaitMeasureStatus) gaitMeasureStatus.textContent = '측정 진행 중';
+    if (gaitMeasureHelp) gaitMeasureHelp.textContent = '평소처럼 걸어 주세요. 화면은 그대로 유지됩니다.';
+    gaitMeasureBtn.disabled = true;
+    gaitMeasureBtn.textContent = '측정 중...';
 
-  function detrend(values) {
-    const center = median(values);
-    return values.map((value) => value - center);
-  }
-
-  function strideRegularity(values) {
-    if (values.length < 20) return 0.5;
-    const centered = detrend(values);
-    const denom = centered.reduce((sum, value) => sum + value * value, 0) || 1;
-    const minLag = Math.max(4, Math.floor(values.length * 0.35));
-    const maxLag = Math.max(minLag + 1, Math.floor(values.length * 0.9));
-    let best = 0;
-    for (let lag = minLag; lag < maxLag; lag += 1) {
-      let num = 0;
-      for (let i = 0; i < centered.length - lag; i += 1) {
-        num += centered[i] * centered[i + lag];
+    const render = () => {
+      if (gaitCountdown) gaitCountdown.textContent = remain;
+      if (gaitMeasureProgress) {
+        gaitMeasureProgress.style.width = `${Math.round(((COLLECTION_SEC - remain) / COLLECTION_SEC) * 100)}%`;
       }
-      best = Math.max(best, num / denom);
-    }
-    return Math.max(0, Math.min(1, best));
-  }
-
-  function extractFeatures(samples) {
-    const ax = detrend(samples.map((sample) => sample.ax));
-    const az = detrend(samples.map((sample) => sample.az));
-    const roll = detrend(samples.map((sample) => sample.roll));
-    const vAmp = az.map((value) => Math.abs(value));
-    const mlAmp = ax.map((value) => Math.abs(value));
-    return {
-      v_amp_pool_median: median(vAmp),
-      ml_amp_pool_iqr: iqr(mlAmp),
-      base_v_stride_regularity: strideRegularity(az),
-      roll_amp_pool_iqr: iqr(roll),
     };
-  }
 
-  function scoreWindow(samples) {
-    const az = detrend(samples.map((sample) => sample.az));
-    const ax = detrend(samples.map((sample) => sample.ax));
-    const roll = detrend(samples.map((sample) => sample.roll));
-    const activity = std(az) + 0.5 * std(ax);
-    const regularity = strideRegularity(az);
-    const rollPenalty = Math.min(1.5, iqr(roll) / 120);
-    const sampleScore = Math.min(1, samples.length / 200);
-    return (regularity * 2.2) + Math.min(activity, 3) + sampleScore - rollPenalty;
-  }
-
-  function selectBestWindow(samples) {
-    if (!samples.length) return null;
-    const startMs = samples[0].t;
-    const endMs = samples[samples.length - 1].t;
-    let best = null;
-    for (let windowStart = startMs; windowStart + WINDOW_MS <= endMs + 1; windowStart += WINDOW_STEP_MS) {
-      const windowEnd = windowStart + WINDOW_MS;
-      const windowSamples = samples.filter((sample) => sample.t >= windowStart && sample.t <= windowEnd);
-      if (windowSamples.length < 80) continue;
-      const score = scoreWindow(windowSamples);
-      if (!best || score > best.score) {
-        best = {samples: windowSamples, score, startOffset: (windowStart - startMs) / 1000};
+    render();
+    gaitCountdownTimer = window.setInterval(() => {
+      remain = Math.max(0, remain - 1);
+      render();
+      if (remain <= 0) {
+        window.clearInterval(gaitCountdownTimer);
+        gaitCountdownTimer = null;
+        if (gaitMeasureStatus) gaitMeasureStatus.textContent = '서버 분석 중';
+        if (gaitMeasureHelp) gaitMeasureHelp.textContent = '측정된 센서 CSV를 서버로 보내 분석하고 있습니다.';
+        if (gaitMeasureProgress) gaitMeasureProgress.style.width = '100%';
       }
-    }
-    return best;
+    }, 1000);
   }
 
-  async function runPrediction(payload, windowInfo = null) {
+  async function runPrediction(payload) {
     gaitResult.hidden = false;
     gaitResult.textContent = '예측을 실행 중입니다...';
-    const requestPayload = {...payload};
-    if (windowInfo) {
-      requestPayload._window = {
-        protocol: 'structured_20s_best10',
-        start_offset_sec: Number(windowInfo.startOffset.toFixed(2)),
-        sample_count: windowInfo.samples.length,
-        quality_score: Number(windowInfo.score.toFixed(3)),
-        collected_sec: COLLECTION_SEC,
-        selected_sec: SELECTED_WINDOW_SEC,
-      };
-    }
     const res = await fetch('/gait/predict', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(requestPayload),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (!data.ok) {
       gaitResult.textContent = data.error || '분석에 실패했습니다.';
       return;
     }
-    const pct = (data.probability * 100).toFixed(1);
-    const threshold = (data.threshold * 100).toFixed(1);
-    const windowText = windowInfo
-      ? `<span>선택 구간 ${windowInfo.startOffset.toFixed(0)}초부터 10초 · 샘플 ${windowInfo.samples.length}개</span>`
-      : '';
-    gaitResult.innerHTML = `
-      <strong>${data.label}</strong>
-      <span>예측 확률 ${pct}% · 기준값 ${threshold}%</span>
-      ${windowText}
-    `;
     window.location.href = data.redirect_url || '/final-result?panel=gait';
   }
 
-  function handleMotion(event) {
-    const acc = event.accelerationIncludingGravity || event.acceleration || {};
-    const rotation = event.rotationRate || {};
-    gaitSamples.push({
-      t: performance.now(),
-      ax: Number(acc.x || 0),
-      ay: Number(acc.y || 0),
-      az: Number(acc.z || 0),
-      roll: Number(rotation.beta || rotation.gamma || 0),
-    });
-  }
+  window.onGaitApkEvent = function(event) {
+    if (!event || !event.status) return;
+    if (event.status === 'started') {
+      startCountdown();
+      setGaitMessage('APK 센서 측정 시작', '스마트폰 센서가 보행 데이터를 수집하고 있습니다.');
+      return;
+    }
+    if (event.status === 'uploading') {
+      if (gaitMeasureStatus) gaitMeasureStatus.textContent = '서버 분석 중';
+      if (gaitMeasureHelp) gaitMeasureHelp.textContent = `센서 샘플 ${event.sampleCount || 0}개를 서버로 전송하고 있습니다.`;
+      setGaitMessage('측정 완료', '보행 데이터를 서버에서 전처리하고 모델로 분석 중입니다.');
+      return;
+    }
+    if (event.status === 'complete') {
+      window.clearInterval(gaitCountdownTimer);
+      gaitMeasureBtn.disabled = false;
+      gaitMeasureBtn.textContent = '20초 다시 측정';
+      if (event.ok) {
+        window.location.href = event.redirect_url || '/gait/avatar';
+      } else {
+        setGaitMessage('분석 실패', event.error || '서버 분석 결과를 확인할 수 없습니다.');
+      }
+      return;
+    }
+    if (event.status === 'error') {
+      window.clearInterval(gaitCountdownTimer);
+      gaitMeasureBtn.disabled = false;
+      gaitMeasureBtn.textContent = '20초 다시 측정';
+      if (gaitMeasureStatus) gaitMeasureStatus.textContent = '측정 실패';
+      setGaitMessage('측정 실패', event.message || 'APK 센서 측정 중 오류가 발생했습니다.');
+    }
+  };
 
   gaitMeasureBtn.addEventListener('click', () => {
-    const live = document.getElementById('gaitLiveMeasure');
-    const countEl = document.getElementById('gaitCountdown');
-    const statusEl = document.getElementById('gaitMeasureStatus');
-    const progressEl = document.getElementById('gaitMeasureProgress');
-    let remain = COLLECTION_SEC;
-
-    gaitMeasureBtn.disabled = true;
-    gaitMeasureBtn.textContent = '측정 중...';
-    gaitResult.hidden = true;
-    if (live) live.hidden = false;
-
-    const render = () => {
-      if (countEl) countEl.textContent = remain;
-      if (statusEl) statusEl.textContent = remain > 0 ? '측정 진행 중' : '측정 완료';
-      if (progressEl) progressEl.style.width = `${Math.round(((COLLECTION_SEC - remain) / COLLECTION_SEC) * 100)}%`;
-    };
-
-    render();
-    const timer = window.setInterval(() => {
-      remain = Math.max(0, remain - 1);
-      render();
-      if (remain <= 0) {
-        window.clearInterval(timer);
-        if (progressEl) progressEl.style.width = '100%';
-        gaitMeasureBtn.disabled = false;
-        gaitMeasureBtn.textContent = '20초 다시 측정';
-        gaitResult.hidden = false;
-        gaitResult.innerHTML = `
-          <strong>20초 측정이 완료되었습니다</strong>
-          <span>아직 실제 센서 입력은 연결 전입니다. 아래 수동 feature 값으로 추론 확인을 눌러 모델 결과를 확인하세요.</span>
-        `;
-      }
-    }, 1000);
+    if (window.AndroidBridge && typeof window.AndroidBridge.startGaitMeasurement === 'function') {
+      const payload = {
+        uploadUrl: `${window.location.origin}/gait/upload-csv`,
+        durationSec: COLLECTION_SEC,
+        memberPhone: getMemberPhone(),
+      };
+      window.AndroidBridge.startGaitMeasurement(JSON.stringify(payload));
+      return;
+    }
+    setGaitMessage('APK에서 실행해 주세요', '이 버튼은 APK 안의 Flask 화면에서 누르면 스마트폰 센서 측정이 자동으로 시작됩니다.');
   });
 
   gaitPredictBtn.addEventListener('click', async () => {
@@ -297,13 +230,15 @@
       gaitResult.textContent = 'CSV 전처리 중입니다...';
       const formData = new FormData();
       formData.append('file', file);
+      const phone = getMemberPhone();
+      if (phone) formData.append('member_phone', phone);
       const res = await fetch('/gait/upload-csv', {
         method: 'POST',
         body: formData,
       });
       const data = await res.json();
       if (!data.ok) {
-        gaitResult.textContent = data.error || 'CSV 추론 중 오류가 발생했습니다.';
+        gaitResult.textContent = data.error || 'CSV 분석 중 오류가 발생했습니다.';
         return;
       }
       window.location.href = data.redirect_url || '/gait/avatar';
