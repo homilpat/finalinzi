@@ -1990,19 +1990,26 @@ body {
   font-weight: 900;
 }
 .spectrum-preview {
-  height: 120px;
+  min-height: 150px;
   padding: 14px;
-  border-radius: 20px;
+  border-radius: 18px;
   background: linear-gradient(180deg, #102E4A, #1B6AA8);
-  display: grid;
-  grid-template-columns: repeat(32, 1fr);
-  align-items: end;
-  gap: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
-.spectrum-preview span {
+.spectrum-preview canvas {
   display: block;
-  border-radius: 999px 999px 0 0;
-  background: linear-gradient(180deg, #F7DD72, #35B8A6);
+  width: 100%;
+  height: 150px;
+}
+.spectrum-preview p {
+  margin: 0;
+  color: #d9ecff;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
 }
 .final-empty {
   color: var(--text-muted);
