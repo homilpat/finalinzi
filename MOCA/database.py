@@ -336,6 +336,23 @@ def complete_assessment(assessment_id, raw, score):
         )
 
 
+def update_assessment_location(assessment_id, location="", sigungu=""):
+    if not assessment_id:
+        return
+    stamp = now_iso()
+    with get_conn() as conn:
+        conn.execute(
+            """
+            UPDATE assessments
+               SET location = COALESCE(NULLIF(?, ''), location),
+                   sigungu = COALESCE(NULLIF(?, ''), sigungu),
+                   updated_at = ?
+             WHERE id = ?
+            """,
+            ((location or "").strip(), (sigungu or "").strip(), stamp, assessment_id),
+        )
+
+
 def get_member(member_id):
     if not member_id:
         return None
