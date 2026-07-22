@@ -1025,3 +1025,142 @@ function redrawCanvas() {
   // 노드를 선 위에 덮어씌워 항상 보이게
   if (App.itemName === 'trail_making') drawTrailNodes(_ctx, canvas.width, canvas.height);
 }
+(() => {
+  const widget = document.getElementById('pengteuWidget');
+  if (!widget) return;
+
+  const toggle = document.getElementById('pengteuToggle');
+  const closeBtn = document.getElementById('pengteuClose');
+  const panel = document.getElementById('pengteuPanel');
+  const form = document.getElementById('pengteuForm');
+  const input = document.getElementById('pengteuInput');
+  const messages = document.getElementById('pengteuMessages');
+  const textScale = document.getElementById('pengteuTextScale');
+  const voiceRate = document.getElementById('pengteuVoiceRate');
+  const volume = document.getElementById('pengteuVolume');
+  const highContrast = document.getElementById('pengteuHighContrast');
+  const reducedMotion = document.getElementById('pengteuReducedMotion');
+  let profile = {
+    voice_rate: 0.85,
+    tts_volume: 0.85,
+    text_scale: 1,
+    high_contrast: 0,
+    reduced_motion: 0,
+  };
+
+  function openPanel() {
+    panel.hidden = false;
+    toggle.setAttribute('aria-expanded', 'true');
+    setTimeout(() => input && input.focus(), 0);
+  }
+
+  function closePanel() {
+    panel.hidden = true;
+    toggle.setAttribute('aria-expanded', 'false');
+  }
+
+  function appendMessage(role, text) {
+    const node = document.createElement('div');
+    node.className = `pengteu-message pengteu-message-${role}`;
+    node.textContent = text;
+    messages.appendChild(node);
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function applyProfile(nextProfile) {
+    profile = { ...profile, ...(nextProfile || {}) };
+    const scale = Number(profile.text_scale || 1);
+    document.documentElement.style.setProperty('--pengteu-text-scale', String(scale));
+    document.body.classList.toggle('pengteu-high-contrast', Boolean(Number(profile.high_contrast)));
+    document.body.classList.toggle('pengteu-reduced-motion', Boolean(Number(profile.reduced_motion)));
+    if (textScale) textScale.value = String(scale);
+    if (voiceRate) voiceRate.value = String(profile.voice_rate || 0.85);
+    if (volume) volume.value = String(profile.tts_volume || 0.85);
+    if (highContrast) highContrast.checked = Boolean(Number(profile.high_contrast));
+    if (reducedMotion) reducedMotion.checked = Boolean(Number(profile.reduced_motion));
+  }
+
+  async function loadProfile() {
+    try {
+      const res = await fetch('/assistant/profile');
+      const data = await res.json();
+      if (data.ok) applyProfile(data.profile);
+    } catch (err) {
+      console.warn('[pengteu profile]', err);
+    }
+  }
+
+  async function saveProfile() {
+    const payload = {
+      voice_rate: Number(voiceRate.value),
+      tts_volume: Number(volume.value),
+      text_scale: Number(textScale.value),
+      high_contrast: highContrast.checked,
+      reduced_motion: reducedMotion.checked,
+    };
+    applyProfile(payload);
+    try {
+      const res = await fetch('/assistant/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.ok) applyProfile(data.profile);
+    } catch (err) {
+      console.warn('[pengteu profile save]', err);
+    }
+  }
+
+  function speak(text) {
+    if (!('speechSynthesis' in window) || !text || Number(profile.tts_volume) <= 0) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ko-KR';
+    utterance.rate = Number(profile.voice_rate || 0.85);
+    utterance.volume = Number(profile.tts_volume || 0.85);
+    window.speechSynthesis.speak(utterance);
+  }
+
+  async function askPengteu(message) {
+    appendMessage('user', message);
+    appendMessage('assistant', '잠깐만요. 기록을 확인하고 있어요.');
+    const waitingNode = messages.lastElementChild;
+    try {
+      const res = await fetch('/assistant/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message }),
+      });
+      const data = await res.json();
+      const reply = data.ok ? data.reply : '지금은 답변을 만들지 못했어요. 잠시 뒤 다시 물어봐 주세요.';
+      waitingNode.textContent = reply;
+      speak(reply);
+    } catch (err) {
+      waitingNode.textContent = '서버 연결이 잠시 불안정해요. 다시 시도해 주세요.';
+      console.warn('[pengteu chat]', err);
+    }
+  }
+
+  toggle.addEventListener('click', () => {
+    if (panel.hidden) openPanel();
+    else closePanel();
+  });
+  closeBtn.addEventListener('click', closePanel);
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const message = input.value.trim();
+    if (!message) return;
+    input.value = '';
+    askPengteu(message);
+  });
+
+  [textScale, voiceRate, volume, highContrast, reducedMotion].forEach((control) => {
+    control.addEventListener('change', saveProfile);
+    control.addEventListener('input', () => {
+      if (control === textScale) applyProfile({ text_scale: Number(textScale.value) });
+    });
+  });
+
+  loadProfile();
+})();

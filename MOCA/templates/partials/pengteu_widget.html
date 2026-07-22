@@ -1,0 +1,56 @@
+<aside class="pengteu-widget" id="pengteuWidget" aria-live="polite">
+  <button class="pengteu-fab" id="pengteuToggle" type="button" aria-expanded="false" aria-controls="pengteuPanel">
+    <span class="pengteu-face" aria-hidden="true">
+      <img src="/pengt.png" alt="">
+    </span>
+    <span class="pengteu-fab-label">펭트</span>
+  </button>
+
+  <section class="pengteu-panel" id="pengteuPanel" hidden>
+    <header class="pengteu-header">
+      <div>
+        <span class="pengteu-header-avatar" aria-hidden="true">
+          <img src="/pengt.png" alt="">
+        </span>
+        <strong>펭트</strong>
+        <span class="pengteu-header-subtitle">상황을 보고 짧게 도와드릴게요</span>
+      </div>
+      <button class="pengteu-icon-btn" id="pengteuClose" type="button" aria-label="펭트 닫기">×</button>
+    </header>
+
+    <div class="pengteu-messages" id="pengteuMessages">
+      <div class="pengteu-message pengteu-message-assistant">
+        안녕하세요. 보행, 인지평가, 운동 기록을 함께 보고 설명해드릴게요.
+      </div>
+    </div>
+
+    <form class="pengteu-input-row" id="pengteuForm">
+      <input id="pengteuInput" type="text" autocomplete="off" placeholder="궁금한 점을 물어보세요" aria-label="펭트에게 질문하기">
+      <button type="submit">전송</button>
+    </form>
+
+    <details class="pengteu-settings">
+      <summary>보기/음성 설정</summary>
+      <label>
+        글씨 크기
+        <input id="pengteuTextScale" type="range" min="1" max="1.45" step="0.05" value="1">
+      </label>
+      <label>
+        말 속도
+        <input id="pengteuVoiceRate" type="range" min="0.65" max="1.15" step="0.05" value="0.85">
+      </label>
+      <label>
+        볼륨
+        <input id="pengteuVolume" type="range" min="0" max="1" step="0.05" value="0.85">
+      </label>
+      <label class="pengteu-toggle-row">
+        <input id="pengteuHighContrast" type="checkbox">
+        고대비
+      </label>
+      <label class="pengteu-toggle-row">
+        <input id="pengteuReducedMotion" type="checkbox">
+        움직임 줄이기
+      </label>
+    </details>
+  </section>
+</aside>

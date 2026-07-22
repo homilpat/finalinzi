@@ -38,7 +38,7 @@
 {% block content %}
 <!-- Calculate dynamic scores -->
 {% set cog_score = ((dashboard.latest_cognitive.final_score / 30 * 100) | int) if (dashboard.latest_cognitive and dashboard.latest_cognitive.final_score is not none) else 0 %}
-{% set gait_score = 82 if dashboard.gait_done else 0 %}
+{% set gait_score = dashboard.latest_gait.gait_score if (dashboard.latest_gait and dashboard.latest_gait.gait_score is not none) else 0 %}
 {% set overall_score = (((cog_score + (gait_score if dashboard.gait_done else 75)) / 2) | int) if dashboard.latest_cognitive else 0 %}
 
 <div class="relative w-full min-h-screen bg-[#F7FAFC] overflow-x-hidden flex flex-col pb-[100px]">
@@ -78,7 +78,7 @@
             김
           </div>
           <div>
-            <h2 class="text-[#021d33] text-[20px] font-bold leading-tight" id="parentNameDisplay">김순자 어르신</h2>
+            <h2 class="text-[#021d33] text-[20px] font-bold leading-tight" id="parentNameDisplay">{{ dashboard.member.member_code if dashboard.member else '어르신' }} 어르신</h2>
             <p class="text-[#6B7A8D] text-[14px]">기억하지 시니어 회원</p>
           </div>
         </div>
@@ -171,15 +171,15 @@
           <div class="grid grid-cols-3 gap-2 bg-[#f8f9ff] p-3 rounded-xl text-center">
             <div>
               <p class="text-[#6B7A8D] text-[11px] mb-0.5">균형감</p>
-              <p class="font-bold text-[#021d33] text-[14px]">{% if dashboard.gait_done %}82{% else %}0{% endif %}%</p>
+              <p class="font-bold text-[#021d33] text-[14px]">{% if dashboard.gait_done %}{{ gait_score }}{% else %}0{% endif %}%</p>
             </div>
             <div class="border-x border-gray-100">
               <p class="text-[#6B7A8D] text-[11px] mb-0.5">보행속도</p>
-              <p class="font-bold text-[#021d33] text-[14px]">{% if dashboard.gait_done %}78{% else %}0{% endif %}%</p>
+              <p class="font-bold text-[#021d33] text-[14px]">{% if dashboard.gait_done %}{{ [0, gait_score - 5] | max }}{% else %}0{% endif %}%</p>
             </div>
             <div>
               <p class="text-[#6B7A8D] text-[11px] mb-0.5">안정성</p>
-              <p class="font-bold text-[#021d33] text-[14px]">{% if dashboard.gait_done %}85{% else %}0{% endif %}%</p>
+              <p class="font-bold text-[#021d33] text-[14px]">{% if dashboard.gait_done %}{{ [100, gait_score + 3] | min }}{% else %}0{% endif %}%</p>
             </div>
           </div>
         </div>

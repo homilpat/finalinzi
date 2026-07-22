@@ -135,6 +135,95 @@ def init_db():
 
             CREATE INDEX IF NOT EXISTS idx_exercise_records_member_id
                 ON exercise_records(member_id, completed_at);
+
+            CREATE TABLE IF NOT EXISTS guardians (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                phone_hash TEXT NOT NULL UNIQUE,
+                phone_last4 TEXT NOT NULL,
+                relationship TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS guardian_member_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                guardian_id INTEGER NOT NULL,
+                member_id INTEGER NOT NULL,
+                relation_label TEXT,
+                can_view_reports INTEGER NOT NULL DEFAULT 1,
+                can_send_cheers INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(guardian_id, member_id),
+                FOREIGN KEY(guardian_id) REFERENCES guardians(id),
+                FOREIGN KEY(member_id) REFERENCES members(id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_guardian_links_guardian_id
+                ON guardian_member_links(guardian_id);
+            CREATE INDEX IF NOT EXISTS idx_guardian_links_member_id
+                ON guardian_member_links(member_id);
+
+            CREATE TABLE IF NOT EXISTS guardian_cheers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                guardian_id INTEGER,
+                member_id INTEGER NOT NULL,
+                message TEXT NOT NULL,
+                delivered_at TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(guardian_id) REFERENCES guardians(id),
+                FOREIGN KEY(member_id) REFERENCES members(id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_guardian_cheers_member_id
+                ON guardian_cheers(member_id, created_at);
+
+            CREATE TABLE IF NOT EXISTS assistant_profiles (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id INTEGER NOT NULL UNIQUE,
+                persona_name TEXT NOT NULL DEFAULT '펭트',
+                voice_rate REAL NOT NULL DEFAULT 0.9,
+                tts_volume REAL NOT NULL DEFAULT 0.8,
+                text_scale REAL NOT NULL DEFAULT 1.0,
+                high_contrast INTEGER NOT NULL DEFAULT 0,
+                reduced_motion INTEGER NOT NULL DEFAULT 0,
+                situation_json TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY(member_id) REFERENCES members(id)
+            );
+
+            CREATE TABLE IF NOT EXISTS assistant_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id INTEGER NOT NULL,
+                guardian_id INTEGER,
+                role TEXT NOT NULL,
+                channel TEXT NOT NULL DEFAULT 'app',
+                content TEXT NOT NULL,
+                context_json TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY(member_id) REFERENCES members(id),
+                FOREIGN KEY(guardian_id) REFERENCES guardians(id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_assistant_messages_member_id
+                ON assistant_messages(member_id, created_at);
+
+            CREATE TABLE IF NOT EXISTS sensor_calibrations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id INTEGER NOT NULL,
+                exercise_type TEXT NOT NULL,
+                calibration_json TEXT NOT NULL,
+                active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(member_id, exercise_type),
+                FOREIGN KEY(member_id) REFERENCES members(id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_sensor_calibrations_member_id
+                ON sensor_calibrations(member_id, exercise_type);
             """
         )
         columns = {
@@ -256,6 +345,96 @@ def get_member(member_id):
             (member_id,),
         ).fetchone()
         return dict(row) if row else None
+
+
+def get_latest_member():
+    with get_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT * FROM members
+             ORDER BY updated_at DESC, id DESC
+             LIMIT 1
+            """
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def find_member_by_code_or_name(value):
+    text = (value or "").strip()
+    if not text:
+        return None
+    with get_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT * FROM members
+             WHERE member_code = ? OR name = ?
+             ORDER BY updated_at DESC, id DESC
+             LIMIT 1
+            """,
+            (text, text),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def get_or_create_guardian(phone, name="", relationship="보호자"):
+    normalized = normalize_phone(phone)
+    if len(normalized) < 9:
+        raise ValueError("보호자 전화번호를 다시 확인해 주세요.")
+
+    phash = phone_hash(normalized)
+    last4 = phone_last4(normalized)
+    guardian_name = (name or "").strip() or f"보호자-{last4}"
+    stamp = now_iso()
+
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id FROM guardians WHERE phone_hash = ?",
+            (phash,),
+        ).fetchone()
+        if row:
+            conn.execute(
+                """
+                UPDATE guardians
+                   SET name = ?, phone_last4 = ?, relationship = ?, updated_at = ?
+                 WHERE id = ?
+                """,
+                (guardian_name, last4, relationship, stamp, row["id"]),
+            )
+            return row["id"]
+
+        cur = conn.execute(
+            """
+            INSERT INTO guardians (
+                name, phone_hash, phone_last4, relationship, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (guardian_name, phash, last4, relationship, stamp, stamp),
+        )
+        return cur.lastrowid
+
+
+def link_guardian_member(guardian_id, member_id, relation_label="가족"):
+    if not guardian_id or not member_id:
+        return None
+    stamp = now_iso()
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO guardian_member_links (
+                guardian_id, member_id, relation_label,
+                can_view_reports, can_send_cheers, created_at, updated_at
+            )
+            VALUES (?, ?, ?, 1, 1, ?, ?)
+            ON CONFLICT(guardian_id, member_id) DO UPDATE SET
+                relation_label = excluded.relation_label,
+                can_view_reports = 1,
+                can_send_cheers = 1,
+                updated_at = excluded.updated_at
+            """,
+            (guardian_id, member_id, relation_label, stamp, stamp),
+        )
+    return True
 
 
 def get_latest_assessment(member_id):
@@ -432,10 +611,236 @@ def get_exercise_summary(member_id):
     }
 
 
-def get_recent_assessment_summaries(limit=5):
+def save_guardian_cheer(member_id, message, guardian_id=None):
+    if not member_id:
+        return None
+    clean = (message or "").strip()[:120]
+    if not clean:
+        clean = "오늘도 정말 잘하고 있어요. 천천히 같이 해봐요!"
+    stamp = now_iso()
+    with get_conn() as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO guardian_cheers (
+                guardian_id, member_id, message, created_at
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (guardian_id, member_id, clean, stamp),
+        )
+        return {"id": cur.lastrowid, "message": clean, "created_at": stamp}
+
+
+def get_guardian_cheers(member_id, limit=5):
+    if not member_id:
+        return []
     with get_conn() as conn:
         rows = conn.execute(
             """
+            SELECT gc.*, g.name AS guardian_name
+              FROM guardian_cheers gc
+              LEFT JOIN guardians g ON g.id = gc.guardian_id
+             WHERE gc.member_id = ?
+             ORDER BY gc.created_at DESC, gc.id DESC
+             LIMIT ?
+            """,
+            (member_id, int(limit)),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_or_create_assistant_profile(member_id):
+    if not member_id:
+        return None
+    stamp = now_iso()
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM assistant_profiles WHERE member_id = ?",
+            (member_id,),
+        ).fetchone()
+        if not row:
+            conn.execute(
+                """
+                INSERT INTO assistant_profiles (
+                    member_id, situation_json, created_at, updated_at
+                )
+                VALUES (?, ?, ?, ?)
+                """,
+                (member_id, "{}", stamp, stamp),
+            )
+            row = conn.execute(
+                "SELECT * FROM assistant_profiles WHERE member_id = ?",
+                (member_id,),
+            ).fetchone()
+        item = dict(row)
+        try:
+            item["situation_json"] = json.loads(item["situation_json"]) if item.get("situation_json") else {}
+        except json.JSONDecodeError:
+            item["situation_json"] = {}
+        return item
+
+
+def update_assistant_profile(member_id, **updates):
+    if not member_id:
+        return None
+    allowed = {
+        "persona_name",
+        "voice_rate",
+        "tts_volume",
+        "text_scale",
+        "high_contrast",
+        "reduced_motion",
+        "situation_json",
+    }
+    values = {k: v for k, v in updates.items() if k in allowed}
+    if "situation_json" in values and not isinstance(values["situation_json"], str):
+        values["situation_json"] = json.dumps(values["situation_json"], ensure_ascii=False, default=str)
+    if not values:
+        return get_or_create_assistant_profile(member_id)
+
+    get_or_create_assistant_profile(member_id)
+    values["updated_at"] = now_iso()
+    assignments = ", ".join(f"{key} = ?" for key in values)
+    params = list(values.values()) + [member_id]
+    with get_conn() as conn:
+        conn.execute(
+            f"UPDATE assistant_profiles SET {assignments} WHERE member_id = ?",
+            params,
+        )
+    return get_or_create_assistant_profile(member_id)
+
+
+def save_assistant_message(member_id, role, content, guardian_id=None, channel="app", context=None):
+    if not member_id:
+        return None
+    stamp = now_iso()
+    with get_conn() as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO assistant_messages (
+                member_id, guardian_id, role, channel, content, context_json, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                member_id,
+                guardian_id,
+                role,
+                channel,
+                content,
+                json.dumps(context or {}, ensure_ascii=False, default=str),
+                stamp,
+            ),
+        )
+        return cur.lastrowid
+
+
+def save_sensor_calibration(member_id, exercise_type, calibration):
+    if not member_id:
+        return None
+    kind = (exercise_type or "default").strip() or "default"
+    stamp = now_iso()
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO sensor_calibrations (
+                member_id, exercise_type, calibration_json, active, created_at, updated_at
+            )
+            VALUES (?, ?, ?, 1, ?, ?)
+            ON CONFLICT(member_id, exercise_type) DO UPDATE SET
+                calibration_json = excluded.calibration_json,
+                active = 1,
+                updated_at = excluded.updated_at
+            """,
+            (
+                member_id,
+                kind,
+                json.dumps(calibration or {}, ensure_ascii=False, default=str),
+                stamp,
+                stamp,
+            ),
+        )
+    return True
+
+
+def get_sensor_calibrations(member_id):
+    if not member_id:
+        return {}
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT exercise_type, calibration_json
+              FROM sensor_calibrations
+             WHERE member_id = ? AND active = 1
+            """,
+            (member_id,),
+        ).fetchall()
+    out = {}
+    for row in rows:
+        try:
+            out[row["exercise_type"]] = json.loads(row["calibration_json"])
+        except json.JSONDecodeError:
+            out[row["exercise_type"]] = {}
+    return out
+
+
+def get_member_context_bundle(member_id):
+    member = get_member(member_id)
+    if not member:
+        return None
+    latest_assessment = get_latest_assessment(member_id)
+    if latest_assessment and "score" not in latest_assessment:
+        latest_assessment["score"] = latest_assessment.get("score_json") or {}
+    return {
+        "member": member,
+        "latest_assessment": latest_assessment,
+        "latest_physical": get_latest_physical_result(member_id),
+        "exercise_summary": get_exercise_summary(member_id),
+        "assistant_profile": get_or_create_assistant_profile(member_id),
+        "sensor_calibrations": get_sensor_calibrations(member_id),
+        "cheers": get_guardian_cheers(member_id, limit=5),
+    }
+
+
+def get_guardian_dashboard(member_id=None, limit=5):
+    if not member_id:
+        latest = get_latest_member()
+        member_id = latest["id"] if latest else None
+    context = get_member_context_bundle(member_id)
+    recent = get_recent_assessment_summaries(limit=limit, member_id=member_id)
+    if not context:
+        return {
+            "member": None,
+            "cognitive_done": False,
+            "gait_done": False,
+            "latest_cognitive": None,
+            "latest_gait": None,
+            "exercise_summary": {"present_days": 0, "streak_days": 0, "total_minutes": 0, "latest": None},
+            "assistant_profile": None,
+            "sensor_calibrations": {},
+            "recent_assessments": recent,
+            "cheers": [],
+        }
+    return {
+        "member": context["member"],
+        "cognitive_done": context["latest_assessment"] is not None,
+        "gait_done": context["latest_physical"] is not None,
+        "latest_cognitive": context["latest_assessment"],
+        "latest_gait": context["latest_physical"],
+        "exercise_summary": context["exercise_summary"],
+        "assistant_profile": context["assistant_profile"],
+        "sensor_calibrations": context["sensor_calibrations"],
+        "recent_assessments": recent,
+        "cheers": context["cheers"],
+    }
+
+
+def get_recent_assessment_summaries(limit=5, member_id=None):
+    with get_conn() as conn:
+        where = "WHERE a.member_id = ?" if member_id else ""
+        params = (int(member_id), int(limit)) if member_id else (int(limit),)
+        rows = conn.execute(
+            f"""
             SELECT
                 a.id,
                 a.uid,
@@ -450,10 +855,11 @@ def get_recent_assessment_summaries(limit=5):
                 m.education_level
             FROM assessments a
             JOIN members m ON m.id = a.member_id
+            {where}
             ORDER BY COALESCE(a.completed_at, a.started_at) DESC
             LIMIT ?
             """,
-            (int(limit),),
+            params,
         ).fetchall()
 
     summaries = []

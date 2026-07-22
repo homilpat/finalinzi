@@ -11,23 +11,35 @@ import numpy as np
 import cv2
 from exercise_sensor_processor import analyze_exercise_csv
 from gait_axis_aligned_processor import predict_daily_gait_csv
+from rag_engine import retrieve_knowledge
 from database import (
     EDUCATION_LEVELS,
     complete_assessment,
     create_assessment,
     education_label,
+    find_member_by_code_or_name,
     get_exercise_summary,
+    get_guardian_dashboard,
+    get_guardian_cheers,
     get_latest_assessment,
     get_latest_physical_result,
     get_member,
+    get_member_context_bundle,
+    get_or_create_assistant_profile,
+    get_or_create_guardian,
     get_recent_assessment_summaries,
     get_or_create_member,
     init_db,
+    link_guardian_member,
     normalize_phone,
     phone_hash,
     phone_last4,
+    save_assistant_message,
     save_exercise_record,
+    save_guardian_cheer,
     save_physical_result,
+    save_sensor_calibration,
+    update_assistant_profile,
 )
 
 app = Flask(__name__)
@@ -56,6 +68,11 @@ def require_access_password():
     if request.path == '/favicon.ico':
         return '', 204
     return redirect(url_for('login', next=request.path))
+
+
+@app.route('/pengt.png')
+def pengteu_image():
+    return send_from_directory(app.root_path, 'pengt.png')
 
 # 메모리 세션 저장소 (시연용)
 _store = {}  # uid → { 'sess': MoCASession, 'raw': dict, 'location': str, 'sigungu': str }
@@ -458,11 +475,72 @@ def _classify_care_type(cognitive=None, gait=None):
     return result
 
 
+def _basic_pengteu_reply(message, context, knowledge=None):
+    member = (context or {}).get("member") or {}
+    assessment = (context or {}).get("latest_assessment") or {}
+    physical = (context or {}).get("latest_physical") or {}
+    exercise = (context or {}).get("exercise_summary") or {}
+    profile = (context or {}).get("assistant_profile") or {}
+    knowledge = knowledge or []
+
+    name = profile.get("persona_name") or "펭트"
+    member_code = member.get("member_code") or "회원님"
+    final_score = assessment.get("final_score")
+    gait_prediction = None
+    raw_gait = physical.get("raw_json") if physical else {}
+    if isinstance(raw_gait, dict):
+        gait_prediction = raw_gait.get("prediction")
+    streak = _safe_int(exercise.get("streak_days"))
+    evidence_hint = ""
+    if knowledge:
+        titles = []
+        for item in knowledge[:2]:
+            title = item.get("title") or item.get("source") or ""
+            if title and title not in titles:
+                titles.append(title)
+        if titles:
+            evidence_hint = f" 제가 참고한 기준은 {', '.join(titles)} 쪽이에요."
+
+    lowered = (message or "").lower()
+    if "보행" in message or "걷" in message:
+        if gait_prediction == 1:
+            return f"{name}가 볼 때 {member_code}의 최근 보행 결과는 신체기능 관리가 필요한 신호가 있어요. 오늘은 빠르게 걷기보다 허리에 스마트폰을 잘 고정하고, 천천히 균형을 지키는 운동부터 해볼게요.{evidence_hint}"
+        if gait_prediction == 0:
+            return f"{name}가 확인했어요. {member_code}의 최근 보행 결과는 정상 범위 가능성이 높아요. 그래도 매일 조금씩 걷기와 균형 운동을 이어가면 좋아요.{evidence_hint}"
+        return f"{name}가 아직 최신 보행 결과를 찾지 못했어요. 스마트폰을 허리에 고정하고 20초 이상 평소처럼 걸어서 먼저 측정해볼게요.{evidence_hint}"
+
+    if "인지" in message or "moca" in lowered or "점수" in message:
+        if final_score is not None:
+            return f"{name}가 최근 인지평가를 확인했어요. MoCA 최종 점수는 {final_score}점이에요. 점수 하나로 단정하지 않고 기억력, 주의력, 실행기능 흐름을 같이 보면서 설명해드릴게요.{evidence_hint}"
+        return f"{name}가 아직 완료된 인지평가를 찾지 못했어요. 먼저 MoCA 평가를 끝내면 결과를 바탕으로 쉽게 설명해드릴게요.{evidence_hint}"
+
+    if "운동" in message or "오늘" in message:
+        if streak > 0:
+            return f"{name}가 응원합니다. 지금 {streak}일 연속 운동 기록이 있어요. 오늘은 무리하지 말고 화면 안내에 맞춰 천천히 이어가면 됩니다.{evidence_hint}"
+        return f"{name}가 오늘 운동을 같이 도와드릴게요. 먼저 현재 유형에 맞는 운동을 시작하고, 센서 기준값이 준비되면 동작 성공 여부도 자동으로 확인할 수 있어요.{evidence_hint}"
+
+    if knowledge:
+        top = knowledge[0]
+        return f"{name}예요. 질문과 가까운 자료를 찾아봤어요. {top.get('text', '')} 이 내용을 바탕으로 {member_code}에게 맞게 더 쉽게 설명해드릴게요."
+
+    return f"{name}예요. 저는 {member_code}의 인지평가, 보행평가, 운동기록을 함께 보면서 상황에 맞게 설명하고 안내할 준비가 되어 있어요."
+
+
 def _save_gait_result(gait_result):
     gait_result_id = session.get('gait_result_id') or uuid4().hex
     _gait_result_store[gait_result_id] = gait_result
     session['gait_result_id'] = gait_result_id
     session.pop('gait_result', None)
+    member_id = _current_member_id()
+    if member_id:
+        probability = _safe_float(gait_result.get("probability"))
+        save_physical_result(member_id, _current_assessment_id(), {
+            "gait_type": gait_result.get("model_mode") or "daily_gait",
+            "gait_level": gait_result.get("label") or "",
+            "gait_score": max(0, min(100, round((1.0 - probability) * 100))),
+            "measured_at": datetime.now().isoformat(timespec="seconds"),
+            **gait_result,
+        })
 
 
 def _get_gait_result():
@@ -1404,19 +1482,33 @@ def guardian_login_page():
     return render_template('guardian_login.html')
 
 
+def _resolve_guardian_member(parent_name=""):
+    member_id = _current_member_id()
+    if member_id:
+        return member_id
+    member = find_member_by_code_or_name(parent_name)
+    if member:
+        return member["id"]
+    return None
+
+
 @app.route('/guardian')
 def guardian_page():
-    recent_assessments = get_recent_assessment_summaries(limit=5)
-    gait_result = _get_gait_result()
-    cheers = session.get('guardian_cheers') or []
-    dashboard = {
-        "cognitive_done": any(item["is_completed"] for item in recent_assessments),
-        "gait_done": gait_result is not None,
-        "latest_cognitive": recent_assessments[0] if recent_assessments else None,
-        "latest_gait": gait_result,
-        "recent_assessments": recent_assessments,
-        "cheers": cheers[-5:],
-    }
+    parent_name = (request.args.get('parent_name') or request.args.get('parentName') or '').strip()
+    guardian_phone = request.args.get('guardian_phone') or request.args.get('guardianPhone') or ''
+    guardian_id = session.get('guardian_id')
+    member_id = _resolve_guardian_member(parent_name)
+
+    if guardian_phone:
+        try:
+            guardian_id = get_or_create_guardian(guardian_phone, name=parent_name or "보호자")
+            session['guardian_id'] = guardian_id
+            if member_id:
+                link_guardian_member(guardian_id, member_id)
+        except ValueError:
+            guardian_id = session.get('guardian_id')
+
+    dashboard = get_guardian_dashboard(member_id=member_id, limit=5)
     return render_template('guardian.html', dashboard=dashboard)
 
 
@@ -1424,15 +1516,87 @@ def guardian_page():
 def guardian_cheer():
     data = request.get_json(silent=True) or {}
     message = (data.get('message') or '').strip()
-    if not message:
-        message = '오늘도 정말 잘하고 있어요. 천천히 같이 해봐요!'
-    cheers = session.get('guardian_cheers') or []
-    cheers.append({
-        "message": message[:120],
-        "created_at": datetime.now().isoformat(timespec="seconds"),
+    member_id = _current_member_id()
+    if not member_id:
+        dashboard = get_guardian_dashboard(limit=1)
+        member = dashboard.get("member")
+        member_id = member.get("id") if member else None
+    if not member_id:
+        return jsonify({"ok": False, "error": "member_not_found"}), 400
+
+    cheer = save_guardian_cheer(member_id, message, guardian_id=session.get('guardian_id'))
+    cheers = get_guardian_cheers(member_id, limit=5)
+    return jsonify({"ok": True, "message": cheer["message"], "count": len(cheers), "cheers": cheers})
+
+
+@app.route('/assistant/profile', methods=['GET', 'POST'])
+def assistant_profile_api():
+    member_id = _current_member_id()
+    if not member_id:
+        return jsonify({"ok": False, "error": "member_not_found"}), 400
+    if request.method == 'GET':
+        return jsonify({"ok": True, "profile": get_or_create_assistant_profile(member_id)})
+
+    data = request.get_json(silent=True) or {}
+    profile = update_assistant_profile(
+        member_id,
+        voice_rate=data.get("voice_rate"),
+        tts_volume=data.get("tts_volume"),
+        text_scale=data.get("text_scale"),
+        high_contrast=1 if data.get("high_contrast") else 0,
+        reduced_motion=1 if data.get("reduced_motion") else 0,
+        situation_json=data.get("situation") or {},
+    )
+    return jsonify({"ok": True, "profile": profile})
+
+
+@app.route('/assistant/context')
+def assistant_context_api():
+    member_id = _current_member_id()
+    if not member_id:
+        return jsonify({"ok": False, "error": "member_not_found"}), 400
+    return jsonify({"ok": True, "context": get_member_context_bundle(member_id)})
+
+
+@app.route('/assistant/rag/search')
+def assistant_rag_search_api():
+    query = request.args.get("q") or ""
+    return jsonify({"ok": True, "query": query, "results": retrieve_knowledge(query, top_k=5)})
+
+
+@app.route('/assistant/chat', methods=['POST'])
+def assistant_chat_api():
+    member_id = _current_member_id()
+    if not member_id:
+        return jsonify({"ok": False, "error": "member_not_found"}), 400
+    data = request.get_json(silent=True) or {}
+    user_message = (data.get("message") or "").strip()
+    if not user_message:
+        return jsonify({"ok": False, "error": "empty_message"}), 400
+    context = get_member_context_bundle(member_id) or {}
+    knowledge = retrieve_knowledge(user_message, top_k=4)
+    message_context = {**context, "retrieved_knowledge": knowledge}
+    save_assistant_message(member_id, "user", user_message, context=message_context)
+    reply = _basic_pengteu_reply(user_message, context, knowledge=knowledge)
+    save_assistant_message(member_id, "assistant", reply, context=message_context)
+    return jsonify({
+        "ok": True,
+        "reply": reply,
+        "context": context,
+        "knowledge": knowledge,
     })
-    session['guardian_cheers'] = cheers[-20:]
-    return jsonify({"ok": True, "message": message[:120], "count": len(session['guardian_cheers'])})
+
+
+@app.route('/exercise/sensor/calibration', methods=['POST'])
+def exercise_sensor_calibration_api():
+    member_id = _current_member_id()
+    if not member_id:
+        return jsonify({"ok": False, "error": "member_not_found"}), 400
+    data = request.get_json(silent=True) or {}
+    exercise_type = data.get("exercise_type") or data.get("type") or "default"
+    calibration = data.get("calibration") or data
+    save_sensor_calibration(member_id, exercise_type, calibration)
+    return jsonify({"ok": True})
 
 
 @app.route('/audio/<path:filename>')

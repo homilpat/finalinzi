@@ -119,7 +119,11 @@
       sessionStorage.setItem('guardian_parent_name', parentName);
       sessionStorage.setItem('guardian_phone', guardianPhone);
       
-      window.location.href = '/guardian';
+      const params = new URLSearchParams({
+          parent_name: parentName,
+          guardian_phone: guardianPhone
+      });
+      window.location.href = `/guardian?${params.toString()}`;
   });
 </script>
 {% endblock %}
