@@ -12,14 +12,33 @@ Runtime gait files:
 
 - `gait_axis_aligned_core.py`: shared final gait extractor
 - `gait_axis_aligned_processor.py`: Flask-facing predictor
-- `models/gait_axis_aligned_physionet_youden.joblib`: final gait model
-- `models/gait_axis_aligned_physionet_youden_metadata.json`: final gait metadata
+- `models/gait_daily_clinical_3feat.joblib`: final acc-only daily gait model
+- `models/gait_daily_clinical_3feat_metadata.json`: final gait metadata
 - `models/waist_sensor_range_loss_calibration.json`: fixed waist-reference raw sensor calibration summary
 
-`gait_axis_aligned_processor.py` deploys `gait_axis_aligned_physionet_youden.joblib`.
+`gait_axis_aligned_processor.py` deploys `gait_daily_clinical_3feat.joblib`.
 When `models/waist_sensor_range_loss_calibration.json` is present, its fixed V/ML/AP
 axis scale is applied inside `gait_axis_aligned_core.py` after anatomical axis alignment
-and before 100 Hz resampling / best-10-second feature extraction.
+and before 100 Hz resampling / 20-second subwindow feature extraction.
+
+Final gait label:
+
+```text
+TUG >= 12s
+OR FSST >= 15s
+OR BERG < 52
+OR DGI <= 19
+OR base_velocity < 1.0 m/s
+OR s3_velocity < 1.0 m/s
+```
+
+Final input features:
+
+- `v_jerk_rms_median`
+- `v_jerk_rms_iqr`
+- `v_harmonic_ratio_iqr`
+
+The deployed threshold is fixed at `0.50`.
 
 Waist-reference raw sensor calibration, not model retraining:
 

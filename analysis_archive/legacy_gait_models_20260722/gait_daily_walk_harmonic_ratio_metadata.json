@@ -1,0 +1,16 @@
+{
+  "features": [
+    "v_harmonic_ratio",
+    "ap_harmonic_ratio",
+    "v_stride_freq_hz",
+    "ap_spec_entropy"
+  ],
+  "threshold": 0.39499999999999996,
+  "oof": {
+    "auc": 0.5629,
+    "sens": 0.8065,
+    "spec": 0.2,
+    "thr": 0.39499999999999996
+  },
+  "label": "Control(0) vs Faller(1)"
+}

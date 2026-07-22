@@ -1,0 +1,25 @@
+{
+  "features": [
+    "v_harmonic_ratio",
+    "ap_harmonic_ratio",
+    "v_stride_freq_hz",
+    "ap_spec_entropy"
+  ],
+  "threshold": 0.43999999999999995,
+  "oof": {
+    "auc": 0.6777,
+    "sens": 0.8115,
+    "spec": 0.7821,
+    "f1": 0.5647,
+    "thr": 0.43999999999999995,
+    "tn": 52,
+    "fp": 26,
+    "fn": 11,
+    "tp": 24
+  },
+  "excluded": [
+    "FoG_STAR_BACK_WALK",
+    "Chapman_PD_OFF_RAW"
+  ],
+  "threshold_strategy": "sens_geq_0.80_max_spec"
+}

@@ -10,7 +10,7 @@ from flask import Flask, render_template, request, jsonify, session, send_from_d
 import numpy as np
 import cv2
 from exercise_sensor_processor import analyze_exercise_csv
-from gait_axis_aligned_processor import predict_axis_aligned_gait_csv, predict_daily_gait_csv
+from gait_axis_aligned_processor import predict_daily_gait_csv
 from database import (
     EDUCATION_LEVELS,
     complete_assessment,
@@ -68,18 +68,11 @@ _cnn_clock_dev   = None   # torch.device
 _gait_models     = None
 
 GAIT_FEATURES = [
-    "v_amp_pool_median",
-    "ml_amp_pool_iqr",
-    "base_v_stride_regularity",
-    "roll_amp_pool_iqr",
+    "v_jerk_rms_median",
+    "v_jerk_rms_iqr",
+    "v_harmonic_ratio_iqr",
 ]
-GAIT_REQUIRED_FEATURES = [
-    "v_amp_pool_median",
-    "ml_amp_pool_iqr",
-    "roll_amp_pool_iqr",
-]
-GAIT_STRIDE_FEATURE = "base_v_stride_regularity"
-DEFAULT_STRIDE_REGULARITY = 0.80638318
+GAIT_REQUIRED_FEATURES = GAIT_FEATURES
 
 
 def _load_gait_artifact(model_name, metadata_name):
@@ -114,22 +107,17 @@ def _load_gait_artifact(model_name, metadata_name):
 
 
 def _load_gait_models():
-    """Load primary 4-feature and fallback 3-feature Youden gait models lazily."""
+    """Load the final daily acc-only gait model lazily."""
     global _gait_models
     if _gait_models is not None:
         return _gait_models
 
-    primary_model, primary_metadata = _load_gait_artifact(
-        "gait_nested_youden.joblib",
-        "gait_nested_youden_metadata.json",
-    )
-    fallback_model, fallback_metadata = _load_gait_artifact(
-        "gait_three_feature_youden.joblib",
-        "gait_three_feature_youden_metadata.json",
+    daily_model, daily_metadata = _load_gait_artifact(
+        "gait_daily_clinical_3feat.joblib",
+        "gait_daily_clinical_3feat_metadata.json",
     )
     _gait_models = {
-        "primary": {"model": primary_model, "metadata": primary_metadata},
-        "fallback": {"model": fallback_model, "metadata": fallback_metadata},
+        "daily": {"model": daily_model, "metadata": daily_metadata},
     }
     return _gait_models
 
@@ -145,16 +133,13 @@ def _gait_model_summary():
             pass
     daily_available = os.path.exists(os.path.join(app.root_path, "models", "gait_daily_clinical_3feat.joblib"))
 
-    models = _load_gait_models()
-    rt_model = models["primary"]["model"] or models["fallback"]["model"]
-
     oof = daily_meta.get("oof", {})
     train = daily_meta.get("train", {})
     return {
-        "available": daily_available or rt_model is not None,
+        "available": daily_available,
         "daily_model_available": daily_available,
         "threshold": daily_meta.get("threshold", 0.470),
-        "threshold_strategy": "youden_subject_auc",
+        "threshold_strategy": daily_meta.get("threshold_strategy", "fixed_screening_threshold_sensitivity_prioritized"),
         "n_subjects": train.get("n_subjects"),
         "features": daily_meta.get("features", GAIT_FEATURES),
         "metrics": {
@@ -163,7 +148,7 @@ def _gait_model_summary():
             "specificity": oof.get("spec"),
         },
         "label_source": daily_meta.get("label_source"),
-        "realtime_model_available": rt_model is not None,
+        "realtime_model_available": daily_available,
     }
 
 
@@ -179,6 +164,17 @@ def _safe_int(value, default=0):
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _has_final_gait_features(features):
+    for feature in GAIT_REQUIRED_FEATURES:
+        try:
+            value = float(features.get(feature))
+        except (TypeError, ValueError):
+            return False
+        if not np.isfinite(value):
+            return False
+    return True
 
 
 def _gait_feature_insights(features):
@@ -271,10 +267,12 @@ def _clamp(value, low=0.0, high=1.0):
 
 
 def _gait_visual_profile(features):
-    vertical = _safe_float(features.get("v_amp_pool_median"))
-    lateral = _safe_float(features.get("ml_amp_pool_iqr"))
-    regularity = _safe_float(features.get("base_v_stride_regularity", DEFAULT_STRIDE_REGULARITY))
-    roll = _safe_float(features.get("roll_amp_pool_iqr"))
+    jerk_median = _safe_float(features.get("v_jerk_rms_median"))
+    hr_iqr = _safe_float(features.get("v_harmonic_ratio_iqr"))
+    vertical = _safe_float(features.get("v_amp_pool_median"), max(0.02, min(1.0, jerk_median / 5.0)))
+    lateral = _safe_float(features.get("ml_amp_pool_iqr"), max(0.02, hr_iqr))
+    regularity = _safe_float(features.get("base_v_stride_regularity"), max(0.0, 1.0 - hr_iqr * 5))
+    roll = _safe_float(features.get("roll_amp_pool_iqr"), 10 + hr_iqr * 20)
 
     step_lift = _clamp(vertical / 0.18)
     lateral_sway = _clamp(lateral / 0.14)
@@ -867,50 +865,29 @@ def gait_page():
 
 def _predict_gait_from_payload(data):
     models = _load_gait_models()
-    primary_artifact = models["primary"]["model"]
-    fallback_artifact = models["fallback"]["model"]
-    if primary_artifact is None and fallback_artifact is None:
-        return None, ({'ok': False, 'error': '보행 평가 모델을 불러오지 못했습니다.'}, 503)
+    model_artifact = models["daily"]["model"]
+    if model_artifact is None:
+        return None, ({'ok': False, 'error': '최종 보행 평가 모델을 불러오지 못했습니다.'}, 503)
 
     def parse_feature(feature):
         value = data.get(feature)
         if value in (None, ""):
             return None
         try:
-            return float(value)
+            parsed = float(value)
         except (TypeError, ValueError):
             return None
+        return parsed if np.isfinite(parsed) else None
 
     required_values = {feature: parse_feature(feature) for feature in GAIT_REQUIRED_FEATURES}
     if any(value is None for value in required_values.values()):
-        return None, ({'ok': False, 'error': '필수 보행 feature가 부족합니다. 다시 측정해 주세요.'}, 400)
-
-    stride_value = parse_feature(GAIT_STRIDE_FEATURE)
-    if stride_value is None:
-        model_artifact = fallback_artifact
-        model_mode = "three_feature_fallback"
-        if model_artifact is None:
-            return None, ({'ok': False, 'error': '보행 리듬 값이 없어 3개 feature 모델이 필요하지만 불러오지 못했습니다.'}, 503)
-    else:
-        model_artifact = primary_artifact
-        model_mode = "four_feature_primary"
-        if model_artifact is None:
-            return None, ({'ok': False, 'error': '4개 feature 보행 모델을 불러오지 못했습니다.'}, 503)
+        return None, ({'ok': False, 'error': '최종 보행 feature 3개가 부족합니다. CSV 측정 또는 최종 피처 payload를 사용해 주세요.'}, 400)
 
     model_features = model_artifact.get('features', GAIT_FEATURES)
-    feature_values = dict(required_values)
-    if GAIT_STRIDE_FEATURE in model_features:
-        feature_values[GAIT_STRIDE_FEATURE] = stride_value
-
     try:
-        raw_values = [float(feature_values[feature]) for feature in model_features]
+        values = [float(required_values[feature]) for feature in model_features]
     except (KeyError, TypeError, ValueError):
-        return None, ({'ok': False, 'error': '보행 feature 조합이 모델과 맞지 않습니다. 다시 측정해 주세요.'}, 400)
-
-    # Domain correction: lab→app additive shift (N=2 normal samples, 2026-07-17)
-    domain_correction = models.get("primary", {}).get("metadata", {}).get("domain_correction", {})
-    deltas = domain_correction.get("deltas", {})
-    values = [rv + deltas.get(f, 0.0) for rv, f in zip(raw_values, model_features)]
+        return None, ({'ok': False, 'error': '보행 feature 조합이 최종 모델과 맞지 않습니다. 다시 측정해 주세요.'}, 400)
 
     import pandas as pd
     frame = pd.DataFrame([values], columns=model_features)
@@ -918,12 +895,8 @@ def _predict_gait_from_payload(data):
     threshold = float(model_artifact.get('threshold', 0.5))
     prediction = int(probability >= threshold)
     features = dict(zip(model_features, values))
-    default_strategy = (
-        'nested_inner_oof_youden'
-        if model_mode == "four_feature_primary"
-        else 'pooled_5fold_x100_oof_youden_three_feature_candidate'
-    )
-    threshold_strategy = model_artifact.get('threshold_strategy', default_strategy)
+    model_mode = model_artifact.get('model_mode', 'daily_subwindow_clinical_acc_only_3feat')
+    threshold_strategy = model_artifact.get('threshold_strategy', 'fixed_screening_threshold_sensitivity_prioritized')
     gait_result = {
         'probability': probability,
         'threshold': threshold,
@@ -968,16 +941,25 @@ def gait_upload_csv():
         return jsonify({'ok': False, 'error': 'CSV 파일을 선택해 주세요.'}), 400
     model_dir = os.path.join(app.root_path, "models")
     daily_model_path = os.path.join(model_dir, "gait_daily_clinical_3feat.joblib")
-    axis_model_path  = os.path.join(model_dir, "gait_axis_aligned_physionet_youden.joblib")
 
     if os.path.exists(daily_model_path):
         csv_bytes = upload.read()
         try:
             result = predict_daily_gait_csv(io.BytesIO(csv_bytes), model_dir)
         except Exception as e:
-            return jsonify({'ok': False, 'error': f'CSV 전처리 실패: {e}'}), 400
+            print(f"[gait csv preprocessing error] {e}")
+            return jsonify({
+                'ok': False,
+                'error': '보행 데이터가 충분하지 않아 평가할 수 없습니다. 스마트폰을 허리에 고정하고 평소처럼 20초 이상 걸어 다시 측정해 주세요.'
+            }), 400
 
         feats    = result['features']
+        if not _has_final_gait_features(feats):
+            return jsonify({
+                'ok': False,
+                'error': '보행 데이터가 충분하지 않아 평가할 수 없습니다. 스마트폰을 허리에 고정하고 평소처럼 20초 이상 걸어 다시 측정해 주세요.'
+            }), 400
+
         jerk_med = _safe_float(feats.get('v_jerk_rms_median'))
         jerk_iqr = _safe_float(feats.get('v_jerk_rms_iqr'))
         hr_iqr   = _safe_float(feats.get('v_harmonic_ratio_iqr'))
@@ -1043,54 +1025,7 @@ def gait_upload_csv():
             'redirect_url':       url_for('gait_avatar_page'),
         }), 200
 
-    if os.path.exists(axis_model_path):
-        try:
-            result = predict_axis_aligned_gait_csv(upload.stream, model_dir)
-        except Exception as e:
-            return jsonify({'ok': False, 'error': f'CSV 전처리 실패: {e}'}), 400
-
-        gait_result = {
-            'probability':        result['probability'],
-            'threshold':          result['threshold'],
-            'prediction':         result['prediction'],
-            'label':              result['label'],
-            'threshold_strategy': result['threshold_strategy'],
-            'model_mode':         result['model_mode'],
-            'features':           result['features'],
-            'insights': [],
-            'explainability': [],
-            'visual': _gait_visual_profile({}),
-            'window': result['window'],
-        }
-        _save_gait_result(gait_result)
-        return jsonify({
-            'ok': True,
-            'probability':        result['probability'],
-            'threshold':          result['threshold'],
-            'prediction':         result['prediction'],
-            'label':              result['label'],
-            'threshold_strategy': result['threshold_strategy'],
-            'model_mode':         result['model_mode'],
-            'features':           result['features'],
-            'window':             result['window'],
-            'extracted_features': result['features'],
-            'redirect_url':       url_for('gait_avatar_page'),
-        }), 200
-
-    try:
-        from gait_csv_processor import extract_gait_features_from_csv
-        extracted = extract_gait_features_from_csv(upload.stream)
-    except Exception as e:
-        return jsonify({'ok': False, 'error': f'CSV 전처리 실패: {e}'}), 400
-
-    payload = dict(extracted['features'])
-    payload['_window'] = extracted['window']
-    _, result = _predict_gait_from_payload(payload)
-    body, status = result
-    if status == 200:
-        body['extracted_features'] = extracted['features']
-        body['window'] = extracted['window']
-    return jsonify(body), status
+    return jsonify({'ok': False, 'error': '최종 보행 모델 파일을 찾지 못했습니다.'}), 503
 
 
 @app.route('/gait/avatar')

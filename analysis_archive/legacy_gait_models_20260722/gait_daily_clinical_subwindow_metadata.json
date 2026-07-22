@@ -1,0 +1,22 @@
+{
+  "features": [
+    "v_harmonic_ratio_median",
+    "ap_harmonic_ratio_median",
+    "v_stride_freq_hz_median",
+    "ap_spec_entropy_median",
+    "v_jerk_rms_median",
+    "v_harmonic_ratio_iqr",
+    "ap_harmonic_ratio_iqr",
+    "v_stride_freq_hz_iqr",
+    "ap_spec_entropy_iqr",
+    "v_jerk_rms_iqr"
+  ],
+  "threshold": 0.4699999999999999,
+  "label_source": "motor_impairment_score >= 0.5",
+  "oof": {
+    "auc": 0.751,
+    "sens": 0.8061,
+    "spec": 0.61,
+    "thr": 0.4699999999999999
+  }
+}
