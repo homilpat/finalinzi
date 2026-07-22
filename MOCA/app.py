@@ -374,27 +374,30 @@ CARE_TYPE_MAP = {
     # cognitive_flag: 0=양호, 1=저하 / physical_flag: 0=양호, 1=저하
     (0, 0): {
         "code": "A",
-        "name": "유지형",
+        "name": "건강유지형",
         "title": "A 유형",
+        "sub": "(신체 양호 · 인지 양호)",
         "summary": "인지기능과 신체기능이 모두 양호한 상태입니다. 현재의 건강한 상태를 유지하고 향상시키기 위한 예방 중심의 운동을 권장합니다.",
         "focus": "현재 상태 유지",
         "cognitive_status": "양호",
         "physical_status": "양호",
     },
     (0, 1): {
-        "code": "B",
+        "code": "C",
         "name": "신체관리형",
-        "title": "B 유형",
+        "title": "C 유형",
+        "sub": "(신체 저하 · 인지 양호)",
         "summary": "인지기능은 양호하지만 신체기능 관리가 필요한 상태입니다. 안전한 맞춤 운동으로 하체 근력과 균형 능력을 함께 길러보겠습니다.",
         "focus": "보행 및 근력 관리",
         "cognitive_status": "양호",
         "physical_status": "저하",
     },
     (1, 0): {
-        "code": "C",
-        "name": "통합관리형",
-        "title": "C 유형",
-        "summary": "신체기능은 양호하지만 인지기능 변화 확인과 통합 관리가 필요한 상태입니다. 지금부터 꾸준히 두뇌 운동을 하면 인지 건강을 관리하는 데 도움이 됩니다.",
+        "code": "B",
+        "name": "인지관리형",
+        "title": "B 유형",
+        "sub": "(신체 양호 · 인지 저하)",
+        "summary": "신체기능은 양호하지만 인지기능 변화 확인과 관리가 필요한 상태입니다. 지금부터 꾸준히 두뇌 운동을 하면 인지 건강을 관리하는 데 도움이 됩니다.",
         "focus": "인지 훈련 중심 통합 관리",
         "cognitive_status": "저하",
         "physical_status": "양호",
@@ -403,6 +406,7 @@ CARE_TYPE_MAP = {
         "code": "D",
         "name": "통합관리형",
         "title": "D 유형",
+        "sub": "(신체 저하 · 인지 저하)",
         "summary": "인지기능과 신체기능 모두 세심한 관리가 필요한 상태입니다. 보호자와 함께 안전하게 운동하며 몸과 두뇌를 함께 움직여 보세요.",
         "focus": "인지 및 신체 동시 관리",
         "cognitive_status": "저하",
@@ -486,9 +490,10 @@ def _current_assessment_id():
 
 
 def _exercise_mock_data():
+    user_name = session.get('user_name') or '어르신'
     return {
         'user': {
-            'name': '사용자',
+            'name': user_name,
             'label': '시니어',
             'health_score': 82,
             'stars': 4,
@@ -730,6 +735,8 @@ def _tts_urls(item_name, version):
 
 @app.route('/')
 def home():
+    if request.args.get('registered') == '1' and not request.args.get('select'):
+        return redirect(url_for('main_home_page'))
     is_new = bool(request.args.get('registered')) or session.get('is_new_member', False)
     template = 'home_new.html' if is_new else 'home.html'
     return render_template(
@@ -739,6 +746,16 @@ def home():
         assessment_phase=request.args.get('phase', ''),
         profile_ready=bool(session.get('member_id')),
         registered=request.args.get('registered', ''),
+    )
+
+
+@app.route('/main_home')
+def main_home_page():
+    return render_template(
+        'main_home.html',
+        exercise=_personal_exercise_data(),
+        cognitive=_get_cognitive_result(),
+        gait=_get_gait_result()
     )
 
 
@@ -829,12 +846,15 @@ def report_detail_page():
 
 @app.route('/mypage')
 def mypage_page():
+    cog = _get_cognitive_result()
+    gait_res = _get_gait_result()
     return render_template(
-        'report_detail.html',
+        'mypage.html',
         exercise=_personal_exercise_data(),
-        back_url='/?registered=1',
-        cognitive=_get_cognitive_result(),
-        gait=_get_gait_result(),
+        back_url='/main_home',
+        cognitive=cog,
+        gait=gait_res,
+        care_type=_classify_care_type(cog, gait_res),
         panel=request.args.get('panel', 'cognitive')
     )
 
@@ -1132,6 +1152,10 @@ def save_profile():
     except ValueError as e:
         return redirect(url_for('home', error=str(e)))
 
+    user_name = request.form.get('user_name', '').strip()
+    if user_name:
+        session['user_name'] = user_name
+
     session['member_id'] = member_id
     session['member_code'] = member_code
     session['education_years'] = edu
@@ -1142,7 +1166,7 @@ def save_profile():
     session['sigungu'] = sgg
     session['is_new_member'] = is_new
 
-    return redirect(url_for('home', registered='1'))
+    return redirect(url_for('home', registered='1', select='1'))
 
 
 @app.route('/start_saved')

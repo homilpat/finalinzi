@@ -24,6 +24,7 @@
   
   // Interactive Feedbacks
   const sensorBadge = document.getElementById('sensorBadge');
+  if (sensorBadge) sensorBadge.style.display = 'none';
   const sensorCueBox = document.getElementById('sensorCueBox');
   const motionPulse = document.getElementById('activeMotionPulse');
   
@@ -651,19 +652,19 @@
       // 단계 텍스트 변경
       const phaseNames = {
         1: "1단계: 워밍업 (3분)",
-        2: "2단계: 신체강화 (5분)",
-        3: "3단계: 본운동 (9분)",
-        4: "4단계: 쿨다운 (3분)"
+        2: "2단계: 근력· 균형 운동 (5분)",
+        3: "3단계: 신체 + 두뇌 결합 운동 (9분)",
+        4: "4단계: 심호흡 (3분)"
       };
       const phaseDescs = {
-        1: "가벼운 제자리 걷기 및 관절 돌리기 (음악 리듬에 맞춰 진행)",
-        2: "인지 부하 없이 정확한 자세로 FAME/오타고 근력·균형 운동 수행",
-        3: "신체 운동 + 센서 기반 인지 과제 결합 [핵심 구간]",
-        4: "심호흡 및 정적 스트레칭 진행 (안정화 밸런스 측정)"
+        1: "",
+        2: "",
+        3: "",
+        4: ""
       };
       
       phaseNameLabel.textContent = phaseNames[phase];
-      phaseDescLabel.textContent = phaseDescs[phase];
+      phaseDescLabel.textContent = "";
 
       // BGM 및 TTS 초기화
       const proto = ExerciseProtocols[currentType];
