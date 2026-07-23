@@ -55,10 +55,11 @@ TABLE_CSV = ROOT / "analysis_outputs" / "daily_subwindow_median_iqr" / "subwindo
 CLIN_CSV  = Path("C:/Users/whdgu/Desktop/파이널 보행 프로젝트/physionet_AWS"
                  "/strict_preprocessing_runs/clinical_motor_label_modeling"
                  "/subject_features_with_clinical.csv")
-THR       = 0.50
+TARGET_SENSITIVITY = 0.80
 N_SPLITS  = 5
 N_SEEDS   = 100
 MAX_LEN   = 120
+TARGET_TAG = f"sens{int(TARGET_SENSITIVITY * 100):02d}"
 
 
 # ── 유틸 ──────────────────────────────────────────────────
@@ -80,6 +81,40 @@ def fold_auc(y_tr, y_te, prob_tr, prob_te):
     tr_auc = float(roc_auc_score(y_tr, prob_tr)) if len(np.unique(y_tr))==2 else np.nan
     te_auc = float(roc_auc_score(y_te, prob_te)) if len(np.unique(y_te))==2 else np.nan
     return tr_auc, te_auc
+
+
+def threshold_for_min_sensitivity(y_true, prob, min_sens=TARGET_SENSITIVITY):
+    vals = np.unique(prob[np.isfinite(prob)])
+    if len(vals) == 0:
+        return 0.5
+    mids = (vals[:-1] + vals[1:]) / 2 if len(vals) > 1 else np.array([])
+    candidates = np.r_[vals.min() - 1e-9, mids, vals.max() + 1e-9]
+
+    best_t = float(candidates[0])
+    best_spec = -np.inf
+    for t in candidates:
+        pred = (prob >= t).astype(int)
+        tn, fp, fn, tp_ = confusion_matrix(y_true, pred, labels=[0, 1]).ravel()
+        sens = tp_ / (tp_ + fn) if tp_ + fn else 0.0
+        spec = tn / (tn + fp) if tn + fp else 0.0
+        if sens >= min_sens and spec > best_spec:
+            best_spec = spec
+            best_t = float(t)
+    if best_spec > -np.inf:
+        return best_t
+
+    # Fallback for degenerate folds: choose the max-Youden threshold.
+    best_j = -np.inf
+    for t in candidates:
+        pred = (prob >= t).astype(int)
+        tn, fp, fn, tp_ = confusion_matrix(y_true, pred, labels=[0, 1]).ravel()
+        sens = tp_ / (tp_ + fn) if tp_ + fn else 0.0
+        spec = tn / (tn + fp) if tn + fp else 0.0
+        youden_j = sens + spec - 1
+        if youden_j > best_j:
+            best_j = youden_j
+            best_t = float(t)
+    return best_t
 
 
 # ── 데이터 로드 ───────────────────────────────────────────
@@ -116,14 +151,14 @@ def base():
 
 def make_rf(n=300, seed=42):
     return RandomForestClassifier(n_estimators=n, max_depth=5, min_samples_leaf=5,
-                                   class_weight="balanced", random_state=seed, n_jobs=-1)
+                                   class_weight="balanced", random_state=seed, n_jobs=1)
 
 def make_xgb(n=100, seed=42):
     return XGBClassifier(n_estimators=n, learning_rate=0.05, max_depth=2,
                           min_child_weight=5, reg_alpha=0.5, reg_lambda=2.0,
                           subsample=0.8, colsample_bytree=0.9,
                           eval_metric="logloss", random_state=seed,
-                          n_jobs=max(1,os.cpu_count()or 1), verbosity=0)
+                          n_jobs=1, verbosity=0)
 
 def make_gbm(seed=42):
     return GradientBoostingClassifier(n_estimators=100, learning_rate=0.05, max_depth=2,
@@ -138,12 +173,12 @@ def get_ml_models(seed=42):
         "RF":      Pipeline([*base(), ("m", make_rf(300, seed))]),
         "GBM":     Pipeline([*base(), ("m", make_gbm(seed))]),
         "XGB":     Pipeline([*base(), ("m", make_xgb(100, seed))]),
-        "Voting":  Pipeline([*base(), ("m", VotingClassifier(voting="soft", n_jobs=-1, estimators=[
+        "Voting":  Pipeline([*base(), ("m", VotingClassifier(voting="soft", n_jobs=1, estimators=[
                                 ("lr", LogisticRegression(C=1.0, class_weight="balanced",
                                        max_iter=3000, solver="liblinear", random_state=seed)),
                                 ("rf", make_rf(200, seed)),
                                 ("xgb", make_xgb(100, seed)),]))]),
-        "Stacking":Pipeline([*base(), ("m", StackingClassifier(cv=3, n_jobs=-1,
+        "Stacking":Pipeline([*base(), ("m", StackingClassifier(cv=3, n_jobs=1,
                                 final_estimator=LogisticRegression(max_iter=3000, solver="liblinear"),
                                 estimators=[("rf",make_rf(200,seed)),("xgb",make_xgb(100,seed)),
                                             ("svm",SVC(C=1.0,gamma="scale",kernel="rbf",
@@ -236,6 +271,7 @@ def run_100rep(sids, X, Xseq, lens, y):
     te_aucs = {n: [] for n in all_names}
     sens_list = {n: [] for n in all_names}   # OOF sensitivity per seed
     spec_list = {n: [] for n in all_names}   # OOF specificity per seed
+    threshold_list = {n: [] for n in all_names}
 
     for seed in range(N_SEEDS):
         if seed % 10 == 0:
@@ -249,54 +285,67 @@ def run_100rep(sids, X, Xseq, lens, y):
         for name, model in ml_models.items():
             fold_tr, fold_te = [], []
             oof = np.zeros(len(y))
+            total_tn = total_fp = total_fn = total_tp = 0
+            fold_thresholds = []
             for tr, te in splits:
                 assert len(set(sids[tr]) & set(sids[te])) == 0, "subject overlap!"
                 model.fit(X[tr], y[tr])
                 tr_p = model.predict_proba(X[tr])[:,1]
                 te_p = model.predict_proba(X[te])[:,1]
                 oof[te] = te_p
+                thr = threshold_for_min_sensitivity(y[tr], tr_p)
+                fold_thresholds.append(thr)
+                pred = (te_p >= thr).astype(int)
+                tn, fp, fn, tp_ = confusion_matrix(y[te], pred, labels=[0,1]).ravel()
+                total_tn += tn; total_fp += fp; total_fn += fn; total_tp += tp_
                 ta, ea = fold_auc(y[tr], y[te], tr_p, te_p)
                 if not np.isnan(ta): fold_tr.append(ta)
                 if not np.isnan(ea): fold_te.append(ea)
             tr_aucs[name].append(np.mean(fold_tr))
             te_aucs[name].append(np.mean(fold_te))
             # OOF 기준 sens/spec
-            pred = (oof >= THR).astype(int)
-            tn,fp,fn,tp_ = confusion_matrix(y, pred, labels=[0,1]).ravel()
-            sens_list[name].append(tp_/(tp_+fn) if tp_+fn else 0.)
-            spec_list[name].append(tn/(tn+fp) if tn+fp else 0.)
+            sens_list[name].append(total_tp/(total_tp+total_fn) if total_tp+total_fn else 0.)
+            spec_list[name].append(total_tn/(total_tn+total_fp) if total_tn+total_fp else 0.)
+            threshold_list[name].append(float(np.median(fold_thresholds)))
 
         # DL
         if TORCH_OK:
             for name, cls in [("LSTM", LSTMNet), ("CNN1D", CNN1DNet)]:
                 fold_tr, fold_te = [], []
                 oof = np.zeros(len(y))
+                total_tn = total_fp = total_fn = total_tp = 0
+                fold_thresholds = []
                 for tr, te in splits:
                     assert len(set(sids[tr]) & set(sids[te])) == 0
                     Xtr, Xte = norm_seq(Xseq, lens, tr, te)
                     tp, ep2 = train_dl_fold(cls, Xtr, y[tr], lens[tr], Xte, lens[te], seed=seed*10)
                     oof[te] = ep2
+                    thr = threshold_for_min_sensitivity(y[tr], tp)
+                    fold_thresholds.append(thr)
+                    pred = (ep2 >= thr).astype(int)
+                    tn, fp, fn, tp_ = confusion_matrix(y[te], pred, labels=[0,1]).ravel()
+                    total_tn += tn; total_fp += fp; total_fn += fn; total_tp += tp_
                     ta, ea = fold_auc(y[tr], y[te], tp, ep2)
                     if not np.isnan(ta): fold_tr.append(ta)
                     if not np.isnan(ea): fold_te.append(ea)
                 tr_aucs[name].append(np.mean(fold_tr))
                 te_aucs[name].append(np.mean(fold_te))
-                pred = (oof >= THR).astype(int)
-                tn,fp,fn,tp_ = confusion_matrix(y, pred, labels=[0,1]).ravel()
-                sens_list[name].append(tp_/(tp_+fn) if tp_+fn else 0.)
-                spec_list[name].append(tn/(tn+fp) if tn+fp else 0.)
+                sens_list[name].append(total_tp/(total_tp+total_fn) if total_tp+total_fn else 0.)
+                spec_list[name].append(total_tn/(total_tn+total_fp) if total_tn+total_fp else 0.)
+                threshold_list[name].append(float(np.median(fold_thresholds)))
 
-    return tr_aucs, te_aucs, sens_list, spec_list
+    return tr_aucs, te_aucs, sens_list, spec_list, threshold_list
 
 
 # ── 결과 집계 및 저장 ─────────────────────────────────────
-def summarize(tr_aucs, te_aucs, sens_list, spec_list):
+def summarize(tr_aucs, te_aucs, sens_list, spec_list, threshold_list):
     rows = []
     for name in tr_aucs:
         tr   = np.array(tr_aucs[name])
         te   = np.array(te_aucs[name])
         sens = np.array(sens_list[name])
         spec = np.array(spec_list[name])
+        thr  = np.array(threshold_list[name])
         rows.append({
             "model":         name,
             "train_auc":     round(float(tr.mean()), 4),
@@ -309,6 +358,9 @@ def summarize(tr_aucs, te_aucs, sens_list, spec_list):
             "sens_std":      round(float(sens.std()),  4),
             "spec_mean":     round(float(spec.mean()), 4),
             "spec_std":      round(float(spec.std()),  4),
+            "threshold_median": round(float(np.median(thr)), 4),
+            "threshold_ci_lo":  round(float(np.percentile(thr, 2.5)), 4),
+            "threshold_ci_hi":  round(float(np.percentile(thr, 97.5)), 4),
             "n_seeds":       len(te),
         })
     df = pd.DataFrame(rows).sort_values("test_auc_mean", ascending=False).reset_index(drop=True)
@@ -355,14 +407,16 @@ def save_roc_all(sids, X, Xseq, lens, y):
 
 def main():
     print(f"=== 100-rep 5-fold 모델 비교 ===")
-    print(f"Seeds: {N_SEEDS}  Folds: {N_SPLITS}  Threshold: {THR}")
+    print(f"Seeds: {N_SEEDS}  Folds: {N_SPLITS}  Threshold: train-fold sens>={TARGET_SENSITIVITY:.2f}")
     sids, X, Xseq, lens, y = load()
     print(f"Subjects={len(y)}  normal={(y==0).sum()}  impaired={(y==1).sum()}\n")
 
-    tr_aucs, te_aucs, sens_list, spec_list = run_100rep(sids, X, Xseq, lens, y)
+    tr_aucs, te_aucs, sens_list, spec_list, threshold_list = run_100rep(sids, X, Xseq, lens, y)
 
-    df = summarize(tr_aucs, te_aucs, sens_list, spec_list)
-    df.to_csv(OUT_DIR/"comparison_100rep.csv", index=False, encoding="utf-8-sig")
+    df = summarize(tr_aucs, te_aucs, sens_list, spec_list, threshold_list)
+    comparison_path = OUT_DIR / f"comparison_100rep_{TARGET_TAG}.csv"
+    result_path = OUT_DIR / f"result_{TARGET_TAG}.json"
+    df.to_csv(comparison_path, index=False, encoding="utf-8-sig")
 
     print("\n" + "="*115)
     print(f"{'모델':10s}  {'Train':7s}  {'Test AUC':9s}  {'±std':7s}  {'95% CI':16s}  {'Gap':7s}  "
@@ -378,9 +432,9 @@ def main():
     save_roc_all(sids, X, Xseq, lens, y)
 
     # json 저장
-    (OUT_DIR/"result.json").write_text(
+    result_path.write_text(
         json.dumps(df.to_dict(orient="records"), ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"\n결과: {OUT_DIR/'comparison_100rep.csv'}")
+    print(f"\nResult: {comparison_path}")
 
 
 if __name__ == "__main__":
