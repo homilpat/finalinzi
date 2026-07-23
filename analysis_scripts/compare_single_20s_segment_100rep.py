@@ -5,13 +5,14 @@ Protocol:
   - Build every available 20s segment.
   - Within each 20s segment, compute 10s sliding-window features.
   - Aggregate those 10s windows into one feature row per 20s segment.
+  - Reject ACC-unstable segments using fixed within-segment QC limits.
   - For each repeat, randomly select exactly one 20s segment per subject.
   - Evaluate models with subject-level StratifiedKFold.
-  - Pick each fold threshold on train predictions only:
+  - Pick each fold threshold on inner-OOF train predictions only:
       sensitivity >= 0.80, then maximum specificity.
 
 Outputs:
-  analysis_outputs/single_20s_segment_model_comparison_100rep/
+  analysis_outputs/single_20s_segment_acc_qc_expanded_100rep/
 """
 from __future__ import annotations
 
@@ -87,6 +88,7 @@ N_SUBWINDOWS = (WIN20 - SUB_WIN) // SUB_STEP + 1
 N_SPLITS = 5
 N_REPEATS = 100
 TARGET_SENSITIVITY = 0.80
+RUN_DL = False
 
 BASE = ["v_harmonic_ratio", "ap_harmonic_ratio", "v_stride_freq_hz", "ap_spec_entropy", "v_jerk_rms"]
 AGG_FEATURES = [f"{name}_{stat}" for name in BASE for stat in ("median", "iqr")]
@@ -295,7 +297,7 @@ def make_models(seed: int) -> dict[str, Pipeline]:
                         eval_metric="logloss", random_state=seed, n_jobs=1, verbosity=0)
     svm = SVC(C=1.0, gamma="scale", kernel="rbf", probability=True, random_state=seed)
     return {
-        "LR_final": make_lr(seed),
+        "LR_expanded": make_lr(seed),
         "SVM": Pipeline([*base_steps(), ("m", svm)]),
         "RF": make_rf(seed),
         "GBM": Pipeline([*base_steps(), ("m", GradientBoostingClassifier(
@@ -325,6 +327,16 @@ def threshold_for_min_sensitivity(y_true: np.ndarray, prob: np.ndarray) -> float
         if sens >= TARGET_SENSITIVITY and spec > best_spec:
             best_t, best_spec = float(threshold), spec
     return best_t
+
+
+def inner_oof_prob(model, x_train: np.ndarray, y_train: np.ndarray, seed: int) -> np.ndarray:
+    oof = np.full(len(y_train), np.nan, dtype=float)
+    inner = StratifiedKFold(n_splits=3, shuffle=True, random_state=seed)
+    for inner_tr, inner_va in inner.split(x_train, y_train):
+        fitted = clone(model)
+        fitted.fit(x_train[inner_tr], y_train[inner_tr])
+        oof[inner_va] = fitted.predict_proba(x_train[inner_va])[:, 1]
+    return oof
 
 
 def metric_row(y_true: np.ndarray, prob: np.ndarray, threshold: float) -> dict:
@@ -427,10 +439,14 @@ def train_dl_fold(cls, x_tr, y_tr, x_te, seed: int) -> tuple[np.ndarray, np.ndar
 
 def run_comparison(meta: pd.DataFrame, x_agg_all: np.ndarray, x_seq_all: np.ndarray) -> tuple[pd.DataFrame, pd.DataFrame]:
     metrics, predictions = [], []
+    qc_mask = meta["acc_qc_pass"].to_numpy(bool)
+    meta = meta.loc[qc_mask].reset_index(drop=True)
+    x_agg_all = x_agg_all[qc_mask]
+    x_seq_all = x_seq_all[qc_mask]
     subject_ids = np.array(sorted(meta["subject_id"].unique()))
     by_subject = {sid: meta.index[meta["subject_id"].eq(sid)].to_numpy() for sid in subject_ids}
 
-    model_names = list(make_models(0).keys()) + (["LSTM", "CNN1D"] if TORCH_OK else [])
+    model_names = list(make_models(0).keys()) + (["LSTM", "CNN1D"] if TORCH_OK and RUN_DL else [])
     for repeat in range(N_REPEATS):
         if repeat % 10 == 0:
             print(f"  repeat {repeat}/{N_REPEATS}", flush=True)
@@ -445,20 +461,26 @@ def run_comparison(meta: pd.DataFrame, x_agg_all: np.ndarray, x_seq_all: np.ndar
 
         for name, model in make_models(900000 + repeat).items():
             train_auc, test_auc, thresholds = [], [], []
+            selected_features = []
             oof = np.zeros(len(y), dtype=float)
             oof_pred = np.zeros(len(y), dtype=int)
             oof_threshold = np.zeros(len(y), dtype=float)
             for fold, (tr, te) in enumerate(splits):
                 assert len(set(sids[tr]) & set(sids[te])) == 0
+                inner_prob = inner_oof_prob(
+                    model, x_agg[tr], y[tr], seed=950000 + repeat * 100 + fold
+                )
+                thr = threshold_for_min_sensitivity(y[tr], inner_prob)
                 model.fit(x_agg[tr], y[tr])
-                p_tr = model.predict_proba(x_agg[tr])[:, 1]
+                if "select" in model.named_steps:
+                    support = model.named_steps["select"].get_support()
+                    selected_features.extend(np.asarray(AGG_FEATURES)[support].tolist())
                 p_te = model.predict_proba(x_agg[te])[:, 1]
-                thr = threshold_for_min_sensitivity(y[tr], p_tr)
                 thresholds.append(thr)
                 oof[te] = p_te
                 oof_pred[te] = (p_te >= thr).astype(int)
                 oof_threshold[te] = thr
-                train_auc.append(roc_auc_score(y[tr], p_tr))
+                train_auc.append(roc_auc_score(y[tr], inner_prob))
                 if len(np.unique(y[te])) == 2:
                     test_auc.append(roc_auc_score(y[te], p_te))
             threshold = float(np.median(thresholds))
@@ -466,6 +488,7 @@ def run_comparison(meta: pd.DataFrame, x_agg_all: np.ndarray, x_seq_all: np.ndar
             row.update({
                 "model": name, "repeat": repeat, "train_auc": float(np.mean(train_auc)),
                 "test_auc_fold_mean": float(np.mean(test_auc)), "threshold": threshold,
+                "selected_features": "|".join(selected_features),
             })
             metrics.append(row)
             pred_df = chosen_meta[["subject_id", "segment_id", "target", "start_sec"]].copy()
@@ -476,7 +499,7 @@ def run_comparison(meta: pd.DataFrame, x_agg_all: np.ndarray, x_seq_all: np.ndar
             pred_df["prediction"] = oof_pred
             predictions.append(pred_df)
 
-        if TORCH_OK:
+        if TORCH_OK and RUN_DL:
             for name, cls in [("LSTM", LSTMNet), ("CNN1D", CNN1DNet)]:
                 train_auc, test_auc, thresholds = [], [], []
                 oof = np.zeros(len(y), dtype=float)
@@ -585,14 +608,31 @@ def save_plots(summary: pd.DataFrame, predictions: pd.DataFrame) -> None:
 
 
 def main() -> None:
-    print("=== Single 20s segment per subject model comparison ===")
-    print(f"Target sensitivity on train fold: >= {TARGET_SENSITIVITY:.2f}")
+    print("=== Single 20s ACC-QC + expanded-feature model comparison ===")
+    print(f"Target sensitivity on inner-OOF train predictions: >= {TARGET_SENSITIVITY:.2f}")
     meta, x_agg, x_seq = build_or_load_segment_cache()
     print(f"segments={len(meta)} subjects={meta['subject_id'].nunique()} normal_subjects={(meta.drop_duplicates('subject_id')['target'] == 0).sum()} impaired_subjects={(meta.drop_duplicates('subject_id')['target'] == 1).sum()}")
+    qc_summary = (
+        meta.groupby("target")["acc_qc_pass"]
+        .agg(total="size", passed="sum", pass_rate="mean")
+        .reset_index()
+    )
+    qc_summary.to_csv(OUT_DIR / "acc_qc_summary_by_target.csv", index=False, encoding="utf-8-sig")
+    print(f"ACC QC passed={int(meta['acc_qc_pass'].sum())}/{len(meta)} ({meta['acc_qc_pass'].mean():.1%})")
 
     metrics, predictions = run_comparison(meta, x_agg, x_seq)
     metrics.to_csv(OUT_DIR / "metrics_by_repeat.csv", index=False, encoding="utf-8-sig")
     predictions.to_csv(OUT_DIR / "predictions_by_repeat.csv", index=False, encoding="utf-8-sig")
+    selected = (
+        metrics.loc[metrics["model"].eq("LR_expanded"), "selected_features"]
+        .str.split("|")
+        .explode()
+        .value_counts()
+        .rename_axis("feature")
+        .reset_index(name="selected_fold_count")
+    )
+    selected["selection_rate"] = selected["selected_fold_count"] / (N_REPEATS * N_SPLITS)
+    selected.to_csv(OUT_DIR / "lr_selected_feature_frequency.csv", index=False, encoding="utf-8-sig")
 
     summary = summarize(metrics)
     summary["gap"] = summary["train_auc_mean"] - summary["test_auc_mean"]
