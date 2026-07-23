@@ -128,7 +128,7 @@ body {
 .btn-lg { padding: 18px; font-size: 20px; border-radius: 14px; }
 
 /* ── 페이지 패딩 ── */
-.page { padding: 16px; display: flex; flex-direction: column; gap: 14px; flex: 1; }
+.page { padding: 16px; display: flex; flex-direction: column; gap: 14px; flex: 1; zoom: var(--pengteu-text-scale, 1); }
 
 /* ════════════════════════════════════════
    홈 화면
