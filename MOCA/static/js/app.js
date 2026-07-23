@@ -32,6 +32,38 @@ const App = {
 };
 
 // ────────────────────────────────────────────
+// 마이크 소유권 + 오디오 재생 중재 (half-duplex 상태머신)
+//  - 검사 답변 STT와 펭트 STT는 동시에 켜지지 않는다 (마이크 뮤텍스).
+//  - TTS/문항 음성 재생 중이면 audioBusy=true → STT가 그 소리를 주워듣지 않게 게이트.
+//  - 펭트가 마이크를 가져갈 때 문항 TTS는 일시정지하되 검사 타이머는 건드리지 않는다.
+// ────────────────────────────────────────────
+const MicBus = {
+  owner: 'none',        // 'test' | 'pengteu' | 'none'
+  audioBusy: false,
+  setAudioBusy(v) { this.audioBusy = Boolean(v); },
+  // 펭트가 마이크를 가져감: 문항 TTS 일시정지(타이머 유지) + 검사 STT 정지
+  grantToPengteu() {
+    if (App.activeAudio) { try { App.activeAudio.pause(); } catch (e) {} }
+    if (App.recognition && App.recording) {
+      App.micStopRequested = true;
+      App.recording = false;
+      try { App.recognition.stop(); } catch (e) {}
+    }
+    this.owner = 'pengteu';
+    this.audioBusy = false;  // 문항 음성을 멈췄으므로 게이트 해제 (펭트가 말하면 직후 다시 true)
+  },
+  // 펭트 종료 → 마이크 반납: 일시정지됐던 문항 TTS 이어재생
+  releaseFromPengteu() {
+    if (this.owner !== 'pengteu') return;
+    this.owner = 'none';
+    if (App.activeAudio && App.activeAudio.paused && !App.activeAudio.ended) {
+      try { App.activeAudio.play(); } catch (e) {}
+    }
+  },
+};
+window.MicBus = MicBus;
+
+// ────────────────────────────────────────────
 // 초기화
 // ────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -201,6 +233,7 @@ function initItemUI() {
 function playNextTTS() {
   if (App.ttsIndex >= App.ttsUrls.length) {
     App.activeAudio = null;
+    MicBus.setAudioBusy(false);
     onTTSComplete();
     return;
   }
@@ -208,6 +241,7 @@ function playNextTTS() {
   const url   = App.ttsUrls[App.ttsIndex];
   const audio = new Audio(url);
   App.activeAudio = audio;
+  MicBus.setAudioBusy(true);
   audio.onended = () => {
     App.ttsIndex++;
     playNextTTS();
@@ -492,6 +526,11 @@ function toggleMic() {
     const status = document.getElementById('micStatus');
     if (status) status.textContent = '완료';
   } else {
+    // 마이크 회수: 펭트가 쓰고 있으면 멈추고 검사 STT가 마이크를 가져간다.
+    if (window.PengteuAssistant && typeof window.PengteuAssistant.stop === 'function') {
+      window.PengteuAssistant.stop();
+    }
+    MicBus.owner = 'test';
     App.micStopRequested = false;
     try {
       App.recognition.start();
@@ -1176,32 +1215,37 @@ function redrawCanvas() {
     if (!text) return null;
     const next = { ...profile };
 
-    if (text.includes('잘안보') || text.includes('안보여') || text.includes('글씨키') || text.includes('크게보') || text.includes('화면키')) {
+    // 글씨 키우기 — 잘 안 보임 / 눈이 침침 / 흐릿 등 자연어 포함
+    if (text.includes('잘안보') || text.includes('안보여') || text.includes('안보임') || text.includes('글씨키')
+        || text.includes('크게보') || text.includes('화면키') || text.includes('침침') || text.includes('흐려')
+        || text.includes('흐릿') || text.includes('눈이안') || text.includes('글씨크')) {
       next.text_scale = Math.min(1.45, Math.max(Number(profile.text_scale || 1), 1.25) + 0.1);
       next.high_contrast = 1;
       return { profile: next, reply: '좋아요. 글씨를 더 키우고 대비도 높였어요. 이제 화면이 더 또렷하게 보일 거예요.' };
     }
-    if (text.includes('글씨작') || text.includes('작게보') || text.includes('화면줄')) {
+    if (text.includes('글씨작') || text.includes('작게보') || text.includes('화면줄') || text.includes('글씨줄')) {
       next.text_scale = Math.max(1, Number(profile.text_scale || 1) - 0.1);
       return { profile: next, reply: '좋아요. 글씨 크기를 조금 줄였어요.' };
     }
-    if (text.includes('천천히') || text.includes('느리게') || text.includes('말속도줄')) {
+    if (text.includes('천천히') || text.includes('느리게') || text.includes('말속도줄') || text.includes('천천')) {
       next.voice_rate = Math.max(0.65, Number(profile.voice_rate || 0.85) - 0.1);
       return { profile: next, reply: '네, 제가 더 천천히 말할게요.' };
     }
-    if (text.includes('빨리말') || text.includes('빠르게말') || text.includes('말속도올')) {
+    if (text.includes('빨리말') || text.includes('빠르게말') || text.includes('말속도올') || text.includes('빨리해')) {
       next.voice_rate = Math.min(1.15, Number(profile.voice_rate || 0.85) + 0.1);
       return { profile: next, reply: '알겠어요. 말하는 속도를 조금 빠르게 바꿨어요.' };
     }
-    if (text.includes('소리키') || text.includes('볼륨키') || text.includes('크게말')) {
+    // 볼륨 키우기 — 잘 안 들림 / 목소리 크게 등
+    if (text.includes('소리키') || text.includes('볼륨키') || text.includes('크게말') || text.includes('안들려')
+        || text.includes('잘안들') || text.includes('목소리키') || text.includes('목소리크') || text.includes('소리크')) {
       next.tts_volume = Math.min(1, Number(profile.tts_volume || 0.85) + 0.15);
       return { profile: next, reply: '좋아요. 제 목소리 볼륨을 더 크게 했어요.' };
     }
-    if (text.includes('소리줄') || text.includes('볼륨줄') || text.includes('작게말')) {
+    if (text.includes('소리줄') || text.includes('볼륨줄') || text.includes('작게말') || text.includes('시끄')) {
       next.tts_volume = Math.max(0.15, Number(profile.tts_volume || 0.85) - 0.15);
       return { profile: next, reply: '네, 제 목소리 볼륨을 조금 낮췄어요.' };
     }
-    if (text.includes('움직임줄') || text.includes('어지러') || text.includes('애니메이션줄')) {
+    if (text.includes('움직임줄') || text.includes('어지러') || text.includes('애니메이션줄') || text.includes('어지럽')) {
       next.reduced_motion = 1;
       return { profile: next, reply: '알겠어요. 화면 움직임을 줄여서 더 편하게 보이도록 했어요.' };
     }
@@ -1226,10 +1270,12 @@ function redrawCanvas() {
         micBtn.classList.remove('is-listening');
         micBtn.textContent = '마이크';
       }
+      maybeReleaseMic();
     },
     onSttResult: (text) => {
       const message = String(text || '').trim();
       if (!message) return;
+      window.PengteuProactive && window.PengteuProactive.registerSttSuccess();
       input.value = message;
       askPengteu(message);
     },
@@ -1240,6 +1286,7 @@ function redrawCanvas() {
         micBtn.textContent = '마이크';
       }
       if (message) appendMessage('assistant', message);
+      window.PengteuProactive && window.PengteuProactive.registerSttFailure();
     },
   };
 
@@ -1296,11 +1343,14 @@ function redrawCanvas() {
       pengteuListening = false;
       micBtn.classList.remove('is-listening');
       micBtn.textContent = '마이크';
+      maybeReleaseMic();
     };
     recognition.onerror = () => {
       pengteuListening = false;
       micBtn.classList.remove('is-listening');
       micBtn.textContent = '마이크';
+      window.PengteuProactive && window.PengteuProactive.registerSttFailure();
+      maybeReleaseMic();
     };
     recognition.onresult = (event) => {
       const text = Array.from(event.results || [])
@@ -1309,6 +1359,7 @@ function redrawCanvas() {
         .join(' ')
         .trim();
       if (text) {
+        window.PengteuProactive && window.PengteuProactive.registerSttSuccess();
         input.value = text;
         askPengteu(text);
       }
@@ -1322,6 +1373,8 @@ function redrawCanvas() {
         window.AndroidBridge.stopPengteuTts();
         pengteuSpeaking = false;
       }
+      // 마이크 양도: 문항 TTS 일시정지(타이머 유지) + 검사 STT 정지
+      if (window.MicBus) MicBus.grantToPengteu();
       if (!pengteuListening) window.AndroidBridge.startPengteuStt();
       return;
     }
@@ -1335,6 +1388,8 @@ function redrawCanvas() {
       pengteuRecognition.stop();
       return;
     }
+    // 마이크 양도: 문항 TTS 일시정지(타이머 유지) + 검사 STT 정지
+    if (window.MicBus) MicBus.grantToPengteu();
     try {
       pengteuRecognition.start();
     } catch (err) {
@@ -1394,9 +1449,39 @@ function redrawCanvas() {
     });
   });
 
+  function maybeReleaseMic() {
+    if (pengteuSpeaking || pengteuListening) return;
+    if (window.MicBus) MicBus.releaseFromPengteu();
+  }
+
+  // 검사 STT가 마이크를 회수할 때 펭트를 완전히 멈춘다 (말하기·듣기 모두).
+  function stopPengteu() {
+    try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch (e) {}
+    if (window.AndroidBridge && typeof window.AndroidBridge.stopPengteuTts === 'function') {
+      try { window.AndroidBridge.stopPengteuTts(); } catch (e) {}
+    }
+    if (pengteuRecognition && pengteuListening) {
+      try { pengteuRecognition.stop(); } catch (e) {}
+    }
+    pengteuSpeaking = false;
+    pengteuListening = false;
+    if (window.MicBus) MicBus.setAudioBusy(false);
+  }
+
+  // 펭트가 말하기 시작하면 마이크를 가져오고(문항 TTS 일시정지) audioBusy로 에코 차단,
+  // 말이 끝나면 audioBusy 해제 + (듣지도 않으면) 마이크 반납.
+  window.addEventListener('pengteu-speaking-start', () => {
+    if (window.MicBus) { MicBus.grantToPengteu(); MicBus.setAudioBusy(true); }
+  });
+  window.addEventListener('pengteu-speaking-end', () => {
+    if (window.MicBus) MicBus.setAudioBusy(false);
+    maybeReleaseMic();
+  });
+
   window.PengteuAssistant = {
     ask: askPengteu,
     open: openPanel,
+    stop: stopPengteu,
   };
 
   document.querySelectorAll('[data-pengteu-prompt]').forEach((button) => {
@@ -1405,6 +1490,61 @@ function redrawCanvas() {
       if (prompt) askPengteu(prompt);
     });
   });
+
+  // ── 펭트 능동 안내 (상황 인식) ────────────────────
+  // 검사 페이지에서 일정 시간 아무 입력/행동이 없으면(막혀 있으면)
+  // 펭트가 먼저 "많이 어려우신가요?"라고 도움을 제안한다. 잔소리 방지를 위해
+  // 페이지당 최대 횟수를 제한한다. 운동 페이지는 사용자가 몸을 움직이는 중이라
+  // DOM 무입력으로 오발동하므로 제외한다(센서 기반은 별도).
+  const pengteuPath = window.location.pathname || '';
+  const isTestPage = pengteuPath.startsWith('/item');
+  const IDLE_MS = 10000;
+  const MAX_IDLE_PROMPTS = 2;
+  let idleTimer = null;
+  let idlePromptCount = 0;
+  let sttFailStreak = 0;
+
+  function proactiveSay(text) {
+    if (pengteuSpeaking || pengteuListening) return false;
+    if (window.MicBus && MicBus.audioBusy) return false;   // 문항 TTS 재생 중엔 끼어들지 않음
+    if (window.App && App.recording) return false;          // 검사 답변 녹음 중엔 끼어들지 않음(녹음 보호)
+    appendMessage('assistant', text);
+    speak(text);
+    return true;
+  }
+
+  function fireIdlePrompt() {
+    if (idlePromptCount >= MAX_IDLE_PROMPTS) return;
+    if (pengteuSpeaking || pengteuListening) { scheduleIdle(); return; }
+    const said = proactiveSay('많이 어려우신가요? 원하시면 "글씨 키워줘"라고 말씀해 주세요. 제가 글씨를 키우거나 천천히 안내해 드릴게요.');
+    if (said) idlePromptCount += 1;
+    scheduleIdle();
+  }
+
+  function scheduleIdle() {
+    if (!isTestPage) return;
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(fireIdlePrompt, IDLE_MS);
+  }
+
+  // STT가 연속으로 인식 실패하면(잘 안 들림) 볼륨/속도 조정을 먼저 제안
+  function registerSttFailure() {
+    sttFailStreak += 1;
+    if (sttFailStreak >= 2) {
+      sttFailStreak = 0;
+      proactiveSay('잘 안 들리시나 봐요. "소리 키워줘" 또는 "천천히 말해줘"라고 하시면 제가 맞춰 드릴게요.');
+    }
+  }
+  function registerSttSuccess() { sttFailStreak = 0; }
+  window.PengteuProactive = { registerSttFailure, registerSttSuccess };
+
+  if (isTestPage) {
+    ['pointerdown', 'keydown', 'touchstart', 'input', 'wheel'].forEach((ev) => {
+      window.addEventListener(ev, scheduleIdle, { passive: true });
+    });
+    window.addEventListener('pengteu-speaking-end', scheduleIdle);
+    scheduleIdle();
+  }
 
   loadProfile();
 })();
