@@ -502,3 +502,31 @@ Render 배포: 루트 `render.yaml`, `rootDir: MOCA`
 - **논문 표준 LPF jerk**는 실험실 환경에 최적화된 방식으로, 75h 일상보행에서는 3~20Hz 고주파 노이즈가 섞여 BPF jerk보다 AUC 약 0.10 낮음. 현행 BPF 방식 유지가 올바른 선택.
 - **나이/성별 추가(②)** 시 AUC +0.031, spec +0.266으로 성능이 크게 향상되지만 인구통계 변수 의존도가 높아져 순수 보행 기능 선별 목적과 멀어짐. 나이 자체가 라벨과 높은 상관을 가지므로 과제의 의미가 희석됨.
 - 관련 실험 스크립트: `analysis_scripts/experiment_paper_based_3feat.py`
+
+### 펭트 AI 어시스턴트 로직 (2026-07-24)
+
+펭트 관련 코드를 `MOCA/pengteu.py`로 분리하면서 확인한 동작상 짚을 점. **현행 유지하되 발표/개선 시 참고**.
+
+**1. GPT가 핵심 도메인 질문에는 호출되지 않음** (`app.py` `assistant_chat_api`)
+
+```python
+if _pengteu_local_answer_ready(...):   # 보행/인지/운동 키워드 매칭되면
+    reply = _basic_pengteu_reply(...)  # → 고정 템플릿
+else:                                   # 키워드 없으면
+    reply = _openai_pengteu_fallback() # → GPT 호출
+```
+
+- "보행 어때요", "내 점수 뭐야" 같은 핵심 도메인 질문은 키워드에 매칭돼 **전부 고정 템플릿 문장**으로 응답하고, GPT(OpenAI)는 키워드에 걸리지 않는 질문에만 호출됨.
+- 비용/속도 절약 및 응답 안정성 측면에서는 합리적이나, "AI 펫 코치"의 개인화된 답변을 기대하는 질문일수록 정작 template만 나가는 구조.
+- **발표 데모 시**: 시연 질문을 고를 때 이 동작을 인지하고, 개인화된 답변을 보여주려면 키워드에 안 걸리는 질문을 쓰거나 로컬 템플릿 자체를 풍부하게 다듬어야 함.
+
+**2. `_clean_pengteu_reply` 필터가 과함** (`pengteu.py`)
+
+- 응답 후처리의 blocked 토큰에 `"이 내용을 바탕으로"`, `"RAG"` 같은 흔한 표현이 포함돼, GPT가 자연스럽게 이 문구를 쓰면 **답변 전체가 버려지고 캔 문구로 대체**됨.
+- `"이 내용을 바탕으로"`는 한국어에서 흔한 접속 표현이라 멀쩡한 GPT 답변도 날아갈 위험. 발표 데모에서 GPT 답변이 갑자기 이상한 고정 문구로 바뀌는 원인이 될 수 있음.
+- **개선안**: blocked 토큰을 RAG 내부 구조 노출(`retrieved_knowledge`, `/static/audio`)로만 좁히고, 일반 접속 표현은 제외.
+
+**사소한 크루프트 (버그 아님)**
+
+- `_pengteu_local_answer_ready(message, knowledge=None)` — `knowledge` 인자를 받기만 하고 사용하지 않음.
+- `_safe_int`가 `app.py`·`pengteu.py` 양쪽에 중복 정의 — 모듈 독립성을 위한 의도적 중복, 무해.
