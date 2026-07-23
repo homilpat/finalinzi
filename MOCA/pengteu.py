@@ -30,6 +30,12 @@ def _basic_pengteu_reply(message, context, knowledge=None):
             evidence_hint = f" 제가 참고한 기준은 {', '.join(titles)} 쪽이에요."
 
     lowered = (message or "").lower()
+    answer_seeking = ("정답" in message or "답 알려" in message or "답알려" in message
+                      or "답이 뭐" in message or "답 뭐" in message or "힌트" in message
+                      or "뭐라고 답" in message or "뭐라고 대답" in message)
+    if answer_seeking:
+        return f"{name}는 검사 중에는 답을 알려드릴 수 없어요. 편하게 아는 만큼만 천천히 대답하시면 돼요. 검사가 끝나면 결과를 쉽게 설명해드릴게요."
+
     if "보행" in message or "걷" in message:
         if gait_prediction == 1:
             return f"{name}가 볼 때 {member_code}의 최근 보행 결과는 신체기능 관리가 필요한 신호가 있어요. 오늘은 빠르게 걷기보다 허리에 스마트폰을 잘 고정하고, 천천히 균형을 지키는 운동부터 해볼게요.{evidence_hint}"
@@ -68,6 +74,7 @@ def _pengteu_local_answer_ready(message, knowledge=None):
         "낙상", "센서", "보정", "보호자", "글씨", "볼륨", "속도",
         "기준", "모델", "라벨", "기여도", "스펙트럼", "주파수", "xai", "shap",
         "threshold", "gait", "fall", "sensor", "exercise", "score",
+        "정답", "힌트",
     )
     return any(keyword in text for keyword in keywords)
 
@@ -129,7 +136,10 @@ def _openai_pengteu_fallback(message, context, knowledge=None):
         "너는 고령 사용자를 돕는 펭트 AI 어시스턴트다. "
         "진단을 확정하지 말고 선별/주의 표현을 사용한다. "
         "답변은 한국어로 2~4문장, 쉽고 따뜻하게 말한다. "
-        "사용자 기록과 검색 지식 안에서만 개인 결과를 설명하고, 모르는 것은 모른다고 말한다."
+        "사용자 기록과 검색 지식 안에서만 개인 결과를 설명하고, 모르는 것은 모른다고 말한다. "
+        "인지검사(MoCA) 진행 중에는 문항의 정답, 기억 단어, 그림·시계 정답, 힌트를 "
+        "절대 알려주지 않는다. 정답을 물으면 '검사 중에는 답을 알려드릴 수 없어요'라고 "
+        "부드럽게 거절하고, 대신 편하게 검사에 집중하도록 격려만 한다."
     )
     body = {
         "model": model,
