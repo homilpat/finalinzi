@@ -30,16 +30,16 @@ _load_env_file()
 from flask import Flask, render_template, request, jsonify, session, send_from_directory, redirect, url_for
 import numpy as np
 import cv2
-from exercise_sensor_processor import analyze_exercise_csv
-from gait_axis_aligned_processor import predict_daily_gait_csv
-from rag_engine import retrieve_knowledge
-from pengteu import (
+from modeling.exercise_sensor_processor import analyze_exercise_csv
+from modeling.gait_axis_aligned_processor import predict_daily_gait_csv
+from pengteu.rag_engine import retrieve_knowledge
+from pengteu.pengteu import (
     _basic_pengteu_reply,
     _pengteu_local_answer_ready,
     _openai_pengteu_fallback,
     _clean_pengteu_reply,
 )
-from database import (
+from core.database import (
     EDUCATION_LEVELS,
     complete_assessment,
     create_assessment,
@@ -389,7 +389,7 @@ def _extract_signal_preview(csv_bytes: bytes, window_info: dict, model_dir: str)
     """CSV 바이트 → 3초 bandpass V/ML 신호 (15Hz) 아바타 애니메이션용."""
     try:
         import joblib
-        from gait_axis_aligned_core import (
+        from modeling.gait_axis_aligned_core import (
             load_sensor_csv_with_metadata, _acc_columns,
             align_to_vmlap, resample_array_to_100hz,
             transform_signal, bandpass, TARGET_FS_HZ,
@@ -886,7 +886,7 @@ def _load_cnn_models():
         }
         if all(os.path.exists(p) for p in paths.values()):
             try:
-                from clock_cnn_inference import load_models
+                from MOCA.clock_cnn_inference import load_models
                 _cnn_clock, _cnn_clock_dev = load_models(
                     paths["deepc"], paths["deeph"], paths["deepn"]
                 )
@@ -1336,7 +1336,7 @@ def verify_phone_code():
 
 
 def _start_assessment(member_id, edu, member_code, education_level, loc='', sgg='', phone_last=''):
-    from session_manager import create_session
+    from core.session_manager import create_session
 
     uid = f"{member_code}_{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid4().hex[:8]}"
     sess = create_session(uid, edu)
@@ -1459,7 +1459,7 @@ def item_page():
 
     # 항목별 추가 데이터
     if item == 'naming':
-        from version_manager import get_version_config
+        from core.version_manager import get_version_config
         animals_cfg = get_version_config(ver)['animals']
         info['animals'] = [
             {'key': a['key'], 'label': a['label'], 'stt_key': f'animal{i+1}_stt'}
@@ -1489,7 +1489,7 @@ def item_page():
     elif item == 'memory_immediate':
         info['trial2_audio'] = [f'/audio/memory_inst2.mp3'] + [f'/audio/{v}_word{i}.mp3' for i in range(1, 6)]
 
-    from session_manager import ITEM_SEQUENCE
+    from core.session_manager import ITEM_SEQUENCE
     progress_pct = int((s.item_index / len(ITEM_SEQUENCE)) * 100)
 
     return render_template('item.html',
@@ -1568,7 +1568,7 @@ def skip_to_delayed():
     if not uid or uid not in _store:
         return redirect(url_for('home'))
     s = _store[uid]['sess']
-    from session_manager import ITEM_SEQUENCE, SessionState
+    from core.session_manager import ITEM_SEQUENCE, SessionState
     dr_idx = ITEM_SEQUENCE.index('delayed_recall')
     s.item_index   = dr_idx
     s.current_item = 'delayed_recall'
@@ -1968,17 +1968,17 @@ def _score_canvas(img_b64, kind):
 
         if kind == 'cube':
             if _cnn_cube is not None:
-                from cube_cnn_inference_v2 import score_cube_final
+                from MOCA.cube_cnn_inference_v2 import score_cube_final
                 r = score_cube_final(img, model=_cnn_cube[0], device=_cnn_cube[1])
                 return {'score': r['total']}
-            from cube import score_cube
+            from MOCA.cube import score_cube
             return score_cube(img)
 
         elif kind == 'clock':
             if _cnn_clock is not None:
-                from clock_cnn_inference import score_clock_final
+                from MOCA.clock_cnn_inference import score_clock_final
                 return score_clock_final(img, models=_cnn_clock, device=_cnn_clock_dev)
-            from clock import score_clock
+            from MOCA.clock import score_clock
             return score_clock(img)
 
     except Exception as e:
@@ -1987,7 +1987,7 @@ def _score_canvas(img_b64, kind):
 
 
 def _compute_score(raw, entry, s):
-    from total_scorer import score_total
+    from MOCA.total_scorer import score_total
     now = datetime.now()
     weekday_map = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일']
 

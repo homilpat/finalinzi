@@ -253,7 +253,7 @@ def score_language(
 # 테스트
 # ────────────────────────────────────────────
 if __name__ == "__main__":
-    from version_manager import get_version_config
+    from core.version_manager import get_version_config
 
     print("=== MoCA-K 따라말하기 ===")
     cfg = get_version_config("MoCA-K")

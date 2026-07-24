@@ -61,7 +61,7 @@ def score_naming(stt_results: list, animals: list) -> dict:
 # 테스트
 # ────────────────────────────────────────────
 if __name__ == "__main__":
-    from version_manager import get_version_config
+    from core.version_manager import get_version_config
 
     print("=== MoCA-K (사자/코뿔소/낙타) ===")
     cfg = get_version_config("MoCA-K")

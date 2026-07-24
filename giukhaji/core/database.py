@@ -8,7 +8,7 @@ from datetime import datetime
 
 DB_PATH = os.environ.get(
     "MOCA_DB_PATH",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "moca_demo.sqlite3"),
+    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "moca_demo.sqlite3"),
 )
 
 

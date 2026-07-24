@@ -1123,6 +1123,7 @@ function redrawCanvas() {
   let pengteuRecognition = null;
   let pengteuListening = false;
   let pengteuSpeaking = false;
+  let pengteuAudio = null;   // 네이티브 브릿지가 없을 때 쓰는 폴백 TTS 오디오
 
   function openPanel() {
     panel.hidden = false;
@@ -1290,6 +1291,89 @@ function redrawCanvas() {
     },
   };
 
+  // 진행 중인 폴백 TTS 오디오를 멈춘다(브릿지 없는 환경에서 펭트 말 끊기용).
+  function stopPengteuAudio() {
+    if (pengteuAudio) {
+      try {
+        pengteuAudio.pause();
+        pengteuAudio.onended = null;
+        pengteuAudio.onerror = null;
+      } catch (e) {}
+      pengteuAudio = null;
+    }
+    try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch (e) {}
+  }
+
+  // Google 번역 TTS는 요청당 길이 제한(~200자)이 있어 문장 단위로 쪼갠다.
+  function splitTtsChunks(text, maxLen = 180) {
+    const sentences = String(text).replace(/\s+/g, ' ').trim().split(/(?<=[.!?。！？])\s+/);
+    const chunks = [];
+    let buf = '';
+    const push = (s) => { if (s) chunks.push(s); };
+    for (let piece of sentences) {
+      while (piece.length > maxLen) {
+        push(buf); buf = '';
+        push(piece.slice(0, maxLen));
+        piece = piece.slice(maxLen);
+      }
+      if ((buf + ' ' + piece).trim().length > maxLen) { push(buf); buf = piece; }
+      else { buf = (buf ? buf + ' ' : '') + piece; }
+    }
+    push(buf);
+    return chunks.filter(Boolean);
+  }
+
+  // 네이티브 브릿지가 없을 때(폰 브라우저·데스크톱)의 폴백.
+  // Web Speech API(speechSynthesis)는 안드로이드 WebView에서 무음이라,
+  // 운동 TTS와 동일하게 Google 번역 TTS를 Audio()로 재생한다.
+  function speakViaAudioFallback(text) {
+    const volume = Math.min(1, Math.max(0, Number(profile.tts_volume || 0.85)));
+    const chunks = splitTtsChunks(text);
+    let idx = 0;
+    let started = false;
+
+    const finish = () => {
+      pengteuAudio = null;
+      pengteuSpeaking = false;
+      window.dispatchEvent(new CustomEvent('pengteu-speaking-end'));
+    };
+
+    // 최후 폴백: Google 오디오도 실패하면 Web Speech(데스크톱에서만 실효)로.
+    const speakSynthFallback = () => {
+      if (!('speechSynthesis' in window)) { finish(); return; }
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ko-KR';
+      u.rate = Number(profile.voice_rate || 0.85);
+      u.volume = volume;
+      u.onend = finish;
+      u.onerror = finish;
+      window.speechSynthesis.speak(u);
+    };
+
+    const playNext = () => {
+      if (idx >= chunks.length) { finish(); return; }
+      const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=ko&client=tw-ob&q=${encodeURIComponent(chunks[idx])}`;
+      const audio = new Audio();
+      pengteuAudio = audio;
+      audio.referrerPolicy = 'no-referrer';
+      audio.volume = volume;
+      audio.src = url;
+      audio.onended = () => { idx += 1; playNext(); };
+      audio.onerror = () => {
+        // 첫 청크부터 실패하면 Web Speech로, 중간 실패면 다음 청크로 진행.
+        if (!started) speakSynthFallback(); else { idx += 1; playNext(); }
+      };
+      audio.play().then(() => { started = true; }).catch(() => {
+        if (!started) speakSynthFallback(); else { idx += 1; playNext(); }
+      });
+    };
+
+    pengteuSpeaking = true;
+    window.dispatchEvent(new CustomEvent('pengteu-speaking-start'));
+    playNext();
+  }
+
   function speak(text) {
     if (!text || Number(profile.tts_volume) <= 0) return;
     if (window.AndroidBridge && typeof window.AndroidBridge.speakPengteu === 'function') {
@@ -1302,23 +1386,9 @@ function redrawCanvas() {
       );
       return;
     }
-    if (!('speechSynthesis' in window)) return;
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'ko-KR';
-    utterance.rate = Number(profile.voice_rate || 0.85);
-    utterance.volume = Number(profile.tts_volume || 0.85);
-    const finishSpeaking = () => {
-      pengteuSpeaking = false;
-      window.dispatchEvent(new CustomEvent('pengteu-speaking-end'));
-    };
-    utterance.onstart = () => {
-      pengteuSpeaking = true;
-      window.dispatchEvent(new CustomEvent('pengteu-speaking-start'));
-    };
-    utterance.onend = finishSpeaking;
-    utterance.onerror = finishSpeaking;
-    window.speechSynthesis.speak(utterance);
+    // 브릿지가 없으면(폰 브라우저·데스크톱) 운동과 동일한 Audio 방식으로 재생.
+    stopPengteuAudio();
+    speakViaAudioFallback(text);
   }
 
   function initPengteuRecognition() {
@@ -1380,7 +1450,7 @@ function redrawCanvas() {
     }
     if (!pengteuRecognition) pengteuRecognition = initPengteuRecognition();
     if (!pengteuRecognition || pengteuSpeaking) {
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      stopPengteuAudio();
       pengteuSpeaking = false;
     }
     if (!pengteuRecognition) return;
@@ -1456,7 +1526,7 @@ function redrawCanvas() {
 
   // 검사 STT가 마이크를 회수할 때 펭트를 완전히 멈춘다 (말하기·듣기 모두).
   function stopPengteu() {
-    try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch (e) {}
+    stopPengteuAudio();
     if (window.AndroidBridge && typeof window.AndroidBridge.stopPengteuTts === 'function') {
       try { window.AndroidBridge.stopPengteuTts(); } catch (e) {}
     }
