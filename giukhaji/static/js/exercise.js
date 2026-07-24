@@ -13,6 +13,14 @@
   let wasPlayingBeforePengteu = false;
   let bgmWasPlayingBeforePengteu = false;
 
+  // 펭트 능동 안내: 운동 중 '운동 전용 센서(onSensorEvent) 동작 이벤트'가
+  // 일정 시간 없으면 다시 설명을 제안한다.
+  // ※ 이 센서는 WebView로 전달되는 운동 전용 스트림으로, 보행 측정 IMU와 완전히 별개 경로다.
+  let lastMovementAt = Date.now();
+  let exerciseIdleOffers = 0;
+  const EX_IDLE_MS = 25000;
+  const EX_IDLE_MAX = 2;
+
   // DOM Elements
   const activeScreen = document.querySelector('[data-exercise-active]');
   if (!activeScreen) return;
@@ -261,6 +269,20 @@
     }
   };
   window.SensorBridge = SensorBridge;
+
+  // 운동 중 오랫동안 동작 이벤트가 없으면(막혔거나 놓쳤을 때) 다시 설명을 제안한다.
+  // 도입/대기(1단계)·안내 멘트 중·펭트 대화 중에는 개입하지 않는다.
+  function checkExerciseIdle() {
+    if (!isPlaying || pausedByPengteu) return;
+    if (typeof phaseGameData !== 'undefined' && phaseGameData && phaseGameData.welcomeSpeaking) return;
+    if (currentPhase === 1) return;
+    if (exerciseIdleOffers >= EX_IDLE_MAX) return;
+    if (Date.now() - lastMovementAt < EX_IDLE_MS) return;
+    exerciseIdleOffers += 1;
+    lastMovementAt = Date.now();   // 재발동 방지(쿨다운)
+    AudioManager.speak('혹시 동작이 어려우시면 천천히 하셔도 괜찮아요. 화면의 안내를 보고 편하게 따라 해 주세요.');
+  }
+  setInterval(checkExerciseIdle, 5000);
 
   // 4. 타이머 및 화면 갱신 핵심 로직
   function startTimer() {
@@ -1668,6 +1690,9 @@
 
   function handleSensorData(data) {
     if (!isPlaying) return;
+    if (data && data.action && data.action !== 'none' && data.action !== 'idle') {
+      lastMovementAt = Date.now();   // 운동 동작 감지 → idle 타이머 리셋
+    }
 
     if (currentPhase === 1) {
       if (currentType === 'A' || currentType === 'B') {
