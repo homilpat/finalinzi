@@ -2,14 +2,14 @@
 
 ## 최종 보행 모델 재현 파일 색인
 
-최종 확정 모델은 `MOCA/models/gait_daily_clinical_3feat.joblib`이며, 아래 파일들이 학습·전처리·보정·검증·시각화 재현에 사용되는 핵심 스크립트입니다.
+최종 확정 모델은 `giukhaji/models/gait_daily_clinical_3feat.joblib`이며, 아래 파일들이 학습·전처리·보정·검증·시각화 재현에 사용되는 핵심 스크립트입니다.
 
 | 목적 | 파일명 | 역할 |
 |------|--------|------|
 | 최종 모델링 / 재학습 | `analysis_scripts/retrain_acconly_clean.py` | 최종 acc-only 3피처 로지스틱 회귀 모델 재학습, 100회 반복 5-fold 검증, VIF 확인, `gait_daily_clinical_3feat.joblib` 및 metadata 저장 |
 | 보행 구간 추출 / 20s→10s 서브윈도우 | `analysis_scripts/build_75h_subwindow_median_iqr.py` | PhysioNet 75h 일상보행에서 20초 구간을 만들고 내부 10초 슬라이딩 서브윈도우 피처를 median/IQR로 집계 |
-| 런타임 전처리 / 피처 추출 | `MOCA/gait_axis_aligned_core.py` | CSV 파싱, 축 정렬(V/ML/AP), 100Hz 리샘플링, 밴드패스 필터, 서브윈도우 피처 추출 |
-| 서버 예측 파이프라인 | `MOCA/gait_axis_aligned_processor.py` | 앱/APK CSV를 최종 모델 입력으로 변환하고 `predict_daily_gait_csv()`로 추론 |
+| 런타임 전처리 / 피처 추출 | `giukhaji/modeling/gait_axis_aligned_core.py` | CSV 파싱, 축 정렬(V/ML/AP), 100Hz 리샘플링, 밴드패스 필터, 서브윈도우 피처 추출 |
+| 서버 예측 파이프라인 | `giukhaji/modeling/gait_axis_aligned_processor.py` | 앱/APK CSV를 최종 모델 입력으로 변환하고 `predict_daily_gait_csv()`로 추론 |
 | 스마트폰-허리센서 보정 | `analysis_scripts/calibrate_waist_sensor_range_loss.py` | 실제 스마트폰 샘플과 PhysioNet 기준 신호 범위 차이를 비교해 sensor-level 보정 계수 산출 |
 | 최종 ML/DL 모델 비교 | `analysis_scripts/compare_final_speed_or6_models.py` | LR, RF, SVM, GBM, XGB, Voting, Stacking, CNN1D, LSTM 비교 평가 |
 | 혼동행렬/ROC 시각화 출력 | `analysis_scripts/compare_final_speed_or6_models.py` | `analysis_outputs/final_model_comparison_speed_or6/`에 모델별 confusion matrix, ROC curve, 전체 ROC 비교 이미지 저장 |
@@ -22,7 +22,7 @@
 
 스마트폰 기반 인지·보행 이중 선별 시스템. 병원 방문 없이 태블릿/스마트폰만으로 MoCA-K 인지검사와 보행 운동기능 평가를 동시에 수행하고, 케어타입(A~D형)을 자동 분류한다.
 
-배포 앱: `MOCA/` 디렉토리
+배포 앱: `giukhaji/` 디렉토리
 
 ```bash
 cd MOCA
@@ -52,7 +52,7 @@ Render 배포: 루트 `render.yaml`, 대시보드 Root Directory = `MOCA`
 | **MoCA-K** | 얼굴·비단·교회·진달래·빨강 | 시장에서 살 수 있는 것 11개↑ | 사자·코뿔소·낙타 | 기차-자전거 / 시계-자 |
 | **K-MoCA** | 얼굴·비단·학교·피리·노랑 | ㄱ으로 시작하는 단어 6개↑ | 사자·박쥐·낙타 | 기차-비행기 / 시계-저울 |
 
-→ 관련 파일: `MOCA/version_manager.py`
+→ 관련 파일: `giukhaji/core/version_manager.py`
 
 ### 검사 항목 (총 30점)
 
@@ -101,7 +101,7 @@ Hough Line Transform으로 선분을 추출한 뒤 4가지 기준을 모두 만�
 최종점수 < 23점  → MCI 의심
 ```
 
-→ 관련 파일: `MOCA/total_scorer.py`
+→ 관련 파일: `giukhaji/MOCA/total_scorer.py`
 
 ---
 
@@ -113,10 +113,10 @@ Hough Line Transform으로 선분을 추출한 뒤 4가지 기준을 모두 만�
 
 | 항목 | 값 |
 |------|----|
-| 모델 파일 | `MOCA/models/gait_daily_clinical_3feat.joblib` |
-| 메타데이터 | `MOCA/models/gait_daily_clinical_3feat_metadata.json` |
-| 피처 추출기 | `MOCA/gait_axis_aligned_core.py` → `extract_subwindow_daily_features()` |
-| 예측 함수 | `MOCA/gait_axis_aligned_processor.py` → `predict_daily_gait_csv()` |
+| 모델 파일 | `giukhaji/models/gait_daily_clinical_3feat.joblib` |
+| 메타데이터 | `giukhaji/models/gait_daily_clinical_3feat_metadata.json` |
+| 피처 추출기 | `giukhaji/modeling/gait_axis_aligned_core.py` → `extract_subwindow_daily_features()` |
+| 예측 함수 | `giukhaji/modeling/gait_axis_aligned_processor.py` → `predict_daily_gait_csv()` |
 
 #### 피처 (3개)
 
@@ -419,7 +419,7 @@ Render 배포: 루트 `render.yaml`, `rootDir: MOCA`
 | `calibrate_waist_sensor_range_loss.py` | PhysioNet 정상군 원시 수직신호 RMS 기준값 산출 → `analysis_outputs/waist_sensor_range_loss_calibration/physionet_waist_normal_raw_reference.csv` |
 | `retrain_acconly_clean.py` | 최종 모델 artifact에 신호 레벨 보정값 `alpha=1.9705`, `tau=1.0` 저장 |
 
-### 서비스 파이프라인 (`MOCA/`)
+### 서비스 파이프라인 (`giukhaji/`)
 
 | 파일 | 역할 |
 |------|------|
@@ -427,6 +427,55 @@ Render 배포: 루트 `render.yaml`, `rootDir: MOCA`
 | `gait_axis_aligned_processor.py` | CSV → 신호 레벨 보정(α) → 피처 추출 → 모델 추론 |
 | `models/gait_daily_clinical_3feat.joblib` | 최종 로지스틱 회귀 모델 artifact (signal_correction, threshold 포함) |
 | `models/gait_daily_clinical_3feat_metadata.json` | 모델 메타데이터 (AUC, 피처, 보정 파라미터) |
+
+---
+
+## 프로젝트 폴더 구조 (2026-07-24 재구성)
+
+앱 루트는 `giukhaji/`이며, 파이썬 모듈을 **도메인별 패키지**로 정리했다. 화면(`templates`)·정적자원(`static`)·모델(`models`)·데이터(`data`)는 **중앙에 유지**한다. `app.py`는 루트에 두어 `app.root_path` 기반 경로(모델·오디오·이미지)가 그대로 동작한다.
+
+```
+giukhaji/
+├─ app.py                  # Flask 진입점: 전 라우트(로그인·MoCA검사·보행업로드·펭트챗·보호자) + 채점 오케스트레이션
+│
+├─ pengteu/                # AI 도우미 "펭트"
+│   ├─ pengteu.py          # 어시스턴트 로직 (로컬응답·GPT폴백·접근성 프로필)
+│   ├─ rag_engine.py       # 로컬 RAG (knowledge/*.md TF-IDF 검색)
+│   ├─ whisper_stt.py      # Whisper 음성인식(STT)
+│   └─ knowledge/          # 지식베이스 md (보행모델·운동·MoCA·펭트설명)
+│
+├─ modeling/               # 보행·운동 ML
+│   ├─ gait_axis_aligned_core.py       # 축정렬(V/ML/AP)·리샘플·대역통과필터·서브윈도우 피처추출·transform_signal
+│   ├─ gait_axis_aligned_processor.py  # CSV→도메인보정(α)→피처추출→모델추론 (predict_daily_gait_csv)
+│   ├─ gait_csv_processor.py           # (레거시) 초기 보행 CSV 처리기
+│   └─ exercise_sensor_processor.py    # 운동 센서 CSV 분석 (analyze_exercise_csv)
+│
+├─ MOCA/                   # 인지검사(MoCA) 채점
+│   ├─ attention.py / naming.py / memory.py / orientation.py  # 각 항목 채점
+│   ├─ language.py         # 언어(따라말하기·유창성) 채점 + market_whitelist 로드
+│   ├─ abstraction.py / trail_making.py                       # 추상력 / 길만들기(TMT) 채점
+│   ├─ clock.py / cube.py                # 시계·도형 룰베이스 채점
+│   ├─ clock_cnn_inference.py            # 시계 CNN 채점(선택; .pth 없으면 clock.py로 폴백)
+│   ├─ cube_cnn_inference_v2.py          # 도형 CNN(현재 비활성·미사용)
+│   ├─ total_scorer.py     # 전체 점수 종합 (score_total) + 교육보정·MCI 판정
+│   ├─ generate_tts.py     # 검사 안내 음성 mp3 생성 유틸(gTTS)
+│   └─ market_whitelist.txt
+│
+├─ core/                   # 공용 인프라
+│   ├─ database.py         # SQLite 회원·기록 DB
+│   ├─ session_manager.py  # 검사 세션 상태·문항 시퀀스(ITEM_SEQUENCE)
+│   └─ version_manager.py  # MoCA 버전(K-MoCA / MoCA-K) 설정
+│
+├─ templates/              # Jinja HTML (모든 화면)
+├─ static/                 # app.js(검사·펭트·TTS), exercise.js(운동), CSS
+├─ assets/tts/             # 검사 안내 음성 mp3
+├─ models/                 # 보행 모델 joblib + 메타데이터 + 신호보정값
+├─ data/                   # SQLite DB, gait_debug
+├─ deepc/deeph/deepn.pth   # 시계 CNN 가중치 (로컬 전용)
+└─ pengt.png               # 펭트 캐릭터 이미지
+```
+
+> **참고**: `clock_cnn_inference.py`·`cube_cnn_inference_v2.py`·`generate_tts.py`는 `.gitignore` 대상(로컬 전용)이다. 시계/도형 채점은 `.pth`가 없으면 룰베이스(`clock.py`/`cube.py`)로 자동 폴백하므로 배포에 영향이 없다. (`cube_cnn`은 현재 코드상 항상 비활성.)
 
 ---
 
@@ -505,7 +554,7 @@ Render 배포: 루트 `render.yaml`, `rootDir: MOCA`
 
 ### 펭트 AI 어시스턴트 로직 (2026-07-24)
 
-펭트 관련 코드를 `MOCA/pengteu.py`로 분리하면서 확인한 동작상 짚을 점. **현행 유지하되 발표/개선 시 참고**.
+펭트 관련 코드를 `giukhaji/pengteu/pengteu.py`로 분리하면서 확인한 동작상 짚을 점. **현행 유지하되 발표/개선 시 참고**.
 
 **1. GPT가 핵심 도메인 질문에는 호출되지 않음** (`app.py` `assistant_chat_api`)
 
