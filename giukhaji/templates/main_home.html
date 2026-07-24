@@ -2,7 +2,7 @@
 {% block header %}{% endblock %}
 
 {% block content %}
-<div class="main-home-screen" style="max-width: 480px; margin: 0 auto; min-height: 100vh; background-color: #f8f9ff; display: flex; flex-direction: column; position: relative;">
+<div class="main-home-screen" style="max-width: 480px; margin: 0 auto; min-height: 100vh; min-height: 100dvh; background-color: #f8f9ff; display: flex; flex-direction: column; position: relative;">
   {% set cog_score_val = (((cognitive.score.final_score / 30.0) * 100) | int) if (cognitive and cognitive.score) else exercise.report.cognitive_score %}
   {% set gait_score_val = (((1.0 - gait.probability) * 100) | int) if gait else exercise.report.gait_score %}
   {% set total_score_val = ((cog_score_val + gait_score_val) / 2) | int %}

@@ -38,7 +38,7 @@ body {
 .shell {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  min-height: 100vh; min-height: 100dvh;
   max-width: 480px;
   margin: 0 auto;
 }
@@ -138,10 +138,10 @@ body {
   flex-direction: column;
   gap: 18px;
   padding: 0 20px 40px;
-  min-height: 100vh;
+  min-height: 100vh; min-height: 100dvh;
 }
 .splash-screen {
-  min-height: calc(100vh - 32px);
+  min-height: calc(100vh - 32px); min-height: calc(100dvh - 32px);
   margin: -16px -20px -40px;
   padding: 56px 24px 34px;
   color: white;
@@ -347,7 +347,7 @@ body {
   height: 1px;
 }
 .user-select-screen {
-  min-height: calc(100vh - 32px);
+  min-height: calc(100vh - 32px); min-height: calc(100dvh - 32px);
   display: flex;
   flex-direction: column;
   gap: 28px;
@@ -1853,7 +1853,7 @@ body {
 }
 
 .avatar-screen {
-  min-height: calc(100vh - 28px);
+  min-height: calc(100vh - 28px); min-height: calc(100dvh - 28px);
   margin: -14px -20px -24px;
   padding: 18px 18px 26px;
   background: #030407;
@@ -2776,7 +2776,7 @@ body.pengteu-reduced-motion *::after {
   align-items: center;
   gap: 24px;
   padding: 60px 24px 40px;
-  min-height: 100vh;
+  min-height: 100vh; min-height: 100dvh;
 }
 .waiting-title { font-size: 26px; font-weight: 700; color: var(--neutral); }
 .waiting-desc  { text-align: center; font-size: 17px; color: var(--text-muted); line-height: 1.7; }
@@ -2815,7 +2815,7 @@ body.pengteu-reduced-motion *::after {
   flex-direction: column;
   gap: 16px;
   padding: 24px 20px 40px;
-  min-height: 100vh;
+  min-height: 100vh; min-height: 100dvh;
 }
 .result-hero {
   text-align: center;
