@@ -411,7 +411,7 @@ CARE_TYPE_MAP = {
     },
     (0, 1): {
         "code": "C",
-        "name": "신체관리형",
+        "name": "신체강화형",
         "title": "C 유형",
         "sub": "(신체 저하 · 인지 양호)",
         "summary": "인지기능은 양호하지만 신체기능 관리가 필요한 상태입니다. 안전한 맞춤 운동으로 하체 근력과 균형 능력을 함께 길러보겠습니다.",
@@ -421,7 +421,7 @@ CARE_TYPE_MAP = {
     },
     (1, 0): {
         "code": "B",
-        "name": "인지관리형",
+        "name": "인지강화형",
         "title": "B 유형",
         "sub": "(신체 양호 · 인지 저하)",
         "summary": "신체기능은 양호하지만 인지기능 변화 확인과 관리가 필요한 상태입니다. 지금부터 꾸준히 두뇌 운동을 하면 인지 건강을 관리하는 데 도움이 됩니다.",
@@ -431,7 +431,7 @@ CARE_TYPE_MAP = {
     },
     (1, 1): {
         "code": "D",
-        "name": "통합관리형",
+        "name": "통합강화형",
         "title": "D 유형",
         "sub": "(신체 저하 · 인지 저하)",
         "summary": "인지기능과 신체기능 모두 세심한 관리가 필요한 상태입니다. 보호자와 함께 안전하게 운동하며 몸과 두뇌를 함께 움직여 보세요.",
@@ -2074,5 +2074,5 @@ def _compute_score(raw, entry, s):
 
 if __name__ == '__main__':
     os.makedirs('assets/tts', exist_ok=True)
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
+    port = int(os.environ.get('PORT', 5001))
+    app.run(host='0.0.0.0', port=port, debug=True, use_reloader=True)
