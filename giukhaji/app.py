@@ -741,7 +741,7 @@ def _exercise_mock_data():
             'type': 'C유형 맞춤',
             'mission_title': '오늘의 미션',
             'mission': '걷기 + 기억력 게임',
-            'duration_min': 15,
+            'duration_min': 20,
             'exercise_name': '제자리 걷기',
             'sets': '3세트',
             'set_duration': '각 2분',
@@ -812,9 +812,62 @@ def _overlay_personal_records(exercise):
         exercise['report']['gait_score'] = max(0, min(100, gait_score))
         if cognitive_score and not latest_assessment:
             exercise['report']['cognitive_score'] = max(0, min(100, _safe_int(cognitive_score)))
-        exercise['report']['gait_type'] = latest_physical.get('gait_type') or ''
+        gait_type_raw = latest_physical.get('gait_type') or 'C'
+        exercise['report']['gait_type'] = gait_type_raw
         exercise['report']['gait_level'] = latest_physical.get('gait_level') or ''
         exercise['report']['date'] = (latest_physical.get('measured_at') or exercise['report']['date'])[:10]
+
+    gait_type_clean = 'C'
+    if latest_physical:
+        gait_type_raw = latest_physical.get('gait_type') or 'C'
+        for letter in ['A', 'B', 'C', 'D']:
+            if letter in str(gait_type_raw).upper():
+                gait_type_clean = letter
+                break
+
+    templates_by_type = {
+        'A': {
+            'type': 'A유형 맞춤',
+            'mission_title': '오늘의 미션',
+            'mission': '제자리 걷기 + 규칙 기반 얼음땡',
+            'duration_min': 20,
+            'exercise_name': '제자리 걷기',
+            'sets': '4세트',
+            'set_duration': '각 2분',
+            'notice': '휴대폰을 허리에 고정하고 가볍게 걷는 동작을 유지하세요.',
+        },
+        'B': {
+            'type': 'B유형 맞춤',
+            'mission_title': '오늘의 미션',
+            'mission': '옆으로 걷기 + 방향 기억 게임',
+            'duration_min': 20,
+            'exercise_name': '제자리 걷기',
+            'sets': '4세트',
+            'set_duration': '각 2분',
+            'notice': '휴대폰을 허리에 고정하고 가볍게 걷는 동작을 유지하세요.',
+        },
+        'C': {
+            'type': 'C유형 맞춤',
+            'mission_title': '오늘의 미션',
+            'mission': '앉아서 무릎 펴기 + 글자 수 세기',
+            'duration_min': 20,
+            'exercise_name': '제자리 걷기',
+            'sets': '3세트',
+            'set_duration': '각 2분',
+            'notice': '휴대폰을 허리에 고정하고 가볍게 걷는 동작을 유지하세요.',
+        },
+        'D': {
+            'type': 'D유형 맞춤',
+            'mission_title': '오늘의 미션',
+            'mission': '앉아서 다리 벌렸다 모으기 + 상상 놀이',
+            'duration_min': 20,
+            'exercise_name': '제자리 걷기',
+            'sets': '4세트',
+            'set_duration': '각 2분',
+            'notice': '휴대폰을 허리에 고정하고 가볍게 걷는 동작을 유지하세요.',
+        }
+    }
+    exercise['today'] = templates_by_type[gait_type_clean]
 
     if exercise_summary:
         present_days = _safe_int(exercise_summary.get('present_days'))

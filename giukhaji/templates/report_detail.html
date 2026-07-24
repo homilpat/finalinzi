@@ -241,24 +241,24 @@
             <em>{{ score.mci.interpretation }}</em>
           </div>
 
-          {% set section_info = [
-            ('trail_making', '길 만들기', 1),
-            ('drawing', '시공간/실행', 4),
-            ('naming', '이름대기', 3),
-            ('memory', '기억', 5),
-            ('attention', '주의력', 6),
-            ('language', '언어', 3),
-            ('abstraction', '추상력', 2),
-            ('orientation', '지남력', 6)
+          {% set drawing_val = score.sections.get('trail_making', 0) + score.sections.get('drawing', 0) %}
+          {% set transformed_sections = [
+            ('시공간/실행', drawing_val, 5),
+            ('어휘력', score.sections.get('naming', 0), 3),
+            ('기억력', score.sections.get('memory', 0), 5),
+            ('주의력', score.sections.get('attention', 0), 6),
+            ('문장력', score.sections.get('language', 0), 3),
+            ('추상력', score.sections.get('abstraction', 0), 2),
+            ('지남력', score.sections.get('orientation', 0), 6)
           ] %}
           <div class="final-card" style="background: #ffffff; border-radius: 16px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 16px;">
             <h3>영역별 점수</h3>
-            {% for key, label, max_score in section_info %}
-              {% set got = score.sections.get(key, 0) %}
+            {% for label, got, max_score in transformed_sections %}
+              {% set percent = ((got / max_score * 100) | int) if max_score > 0 else 0 %}
               <div class="final-score-row {% if got < max_score %}has-loss{% endif %}">
                 <span {% if got < max_score %}style="color: #e53e3e; font-weight: bold;"{% endif %}>{{ label }}</span>
-                <div><i style="width: {{ (got / max_score * 100) | int }}%"></i></div>
-                <strong {% if got < max_score %}style="color: #e53e3e;"{% endif %}>{{ got }}/{{ max_score }}</strong>
+                <div><i style="width: {{ percent }}%"></i></div>
+                <strong {% if got < max_score %}style="color: #e53e3e;"{% endif %}>{{ percent }}%</strong>
               </div>
             {% endfor %}
           </div>
