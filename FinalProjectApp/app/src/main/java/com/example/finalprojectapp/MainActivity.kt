@@ -884,7 +884,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
     }
 
     companion object {
-        private const val DEFAULT_SERVER_URL = "http://10.0.2.2:5000/"
+        // 실제 서버 주소는 local.properties(gitignore)의 serverUrl로 빌드 시 주입된다.
+        private val DEFAULT_SERVER_URL = BuildConfig.SERVER_URL
         private const val PREFS_NAME = "finalinzi_member"
         private const val PREF_MEMBER_PHONE = "member_phone"
         private const val PREF_EDUCATION_LEVEL = "education_level"
