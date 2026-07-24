@@ -4,8 +4,8 @@ services:
     runtime: python
     rootDir: giukhaji
     pythonVersion: "3.10.6"
-    buildCommand: cd giukhaji && pip install -r requirements.txt
-    startCommand: cd giukhaji && gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
     autoDeploy: true
     envVars:
       - key: SECRET_KEY
