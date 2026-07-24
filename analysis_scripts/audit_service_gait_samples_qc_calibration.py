@@ -9,6 +9,7 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
+from scipy.stats import beta
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "giukhaji"))
@@ -182,6 +183,61 @@ def training_reference() -> tuple[pd.Series, pd.Series]:
     return median, robust_sigma
 
 
+def exact_binomial_interval(successes: int, total: int) -> list[float]:
+    if total <= 0:
+        return [np.nan, np.nan]
+    lower = (
+        0.0
+        if successes == 0
+        else float(beta.ppf(0.025, successes, total - successes + 1))
+    )
+    upper = (
+        1.0
+        if successes == total
+        else float(beta.ppf(0.975, successes + 1, total - successes))
+    )
+    return [lower, upper]
+
+
+def labeled_metrics(
+    table: pd.DataFrame, probability_column: str, threshold: float
+) -> dict:
+    y = table["target"].to_numpy(int)
+    prediction = (
+        pd.to_numeric(table[probability_column], errors="coerce")
+        .to_numpy(float)
+        >= threshold
+    ).astype(int)
+    tn = int(np.sum((y == 0) & (prediction == 0)))
+    fp = int(np.sum((y == 0) & (prediction == 1)))
+    fn = int(np.sum((y == 1) & (prediction == 0)))
+    tp = int(np.sum((y == 1) & (prediction == 1)))
+    sensitivity = tp / (tp + fn) if tp + fn else np.nan
+    specificity = tn / (tn + fp) if tn + fp else np.nan
+    accuracy = (tp + tn) / len(y) if len(y) else np.nan
+    precision = tp / (tp + fp) if tp + fp else np.nan
+    f1 = (
+        2 * precision * sensitivity / (precision + sensitivity)
+        if precision + sensitivity
+        else np.nan
+    )
+    return {
+        "threshold": threshold,
+        "tn": tn,
+        "fp": fp,
+        "fn": fn,
+        "tp": tp,
+        "sensitivity": sensitivity,
+        "sensitivity_exact_95ci": exact_binomial_interval(tp, tp + fn),
+        "specificity": specificity,
+        "specificity_exact_95ci": exact_binomial_interval(tn, tn + fp),
+        "accuracy": accuracy,
+        "accuracy_exact_95ci": exact_binomial_interval(tp + tn, len(y)),
+        "precision": precision,
+        "f1": f1,
+    }
+
+
 def audit_sample(
     path: Path,
     artifact: dict,
@@ -316,6 +372,9 @@ def main() -> None:
             print(f"{path.name}: ERROR {exc}")
 
     audit_table = pd.DataFrame(audits)
+    audit_table["target"] = (
+        audit_table["file"].astype(str).str.contains("발다침").astype(int)
+    )
     audit_table.to_csv(
         OUT_DIR / "sample_qc_audit.csv", index=False, encoding="utf-8-sig"
     )
@@ -325,6 +384,38 @@ def main() -> None:
             index=False,
             encoding="utf-8-sig",
         )
+    threshold = float(artifact.get("threshold", 0.5))
+    corrected_metrics = labeled_metrics(
+        audit_table, "probability", threshold
+    )
+    uncorrected_metrics = labeled_metrics(
+        audit_table, "uncorrected_probability", threshold
+    )
+    stable = audit_table[
+        ~audit_table["jackknife_crosses_threshold"].fillna(False).astype(bool)
+    ]
+    stable_metrics = labeled_metrics(stable, "probability", threshold)
+    labeled_pilot = {
+        "label_rule": "filename contains '발다침' = impaired; all others = normal",
+        "n_files": int(len(audit_table)),
+        "n_impaired": int(audit_table["target"].sum()),
+        "n_normal": int((audit_table["target"] == 0).sum()),
+        "corrected": corrected_metrics,
+        "uncorrected": uncorrected_metrics,
+        "jackknife_stable_only": {
+            "coverage": float(len(stable) / len(audit_table)),
+            "n_files": int(len(stable)),
+            **stable_metrics,
+        },
+        "warning": (
+            "Pilot only: two impaired files and eight normal files; "
+            "independence between repeated files is not established."
+        ),
+    }
+    (OUT_DIR / "labeled_pilot_metrics.json").write_text(
+        json.dumps(labeled_pilot, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     summary = {
         "n_files": int(len(audit_table)),
         "n_errors": int(audit_table.get("error", pd.Series(dtype=object)).notna().sum()),
@@ -350,8 +441,11 @@ def main() -> None:
             "minimum_integrated_angle_deg": TURN_ANGLE_DEG,
             "note": "Literature starting point; device-specific validation still required.",
         },
-        "clinical_threshold_validation_possible": False,
-        "reason": "Sample filenames are condition notes, not independent clinical OR labels.",
+        "clinical_threshold_validation_possible": "pilot_only",
+        "reason": (
+            "User confirmed only filenames containing '발다침' are impaired; "
+            "the pilot has only 2 impaired and 8 normal files."
+        ),
     }
     (OUT_DIR / "summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2),
