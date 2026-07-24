@@ -1437,15 +1437,110 @@ function redrawCanvas() {
     return recognition;
   }
 
+  // ── "펭트야" 웨이크워드 (무핸즈 진입점) ─────────────
+  // MicBus 반이중 상태머신은 이미 완성 → 여기서 진입점만 연결한다.
+  //  · 브라우저(Web Speech 지원): 저부하 연속 인식으로 "펭트야" 감지.
+  //  · 네이티브 앱(WebView): SpeechRecognition이 없어 웹 리스너는 꺼지고,
+  //    네이티브 웨이크워드 엔진이 window.PengteuWake.activate()(=onWakeWord)를 호출.
+  let wakeRecognition = null;
+  let wakeWantsRun = false;
+  let wakeActivating = false;
+
+  function isWakeWord(text) {
+    const t = String(text || '').replace(/\s+/g, '');
+    if (!t) return false;
+    if (/(펭|팽|펜)트(야|아|님|씨|이)/.test(t)) return true;   // 펭트야/펜트야/펭트님...
+    if (t.length <= 3 && /(펭|팽|펜)트/.test(t)) return true;     // 짧게 "펭트"만 불러도
+    return false;
+  }
+
+  function stopWake() {
+    if (wakeRecognition) { try { wakeRecognition.stop(); } catch (e) {} }
+  }
+
+  // 마이크가 다른 용도(검사 STT·문항 TTS·펭트 대화)일 땐 웨이크 인식을 멈춘다.
+  function wakeShouldPause() {
+    return (
+      document.hidden ||
+      pengteuListening || pengteuSpeaking ||
+      (window.MicBus && (MicBus.audioBusy || MicBus.owner === 'test')) ||
+      (window.App && App.recording)
+    );
+  }
+
+  function pumpWake() {
+    if (!wakeRecognition || !wakeWantsRun || wakeShouldPause()) return;
+    try { wakeRecognition.start(); } catch (e) { /* 이미 실행 중이면 무시 */ }
+  }
+
+  // 웨이크워드 감지 시: 패널 열고 짧게 응대 후 곧바로 명령 청취로 전환.
+  function activateByWake() {
+    if (wakeActivating || pengteuListening) return;
+    wakeActivating = true;
+    stopWake();
+    openPanel();
+    const ack = '네, 말씀하세요.';
+    appendMessage('assistant', ack);
+    const startListen = () => {
+      window.removeEventListener('pengteu-speaking-end', startListen);
+      wakeActivating = false;
+      startPengteuListening();
+    };
+    window.addEventListener('pengteu-speaking-end', startListen);
+    speak(ack);
+    // TTS가 꺼져 있거나(볼륨 0) 즉시 끝난 경우 대비
+    if (!pengteuSpeaking) {
+      window.removeEventListener('pengteu-speaking-end', startListen);
+      wakeActivating = false;
+      startPengteuListening();
+    }
+  }
+
+  function initWakeListener() {
+    // 네이티브 STT 브릿지 환경에서는 웹 연속인식을 쓰지 않는다(네이티브 엔진이 담당).
+    if (window.AndroidBridge && typeof window.AndroidBridge.startPengteuStt === 'function') return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    wakeRecognition = new SR();
+    wakeRecognition.lang = 'ko-KR';
+    wakeRecognition.continuous = true;
+    wakeRecognition.interimResults = true;
+    wakeRecognition.onresult = (event) => {
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        const alt = event.results[i][0];
+        if (alt && isWakeWord(alt.transcript)) { stopWake(); activateByWake(); return; }
+      }
+    };
+    wakeRecognition.onend = () => { if (wakeWantsRun && !wakeShouldPause()) pumpWake(); };
+    wakeRecognition.onerror = () => {};   // onend/pump에서 재개
+    wakeWantsRun = true;
+    pumpWake();
+    // 마이크가 풀리면 웨이크 인식 재개(안전망 포함)
+    window.addEventListener('pengteu-speaking-end', () => setTimeout(pumpWake, 300));
+    document.addEventListener('visibilitychange', pumpWake);
+    setInterval(pumpWake, 4000);
+  }
+
+  // 펭트 STT 시작(공통 진입점) — 마이크 양도 후 네이티브/웹 STT 시작.
+  function startPengteuListening() {
+    stopWake();  // 웨이크 리스너가 돌고 있으면 마이크 양보
+    if (window.MicBus) MicBus.grantToPengteu();
+    if (window.AndroidBridge && typeof window.AndroidBridge.startPengteuStt === 'function') {
+      if (!pengteuListening) window.AndroidBridge.startPengteuStt();
+      return;
+    }
+    if (!pengteuRecognition) pengteuRecognition = initPengteuRecognition();
+    if (!pengteuRecognition || pengteuListening) return;
+    try { pengteuRecognition.start(); } catch (err) { console.warn('[pengteu stt]', err); }
+  }
+
   function togglePengteuMic() {
     if (window.AndroidBridge && typeof window.AndroidBridge.startPengteuStt === 'function') {
       if (pengteuSpeaking && typeof window.AndroidBridge.stopPengteuTts === 'function') {
         window.AndroidBridge.stopPengteuTts();
         pengteuSpeaking = false;
       }
-      // 마이크 양도: 문항 TTS 일시정지(타이머 유지) + 검사 STT 정지
-      if (window.MicBus) MicBus.grantToPengteu();
-      if (!pengteuListening) window.AndroidBridge.startPengteuStt();
+      startPengteuListening();
       return;
     }
     if (!pengteuRecognition) pengteuRecognition = initPengteuRecognition();
@@ -1458,13 +1553,7 @@ function redrawCanvas() {
       pengteuRecognition.stop();
       return;
     }
-    // 마이크 양도: 문항 TTS 일시정지(타이머 유지) + 검사 STT 정지
-    if (window.MicBus) MicBus.grantToPengteu();
-    try {
-      pengteuRecognition.start();
-    } catch (err) {
-      console.warn('[pengteu stt]', err);
-    }
+    startPengteuListening();
   }
 
   async function askPengteu(message) {
@@ -1615,6 +1704,31 @@ function redrawCanvas() {
     window.addEventListener('pengteu-speaking-end', scheduleIdle);
     scheduleIdle();
   }
+
+  // 웨이크워드 진입점 연결: 웹은 연속인식, 네이티브는 엔진이 onWakeWord 호출.
+  initWakeListener();
+  if (window.PengteuAssistantNative) window.PengteuAssistantNative.onWakeWord = activateByWake;
+  window.PengteuWake = { activate: activateByWake, isWakeWord };
+
+  // ── 페이지 진입 능동 안내(가벼운 오리엔테이션) + 결과 위로 ──
+  // proactiveSay는 문항TTS(audioBusy)·녹음·펭트 대화 중이면 스스로 생략하므로
+  // /item 처럼 자체 안내가 있는 화면과는 겹치지 않는다.
+  function proactiveOnLoad() {
+    const meta = document.getElementById('pengteuPageMeta');
+    // (b) 결과 화면에서 저하(MCI 의심)면 먼저 따뜻하게 위로한다.
+    if (meta && meta.getAttribute('data-impaired') === '1') {
+      openPanel();
+      setTimeout(() => proactiveSay('오늘 검사 하시느라 정말 수고 많으셨어요. 결과에 너무 걱정하지 마세요. 이건 건강을 미리 살피기 위한 과정이에요. 궁금한 점이 있으면 저에게 편하게 물어봐 주세요.'), 900);
+      return;
+    }
+    // (a) 지정 페이지에 한해 짧은 안내를 한 번 말한다(겹치면 자동 생략).
+    let hint = (meta && meta.getAttribute('data-page-hint')) || '';
+    if (!hint && (window.location.pathname || '').startsWith('/gait')) {
+      hint = '보행 검사 화면이에요. 준비되시면 안내에 따라 편하게 걸어 주세요. 도움이 필요하면 저를 불러 주세요.';
+    }
+    if (hint) setTimeout(() => proactiveSay(hint), 1200);
+  }
+  proactiveOnLoad();
 
   loadProfile();
 })();
