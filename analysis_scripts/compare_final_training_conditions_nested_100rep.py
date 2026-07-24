@@ -14,6 +14,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from sklearn.impute import SimpleImputer
+from sklearn.linear_model import LogisticRegression
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import RobustScaler
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "analysis_scripts"))
@@ -40,6 +44,7 @@ FEATURES = [
     "v_harmonic_ratio_iqr",
 ]
 MAX_SEGMENTS = 100
+ENGINE_MAKE_MODEL = engine.make_model
 
 
 def clinical_path() -> Path:
@@ -181,6 +186,7 @@ def configure_engine() -> None:
     )
     engine.FEATURES = FEATURES
     engine.SEQUENCE_FEATURES = FEATURES
+    engine.make_model = make_comparison_model
     for directory in [
         OUT_DIR,
         engine.MODEL_RESULT_DIR,
@@ -188,6 +194,21 @@ def configure_engine() -> None:
         engine.CM_DIR,
     ]:
         directory.mkdir(parents=True, exist_ok=True)
+
+
+def make_comparison_model(name: str, seed: int) -> Pipeline:
+    if name != "LR":
+        return ENGINE_MAKE_MODEL(name, seed)
+    return Pipeline(
+        [
+            ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", RobustScaler()),
+            (
+                "model",
+                LogisticRegression(C=1.0, max_iter=1000, random_state=0),
+            ),
+        ]
+    )
 
 
 def finalize() -> pd.DataFrame:
@@ -256,6 +277,11 @@ def parse_args() -> argparse.Namespace:
         default=",".join(engine.ALL_MODELS),
         help="Comma-separated model names.",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Recompute requested models even when cached results exist.",
+    )
     return parser.parse_args()
 
 
@@ -278,7 +304,7 @@ def main() -> None:
         prediction_path = (
             engine.MODEL_RESULT_DIR / f"{model_name}_predictions.csv"
         )
-        if metric_path.exists() and prediction_path.exists():
+        if metric_path.exists() and prediction_path.exists() and not args.force:
             print(f"[reuse] {model_name}", flush=True)
             continue
         engine.evaluate_model(
