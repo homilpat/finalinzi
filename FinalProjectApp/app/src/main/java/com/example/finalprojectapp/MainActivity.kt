@@ -114,6 +114,9 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
         webView.settings.domStorageEnabled = true
         webView.settings.mediaPlaybackRequiresUserGesture = false
         webView.settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+        // 뷰포트(width=device-width)를 존중해 폰 화면에 맞게 렌더 + 로드시 화면맞춤
+        webView.settings.useWideViewPort = true
+        webView.settings.loadWithOverviewMode = true
         CookieManager.getInstance().setAcceptCookie(true)
 
         webView.webViewClient = object : WebViewClient() {

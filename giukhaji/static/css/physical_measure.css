@@ -1,5 +1,5 @@
 .physical-measure-screen {
-  min-height: 100vh;
+  min-height: 100vh; min-height: 100dvh;
   margin: -16px;
   padding-bottom: 112px;
   background: #EEF5FF;
