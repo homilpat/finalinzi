@@ -25,12 +25,12 @@
 배포 앱: `giukhaji/` 디렉토리
 
 ```bash
-cd MOCA
+cd giukhaji
 pip install -r requirements.txt
 python app.py
 ```
 
-Render 배포: 루트 `render.yaml`, 대시보드 Root Directory = `MOCA`
+Render 배포: 루트 `render.yaml`, 대시보드 Root Directory = `giukhaji`
 
 ---
 
@@ -382,12 +382,12 @@ test_fold_metrics.csv
 ## 앱 실행
 
 ```bash
-cd MOCA
+cd giukhaji
 pip install -r requirements.txt
 python app.py
 ```
 
-Render 배포: 루트 `render.yaml`, `rootDir: MOCA`
+Render 배포: 루트 `render.yaml`, `rootDir: giukhaji`
 
 ---
 
