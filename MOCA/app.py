@@ -3,7 +3,7 @@ MoCA-K 시연용 Flask 웹앱
 폰 브라우저에서 접속: http://<서버IP>:5000
 """
 
-import os, io, base64, json, hmac, secrets, urllib.request
+import os, io, base64, json, hmac, secrets, urllib.parse, urllib.request
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 from uuid import uuid4
@@ -33,6 +33,12 @@ import cv2
 from exercise_sensor_processor import analyze_exercise_csv
 from gait_axis_aligned_processor import predict_daily_gait_csv
 from rag_engine import retrieve_knowledge
+from pengteu import (
+    _basic_pengteu_reply,
+    _pengteu_local_answer_ready,
+    _openai_pengteu_fallback,
+    _clean_pengteu_reply,
+)
 from database import (
     EDUCATION_LEVELS,
     complete_assessment,
@@ -61,6 +67,7 @@ from database import (
     save_guardian_cheer,
     save_physical_result,
     save_sensor_calibration,
+    update_assessment_location,
     update_assistant_profile,
 )
 
@@ -99,6 +106,43 @@ def pengteu_image():
 # 메모리 세션 저장소 (시연용)
 _store = {}  # uid → { 'sess': MoCASession, 'raw': dict, 'location': str, 'sigungu': str }
 _gait_result_store = {}
+
+
+def _save_gait_debug_upload(csv_bytes, result=None, stage="uploaded"):
+    debug_dir = os.path.join(app.root_path, "data", "gait_debug")
+    os.makedirs(debug_dir, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    csv_path = os.path.join(debug_dir, f"{stamp}_{stage}.csv")
+    meta_path = os.path.join(debug_dir, f"{stamp}_{stage}.json")
+    with open(csv_path, "wb") as f:
+        f.write(csv_bytes)
+    meta = {
+        "stage": stage,
+        "csv_file": os.path.basename(csv_path),
+        "csv_bytes": len(csv_bytes),
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    if result:
+        meta.update({
+            "probability": result.get("probability"),
+            "threshold": result.get("threshold"),
+            "prediction": result.get("prediction"),
+            "model_artifact": result.get("model_artifact"),
+            "model_mode": result.get("model_mode"),
+            "correction_mode": result.get("correction_mode"),
+            "correction_applied": result.get("correction_applied"),
+            "features": result.get("features"),
+            "window": result.get("window"),
+        })
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump(meta, f, ensure_ascii=False, indent=2, default=str)
+    print(f"[gait debug] saved {csv_path} / {meta_path}")
+    return {
+        "csv_path": csv_path,
+        "meta_path": meta_path,
+        "csv_file": os.path.basename(csv_path),
+        "meta_file": os.path.basename(meta_path),
+    }
 
 # ── CNN 모델 (학습 완료 시 자동 로드, 없으면 룰베이스 폴백) ──
 _cnn_cube        = None   # (model, device) from cube_cnn_inference_v2.load_model
@@ -193,9 +237,22 @@ def _gait_model_summary():
 
 def _safe_float(value, default=0.0):
     try:
-        return float(value)
+        parsed = float(value)
     except (TypeError, ValueError):
         return default
+    return parsed if np.isfinite(parsed) else default
+
+
+def _json_safe(value):
+    if isinstance(value, dict):
+        return {k: _json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, (float, np.floating)):
+        return float(value) if np.isfinite(value) else None
+    if isinstance(value, (int, np.integer)):
+        return int(value)
+    return value
 
 
 def _safe_int(value, default=0):
@@ -220,31 +277,31 @@ def _gait_feature_insights(features):
     checks = [
         {
             "key": "v_jerk_rms_median",
-            "label": "수직 충격/추진 대표값",
+            "label": "수직 추진/충격 크기",
             "value": _safe_float(features.get("v_jerk_rms_median")),
             "unit": " g/s",
-            "problem": "걸음의 수직 충격과 추진 수준이 낮아 보폭이나 보행 힘을 확인할 필요가 있습니다.",
-            "ok": "걸음의 수직 충격과 추진 수준이 비교적 양호합니다.",
+            "problem": "걸을 때 위아래 추진과 발 디딤 충격이 낮게 나타났어요. 걸음 힘이나 보폭이 줄었을 수 있어요.",
+            "ok": "걸을 때 위아래 추진과 발 디딤 충격이 비교적 충분하게 나타났어요.",
             "risk_when": "low",
             "cut": 1.20,
         },
         {
             "key": "v_jerk_rms_iqr",
-            "label": "수직 충격 변동성",
+            "label": "수직 움직임 변동성",
             "value": _safe_float(features.get("v_jerk_rms_iqr")),
             "unit": " g/s",
-            "problem": "걸음 중 충격과 추진의 흔들림 폭이 커져 보행 일관성 확인이 필요합니다.",
-            "ok": "걸음 중 충격과 추진의 변동 폭이 비교적 안정적입니다.",
+            "problem": "걸음 중 위아래 움직임의 차이가 커요. 보행이 일정하지 않았을 수 있어요.",
+            "ok": "걸음 중 위아래 움직임 변동이 비교적 안정적이에요.",
             "risk_when": "high",
             "cut": 0.80,
         },
         {
             "key": "v_harmonic_ratio_iqr",
-            "label": "수직 리듬 변동성",
+            "label": "보행 리듬 변동성",
             "value": _safe_float(features.get("v_harmonic_ratio_iqr")),
             "unit": "",
-            "problem": "보행 리듬의 구간별 변동이 커져 일정한 보행 리듬 확인이 필요합니다.",
-            "ok": "보행 리듬의 구간별 변동이 비교적 낮습니다.",
+            "problem": "걸음 리듬이 구간마다 달라지는 폭이 커요. 일정한 리듬 유지가 어려웠을 수 있어요.",
+            "ok": "걸음 리듬 변동이 작아 비교적 일정하게 걸은 편이에요.",
             "risk_when": "high",
             "cut": 0.10,
         },
@@ -257,8 +314,7 @@ def _gait_feature_insights(features):
 def _gait_explainability(model_artifact, features):
     names = model_artifact.get("features", GAIT_FEATURES)
     try:
-        import pandas as pd
-        frame = pd.DataFrame([[features[name] for name in names]], columns=names)
+        frame = np.array([[features[name] for name in names]], dtype=float)
         pipeline = model_artifact["pipeline"]
         transformed = pipeline[:-1].transform(frame)[0]
         coefs = pipeline[-1].coef_[0]
@@ -266,9 +322,9 @@ def _gait_explainability(model_artifact, features):
             {
                 "key": name,
                 "label": {
-                    "v_jerk_rms_median": "수직 충격/추진 대표값",
-                    "v_jerk_rms_iqr": "수직 충격 변동성",
-                    "v_harmonic_ratio_iqr": "수직 리듬 변동성",
+                    "v_jerk_rms_median": "수직 추진/충격 크기",
+                    "v_jerk_rms_iqr": "수직 움직임 변동성",
+                    "v_harmonic_ratio_iqr": "보행 리듬 변동성",
                 }.get(name, name),
                 "value": float(features[name]),
                 "contribution": float(coef * val),
@@ -366,10 +422,35 @@ def _extract_signal_preview(csv_bytes: bytes, window_info: dict, model_dir: str)
 
         v_max  = max(max(abs(x) for x in v_d),  1e-6)
         ml_max = max(max(abs(x) for x in ml_d), 1e-6)
+
+        spec_source = v_w if len(v_w) >= 64 else v_bp
+        spec = None
+        if len(spec_source) >= 64:
+            n_fft = 64
+            hop = 16
+            window = np.hanning(n_fft)
+            freqs = np.fft.rfftfreq(n_fft, d=1.0 / TARGET_FS_HZ)
+            keep = freqs <= 12.5
+            columns = []
+            for start in range(0, len(spec_source) - n_fft + 1, hop):
+                segment = np.asarray(spec_source[start:start + n_fft], dtype=float)
+                segment = segment - float(np.mean(segment))
+                power = np.abs(np.fft.rfft(segment * window)) ** 2
+                columns.append(power[keep])
+            if columns:
+                matrix = np.stack(columns, axis=1)
+                matrix = np.log1p(matrix)
+                max_power = float(np.max(matrix)) or 1.0
+                matrix = np.clip(matrix / max_power, 0.0, 1.0)
+                spec = {
+                    "freqs": [round(float(f), 2) for f in freqs[keep].tolist()],
+                    "power": [[round(float(x), 3) for x in row] for row in matrix.tolist()],
+                }
         return {
             "v":     [round(x / v_max,  3) for x in v_d],
             "ml":    [round(x / ml_max, 3) for x in ml_d],
             "dt_ms": int(round(1000 / DISP_FS)),
+            "spectrogram": spec,
         }
     except Exception as e:
         print(f"[signal preview error] {e}")
@@ -485,196 +566,10 @@ def _classify_care_type(cognitive=None, gait=None):
     return result
 
 
-def _basic_pengteu_reply(message, context, knowledge=None):
-    member = (context or {}).get("member") or {}
-    assessment = (context or {}).get("latest_assessment") or {}
-    physical = (context or {}).get("latest_physical") or {}
-    exercise = (context or {}).get("exercise_summary") or {}
-    profile = (context or {}).get("assistant_profile") or {}
-    knowledge = knowledge or []
-
-    name = profile.get("persona_name") or "펭트"
-    member_code = member.get("member_code") or "회원님"
-    final_score = assessment.get("final_score")
-    gait_prediction = None
-    raw_gait = physical.get("raw_json") if physical else {}
-    if isinstance(raw_gait, dict):
-        gait_prediction = raw_gait.get("prediction")
-    streak = _safe_int(exercise.get("streak_days"))
-    evidence_hint = ""
-    if knowledge:
-        titles = []
-        for item in knowledge[:2]:
-            title = item.get("title") or item.get("source") or ""
-            if title and title not in titles:
-                titles.append(title)
-        if titles:
-            evidence_hint = f" 제가 참고한 기준은 {', '.join(titles)} 쪽이에요."
-
-    lowered = (message or "").lower()
-    if "보행" in message or "걷" in message:
-        if gait_prediction == 1:
-            return f"{name}가 볼 때 {member_code}의 최근 보행 결과는 신체기능 관리가 필요한 신호가 있어요. 오늘은 빠르게 걷기보다 허리에 스마트폰을 잘 고정하고, 천천히 균형을 지키는 운동부터 해볼게요.{evidence_hint}"
-        if gait_prediction == 0:
-            return f"{name}가 확인했어요. {member_code}의 최근 보행 결과는 정상 범위 가능성이 높아요. 그래도 매일 조금씩 걷기와 균형 운동을 이어가면 좋아요.{evidence_hint}"
-        return f"{name}가 아직 최신 보행 결과를 찾지 못했어요. 스마트폰을 허리에 고정하고 20초 이상 평소처럼 걸어서 먼저 측정해볼게요.{evidence_hint}"
-
-    if "인지" in message or "moca" in lowered or "점수" in message:
-        if final_score is not None:
-            return f"{name}가 최근 인지평가를 확인했어요. MoCA 최종 점수는 {final_score}점이에요. 점수 하나로 단정하지 않고 기억력, 주의력, 실행기능 흐름을 같이 보면서 설명해드릴게요.{evidence_hint}"
-        return f"{name}가 아직 완료된 인지평가를 찾지 못했어요. 먼저 MoCA 평가를 끝내면 결과를 바탕으로 쉽게 설명해드릴게요.{evidence_hint}"
-
-    if "운동" in message or "오늘" in message:
-        if streak > 0:
-            return f"{name}가 응원합니다. 지금 {streak}일 연속 운동 기록이 있어요. 오늘은 무리하지 말고 화면 안내에 맞춰 천천히 이어가면 됩니다.{evidence_hint}"
-        return f"{name}가 오늘 운동을 같이 도와드릴게요. 먼저 현재 유형에 맞는 운동을 시작하고, 센서 기준값이 준비되면 동작 성공 여부도 자동으로 확인할 수 있어요.{evidence_hint}"
-
-    if "기여도" in message or "xai" in lowered or "shap" in lowered:
-        return f"{name}가 쉽게 말해드릴게요. 모델 기여도는 이번 보행 판단에서 어떤 보행 피처가 위험 쪽으로 밀었고, 어떤 피처가 정상 쪽으로 도왔는지 보여주는 설명이에요. 지금은 로지스틱 회귀의 표준화 피처와 계수를 이용한 설명이고, 나중에 SHAP을 붙이면 더 정식 XAI로 보여줄 수 있어요.{evidence_hint}"
-
-    if "스펙트럼" in message or "주파수" in message:
-        return f"{name}가 설명해드릴게요. 스펙트럼은 허리 가속도 원신호가 시간에 따라 어떤 리듬과 주파수 패턴을 보였는지 보여주는 보조 그림이에요. 모델은 최종 3개 보행 피처로 판단하고, 스펙트럼은 그 판단을 이해하기 쉽게 돕는 시각 자료예요.{evidence_hint}"
-
-    if knowledge:
-        if "tts" in lowered or "bgm" in lowered or "mp3" in lowered or "음악" in message or "소리" in message:
-            return f"{name}예요. 운동 음악은 그대로 배경음으로 두고, 제가 말할 때만 운동 안내음과 효과음을 잠깐 낮추거나 멈추게 할게요. 제 말이 끝나면 운동 화면의 음악은 원래 볼륨으로 돌아가요."
-        return f"{name}예요. 관련 자료는 제가 참고만 했고, 화면에는 회원님께 필요한 내용만 짧게 말할게요. 더 자세히 알고 싶은 부분을 말해주시면 보행, 인지, 운동 기록에 맞춰 쉽게 풀어드릴게요."
-        top = knowledge[0]
-        return f"{name}예요. 질문과 가까운 자료를 찾아봤어요. {top.get('text', '')} 이 내용을 바탕으로 {member_code}에게 맞게 더 쉽게 설명해드릴게요."
-
-    return f"{name}예요. 저는 {member_code}의 인지평가, 보행평가, 운동기록을 함께 보면서 상황에 맞게 설명하고 안내할 준비가 되어 있어요."
-
-
-def _pengteu_local_answer_ready(message, knowledge=None):
-    text = (message or "").lower()
-    keywords = (
-        "보행", "걷", "걸음", "운동", "오늘", "moca", "인지", "점수",
-        "낙상", "센서", "보정", "보호자", "글씨", "볼륨", "속도",
-        "기준", "모델", "라벨", "기여도", "스펙트럼", "주파수", "xai", "shap",
-        "threshold", "gait", "fall", "sensor", "exercise", "score",
-    )
-    return any(keyword in text for keyword in keywords)
-
-
-def _compact_pengteu_context(context, knowledge=None):
-    context = context or {}
-    member = context.get("member") or {}
-    assessment = context.get("latest_assessment") or {}
-    physical = context.get("latest_physical") or {}
-    exercise = context.get("exercise_summary") or {}
-    profile = context.get("assistant_profile") or {}
-    raw_gait = physical.get("raw_json") if isinstance(physical, dict) else {}
-    if not isinstance(raw_gait, dict):
-        raw_gait = {}
-    return {
-        "member_code": member.get("member_code"),
-        "moca_final_score": assessment.get("final_score"),
-        "gait_prediction": raw_gait.get("prediction"),
-        "gait_probability": raw_gait.get("probability"),
-        "exercise_streak_days": exercise.get("streak_days"),
-        "exercise_present_days": exercise.get("present_days"),
-        "assistant_profile": {
-            "voice_rate": profile.get("voice_rate"),
-            "tts_volume": profile.get("tts_volume"),
-            "text_scale": profile.get("text_scale"),
-            "high_contrast": profile.get("high_contrast"),
-        },
-        "retrieved_knowledge": [
-            {
-                "source": item.get("source"),
-                "title": item.get("title"),
-                "text": (item.get("text") or "")[:700],
-            }
-            for item in (knowledge or [])[:3]
-        ],
-    }
-
-
-def _extract_response_text(payload):
-    if not isinstance(payload, dict):
-        return ""
-    if payload.get("output_text"):
-        return str(payload["output_text"]).strip()
-    texts = []
-    for item in payload.get("output", []) or []:
-        for content in item.get("content", []) or []:
-            if content.get("type") in ("output_text", "text") and content.get("text"):
-                texts.append(str(content.get("text")))
-    return "\n".join(texts).strip()
-
-
-def _openai_pengteu_fallback(message, context, knowledge=None):
-    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    if not api_key:
-        return None
-
-    model = os.environ.get("OPENAI_ASSISTANT_MODEL", "gpt-4.1-mini").strip()
-    system_prompt = (
-        "너는 고령 사용자를 돕는 펭트 AI 어시스턴트다. "
-        "진단을 확정하지 말고 선별/주의 표현을 사용한다. "
-        "답변은 한국어로 2~4문장, 쉽고 따뜻하게 말한다. "
-        "사용자 기록과 검색 지식 안에서만 개인 결과를 설명하고, 모르는 것은 모른다고 말한다."
-    )
-    body = {
-        "model": model,
-        "input": [
-            {
-                "role": "developer",
-                "content": [{"type": "input_text", "text": system_prompt}],
-            },
-            {
-                "role": "user",
-                "content": [{
-                    "type": "input_text",
-                    "text": json.dumps({
-                        "question": message,
-                        "context": _compact_pengteu_context(context, knowledge),
-                    }, ensure_ascii=False),
-                }],
-            },
-        ],
-        "max_output_tokens": 220,
-    }
-    req = urllib.request.Request(
-        "https://api.openai.com/v1/responses",
-        data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-        return _extract_response_text(payload) or None
-    except Exception as exc:
-        print(f"[pengteu openai fallback error] {exc}")
-        return None
-
-
-def _clean_pengteu_reply(reply, message=""):
-    text = (reply or "").strip()
-    blocked = (
-        "질문과 가까운 자료를 찾아봤어요",
-        "이 내용을 바탕으로",
-        "retrieved_knowledge",
-        "RAG",
-        "/static/audio",
-        "`/static/audio`",
-    )
-    if any(token in text for token in blocked):
-        lowered = (message or "").lower()
-        if "tts" in lowered or "bgm" in lowered or "mp3" in lowered or "음악" in message or "소리" in message:
-            return "펭트예요. 운동 음악은 배경음으로 그대로 두고, 제가 말할 때만 운동 안내음과 효과음을 잠깐 낮추거나 멈출게요. 제 말이 끝나면 음악은 다시 원래 볼륨으로 돌아가요."
-        return "펭트예요. 자료는 제가 참고만 하고, 화면에는 필요한 말만 짧게 설명할게요. 궁금한 부분을 한 번 더 말해주시면 쉽게 풀어드릴게요."
-    if len(text) > 320:
-        text = text[:317].rstrip() + "..."
-    return text
-
-
 def _save_gait_result(gait_result):
     gait_result_id = session.get('gait_result_id') or uuid4().hex
+    gait_result["result_id"] = gait_result_id
+    gait_result = _json_safe(gait_result)
     _gait_result_store[gait_result_id] = gait_result
     session['gait_result_id'] = gait_result_id
     session.pop('gait_result', None)
@@ -694,7 +589,17 @@ def _get_gait_result():
     gait_result_id = session.get('gait_result_id')
     if gait_result_id and gait_result_id in _gait_result_store:
         return _gait_result_store[gait_result_id]
-    return session.get('gait_result')
+    request_result_id = request.args.get('result_id') if request else None
+    if request_result_id and request_result_id in _gait_result_store:
+        session['gait_result_id'] = request_result_id
+        return _gait_result_store[request_result_id]
+    legacy = session.get('gait_result')
+    if legacy:
+        return legacy
+    latest = get_latest_physical_result(_current_member_id())
+    if latest and latest.get("raw_json"):
+        return latest["raw_json"]
+    return None
 
 
 def _current_member_id():
@@ -746,6 +651,81 @@ def _restore_member_session(member, education_level=None):
     session["education_label"] = education_label(level)
     session["phone_last4"] = member.get("phone_last4", "")
     session["is_new_member"] = False
+
+
+def _reverse_geocode_kakao(lat, lng):
+    key = (
+        os.environ.get("KAKAO_REST_API_KEY")
+        or os.environ.get("KAKAO_LOCAL_REST_API_KEY")
+        or os.environ.get("KAKAO_API_KEY")
+        or ""
+    ).strip()
+    if not key:
+        return {}
+    try:
+        query = urllib.parse.urlencode({"x": float(lng), "y": float(lat)})
+        req = urllib.request.Request(
+            f"https://dapi.kakao.com/v2/local/geo/coord2regioncode.json?{query}",
+            headers={"Authorization": f"KakaoAK {key}"},
+        )
+        with urllib.request.urlopen(req, timeout=3) as res:
+            data = json.loads(res.read().decode("utf-8"))
+        docs = data.get("documents") or []
+        if not docs:
+            return {}
+        region = next((item for item in docs if item.get("region_type") == "B"), docs[0])
+        return {
+            "sigungu": region.get("region_2depth_name", "") or "",
+            "location": region.get("region_3depth_name", "") or "",
+            "address": " ".join(
+                part for part in [
+                    region.get("region_1depth_name", ""),
+                    region.get("region_2depth_name", ""),
+                    region.get("region_3depth_name", ""),
+                ] if part
+            ),
+        }
+    except Exception as exc:
+        print(f"[orientation location geocode error] {exc}")
+        return {}
+
+
+@app.route("/api/orientation/location", methods=["POST"])
+def api_orientation_location():
+    member_id = _current_member_id()
+    if not member_id:
+        return jsonify({"ok": False, "error": "member_not_found"}), 400
+
+    data = request.get_json(silent=True) or {}
+    lat = data.get("latitude")
+    lng = data.get("longitude")
+    client_location = (data.get("location") or data.get("dong") or "").strip()
+    client_sigungu = (data.get("sigungu") or data.get("district") or "").strip()
+    client_address = (data.get("address") or "").strip()
+    geocoded = _reverse_geocode_kakao(lat, lng) if lat is not None and lng is not None else {}
+
+    location = (geocoded.get("location") or client_location).strip()
+    sigungu = (geocoded.get("sigungu") or client_sigungu).strip()
+    address = (geocoded.get("address") or client_address).strip()
+
+    session["location"] = location
+    session["sigungu"] = sigungu
+    session["last_latitude"] = lat
+    session["last_longitude"] = lng
+    session["last_address"] = address
+
+    uid = session.get("uid")
+    if uid in _store:
+        _store[uid]["location"] = location
+        _store[uid]["sigungu"] = sigungu
+    update_assessment_location(session.get("assessment_id"), location, sigungu)
+
+    return jsonify({
+        "ok": True,
+        "location": location,
+        "sigungu": sigungu,
+        "address": address,
+    })
 
 
 def _exercise_mock_data():
@@ -1229,8 +1209,10 @@ def gait_upload_csv():
 
     if os.path.exists(daily_model_path):
         csv_bytes = upload.read()
+        received_debug = _save_gait_debug_upload(csv_bytes, stage="received")
         try:
             result = predict_daily_gait_csv(io.BytesIO(csv_bytes), model_dir)
+            processed_debug = _save_gait_debug_upload(csv_bytes, result=result, stage="processed")
         except Exception as e:
             print(f"[gait csv preprocessing error] {e}")
             return jsonify({
@@ -1245,9 +1227,6 @@ def gait_upload_csv():
                 'error': '보행 데이터가 충분하지 않아 평가할 수 없습니다. 스마트폰을 허리에 고정하고 평소처럼 20초 이상 걸어 다시 측정해 주세요.'
             }), 400
 
-        jerk_med = _safe_float(feats.get('v_jerk_rms_median'))
-        jerk_iqr = _safe_float(feats.get('v_jerk_rms_iqr'))
-        hr_iqr   = _safe_float(feats.get('v_harmonic_ratio_iqr'))
         model_artifact = (_load_gait_models().get("daily") or {}).get("model")
         gait_result = {
             'probability':        result['probability'],
@@ -1257,47 +1236,28 @@ def gait_upload_csv():
             'threshold_strategy': result['threshold_strategy'],
             'model_mode':         result['model_mode'],
             'features':           feats,
-            'insights': [
-                {
-                    'key':        'v_jerk_rms_median',
-                    'label':      '수직 충격/추진 대표값',
-                    'value':      jerk_med,
-                    'unit':       ' g/s',
-                    'ref_normal': '≥ 1.2',
-                    'is_problem': jerk_med < 1.2,
-                    'message':    '걸음의 수직 충격과 추진 수준이 낮아 보폭이나 보행 힘을 확인할 필요가 있습니다.' if jerk_med < 1.2 else '걸음의 수직 충격과 추진 수준이 비교적 양호합니다.',
-                },
-                {
-                    'key':        'v_jerk_rms_iqr',
-                    'label':      '수직 충격 변동성',
-                    'value':      jerk_iqr,
-                    'unit':       ' g/s',
-                    'ref_normal': '≤ 0.80',
-                    'is_problem': jerk_iqr > 0.80,
-                    'message':    '걸음 중 충격과 추진의 흔들림 폭이 커져 보행 일관성 확인이 필요합니다.' if jerk_iqr > 0.80 else '걸음 중 충격과 추진의 변동 폭이 비교적 안정적입니다.',
-                },
-                {
-                    'key':        'v_harmonic_ratio_iqr',
-                    'label':      '수직 리듬 변동성',
-                    'value':      hr_iqr,
-                    'unit':       '',
-                    'ref_normal': '≤ 0.10',
-                    'is_problem': hr_iqr > 0.10,
-                    'message':    '보행 리듬의 구간별 변동이 커져 일정한 보행 리듬 확인이 필요합니다.' if hr_iqr > 0.10 else '보행 리듬의 구간별 변동이 비교적 낮습니다.',
-                },
-            ],
+            'insights': _gait_feature_insights(feats),
             'explainability': _gait_explainability(model_artifact, feats) if model_artifact else [],
             'visual': _gait_visual_profile({
-                'v_amp_pool_median':        max(0.02, min(1.0, jerk_med / 5.0)),
-                'ml_amp_pool_iqr':          max(0.02, hr_iqr),
-                'base_v_stride_regularity': max(0.0,  1.0 - hr_iqr * 5),
-                'roll_amp_pool_iqr':        10 + hr_iqr * 20,
+                'v_amp_pool_median':        max(0.02, min(1.0, _safe_float(feats.get('v_jerk_rms_median')) / 5.0)),
+                'ml_amp_pool_iqr':          max(0.02, _safe_float(feats.get('v_harmonic_ratio_iqr'))),
+                'base_v_stride_regularity': max(0.0,  1.0 - _safe_float(feats.get('v_harmonic_ratio_iqr')) * 5),
+                'roll_amp_pool_iqr':        10 + _safe_float(feats.get('v_harmonic_ratio_iqr')) * 20,
             }),
             'window':         result['window'],
             'signal_preview': _extract_signal_preview(csv_bytes, result.get('window', {}), model_dir),
+            'raw_csv': {
+                'filename': upload.filename or 'apk_gait.csv',
+                'text': csv_bytes.decode('utf-8', errors='replace'),
+                'bytes': len(csv_bytes),
+                'line_count': csv_bytes.count(b'\n'),
+                'debug_received': received_debug,
+                'debug_processed': processed_debug,
+            },
         }
         _save_gait_result(gait_result)
-        return jsonify({
+        response_features = {feature: feats.get(feature) for feature in GAIT_FEATURES}
+        response_payload = {
             'ok': True,
             'probability':        result['probability'],
             'threshold':          result['threshold'],
@@ -1305,11 +1265,12 @@ def gait_upload_csv():
             'label':              result['label'],
             'threshold_strategy': result['threshold_strategy'],
             'model_mode':         result['model_mode'],
-            'features':           feats,
+            'features':           response_features,
             'window':             result['window'],
-            'extracted_features': feats,
-            'redirect_url':       url_for('gait_avatar_page'),
-        }), 200
+            'extracted_features': response_features,
+            'redirect_url':       url_for('gait_avatar_page', result_id=gait_result.get("result_id")),
+        }
+        return jsonify(_json_safe(response_payload)), 200
 
     return jsonify({'ok': False, 'error': '최종 보행 모델 파일을 찾지 못했습니다.'}), 503
 

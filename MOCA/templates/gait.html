@@ -23,10 +23,10 @@
           <span style="position: absolute; left: 0; color: #005da7; font-weight: bold;">1</span>스마트폰을 허리에 단단히 고정해 주세요.
         </li>
         <li style="font-size: 15px; color: #495057; margin-bottom: 10px; line-height: 1.4; position: relative; padding-left: 18px;">
-          <span style="position: absolute; left: 0; color: #005da7; font-weight: bold;">2</span>시작 버튼을 누른 뒤 평소처럼 20초 동안 걸어 주세요.
+          <span style="position: absolute; left: 0; color: #005da7; font-weight: bold;">2</span>7초 착용 확인, 3초 대기 후 평소처럼 20초 동안 걸어 주세요.
         </li>
         <li style="font-size: 15px; color: #495057; margin-bottom: 10px; line-height: 1.4; position: relative; padding-left: 18px;">
-          <span style="position: absolute; left: 0; color: #005da7; font-weight: bold;">3</span>측정 중 화면은 그대로 유지되고, 센서 데이터는 APK가 자동으로 서버에 보냅니다.
+          <span style="position: absolute; left: 0; color: #005da7; font-weight: bold;">3</span>앞 10초는 준비 구간이고, 실제 CSV에는 마지막 20초 보행만 저장됩니다.
         </li>
         <li style="font-size: 15px; color: #495057; margin-bottom: 0; line-height: 1.4; position: relative; padding-left: 18px;">
           <span style="position: absolute; left: 0; color: #005da7; font-weight: bold;">4</span>분석이 끝나면 보행 아바타 결과 화면으로 자동 이동합니다.
@@ -36,18 +36,18 @@
 
     <div class="gait-live-measure" id="gaitLiveMeasure" hidden>
       <div class="gait-measure-ring" aria-label="측정 남은 시간">
-        <strong id="gaitCountdown">20</strong>
+        <strong id="gaitCountdown">30</strong>
         <span>초</span>
       </div>
       <h3 id="gaitMeasureStatus">측정 준비 중</h3>
-      <p id="gaitMeasureHelp">화면은 그대로 두고, 허리에 고정한 스마트폰 센서로 보행을 측정합니다.</p>
+      <p id="gaitMeasureHelp">화면은 그대로 두고, APK가 센서를 자동으로 측정합니다.</p>
       <div class="gait-measure-progress">
         <span id="gaitMeasureProgress"></span>
       </div>
     </div>
 
     <button class="btn btn-primary btn-lg" type="button" id="gaitMeasureBtn">
-      20초 보행 측정 시작
+      보행 측정 시작
     </button>
 
     <div class="gait-csv-panel">
@@ -98,8 +98,12 @@
   const gaitMeasureStatus = document.getElementById('gaitMeasureStatus');
   const gaitMeasureHelp = document.getElementById('gaitMeasureHelp');
   const gaitMeasureProgress = document.getElementById('gaitMeasureProgress');
+  const WEAR_SEC = 7;
+  const READY_SEC = 3;
   const COLLECTION_SEC = 20;
+  const TOTAL_SEC = WEAR_SEC + READY_SEC + COLLECTION_SEC;
   let gaitCountdownTimer = null;
+  let lastGaitCueSecond = null;
 
   function getMemberPhone() {
     const params = new URLSearchParams(window.location.search);
@@ -114,36 +118,95 @@
   function resetCountdown() {
     window.clearInterval(gaitCountdownTimer);
     gaitCountdownTimer = null;
-    if (gaitCountdown) gaitCountdown.textContent = COLLECTION_SEC;
+    lastGaitCueSecond = null;
+    if (gaitCountdown) gaitCountdown.textContent = TOTAL_SEC;
     if (gaitMeasureProgress) gaitMeasureProgress.style.width = '0%';
   }
 
+  function speakGaitCue(text) {
+    if (!text) return;
+    if (window.AndroidBridge && typeof window.AndroidBridge.speakGaitCue === 'function') {
+      window.AndroidBridge.speakGaitCue(text);
+      return;
+    }
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'ko-KR';
+      utterance.rate = 0.9;
+      utterance.volume = 1;
+      window.speechSynthesis.speak(utterance);
+    }
+  }
+
+  function speakGaitCueForSecond(elapsed) {
+    if (lastGaitCueSecond === elapsed) return;
+    lastGaitCueSecond = elapsed;
+
+    if (elapsed === 0) {
+      speakGaitCue('착용 확인 시작. 7초입니다.');
+      return;
+    }
+    if (elapsed < WEAR_SEC) {
+      speakGaitCue(`${WEAR_SEC - elapsed}초`);
+      return;
+    }
+    if (elapsed === WEAR_SEC) {
+      speakGaitCue('대기 시작. 3초입니다.');
+      return;
+    }
+    if (elapsed < WEAR_SEC + READY_SEC) {
+      speakGaitCue(`${WEAR_SEC + READY_SEC - elapsed}초`);
+      return;
+    }
+    if (elapsed === WEAR_SEC + READY_SEC) {
+      speakGaitCue('측정 시작. 평소처럼 걸어 주세요.');
+      return;
+    }
+
+    const walkElapsed = elapsed - WEAR_SEC - READY_SEC;
+    const walkRemain = Math.max(0, COLLECTION_SEC - walkElapsed);
+    if (walkRemain > 0 && (walkRemain <= 5 || walkRemain % 5 === 0)) {
+      speakGaitCue(walkRemain <= 5 ? String(walkRemain) : `${walkRemain}초 남았습니다.`);
+    }
+  }
+
+  function renderProtocol(elapsed) {
+    const remain = Math.max(0, TOTAL_SEC - elapsed);
+    if (elapsed < WEAR_SEC) {
+      gaitMeasureStatus.textContent = '착용 확인 중';
+      gaitMeasureHelp.textContent = '스마트폰을 허리에 단단히 고정해 주세요. 아직 걷지 않아도 됩니다.';
+    } else if (elapsed < WEAR_SEC + READY_SEC) {
+      gaitMeasureStatus.textContent = '대기 중';
+      gaitMeasureHelp.textContent = '곧 보행 측정이 시작됩니다. 자세를 편하게 잡아 주세요.';
+    } else {
+      gaitMeasureStatus.textContent = '보행 측정 중';
+      gaitMeasureHelp.textContent = '지금부터 20초 동안 평소처럼 걸어 주세요.';
+      gaitMeasureBtn.textContent = '측정 중...';
+    }
+    gaitCountdown.textContent = remain;
+    gaitMeasureProgress.style.width = `${Math.round((elapsed / TOTAL_SEC) * 100)}%`;
+    speakGaitCueForSecond(elapsed);
+  }
+
   function startCountdown() {
-    let remain = COLLECTION_SEC;
+    let elapsed = 0;
     resetCountdown();
-    if (gaitLiveMeasure) gaitLiveMeasure.hidden = false;
-    if (gaitMeasureStatus) gaitMeasureStatus.textContent = '측정 진행 중';
-    if (gaitMeasureHelp) gaitMeasureHelp.textContent = '평소처럼 걸어 주세요. 화면은 그대로 유지됩니다.';
+    gaitLiveMeasure.hidden = false;
     gaitMeasureBtn.disabled = true;
-    gaitMeasureBtn.textContent = '측정 중...';
+    gaitMeasureBtn.textContent = '측정 준비 중...';
+    renderProtocol(elapsed);
 
-    const render = () => {
-      if (gaitCountdown) gaitCountdown.textContent = remain;
-      if (gaitMeasureProgress) {
-        gaitMeasureProgress.style.width = `${Math.round(((COLLECTION_SEC - remain) / COLLECTION_SEC) * 100)}%`;
-      }
-    };
-
-    render();
     gaitCountdownTimer = window.setInterval(() => {
-      remain = Math.max(0, remain - 1);
-      render();
-      if (remain <= 0) {
+      elapsed = Math.min(TOTAL_SEC, elapsed + 1);
+      renderProtocol(elapsed);
+      if (elapsed >= TOTAL_SEC) {
         window.clearInterval(gaitCountdownTimer);
         gaitCountdownTimer = null;
-        if (gaitMeasureStatus) gaitMeasureStatus.textContent = '서버 분석 중';
-        if (gaitMeasureHelp) gaitMeasureHelp.textContent = '측정된 센서 CSV를 서버로 보내 분석하고 있습니다.';
-        if (gaitMeasureProgress) gaitMeasureProgress.style.width = '100%';
+        gaitMeasureStatus.textContent = '서버 분석 중';
+        gaitMeasureHelp.textContent = '측정된 20초 보행 CSV를 서버로 보내 분석하고 있습니다.';
+        gaitMeasureProgress.style.width = '100%';
+        speakGaitCue('측정이 끝났습니다. 서버에서 결과를 분석하고 있습니다.');
       }
     }, 1000);
   }
@@ -168,32 +231,41 @@
     if (!event || !event.status) return;
     if (event.status === 'started') {
       startCountdown();
-      setGaitMessage('APK 센서 측정 시작', '스마트폰 센서가 보행 데이터를 수집하고 있습니다.');
+      setGaitMessage('APK 센서 준비 시작', '착용 확인과 대기 후 20초 보행만 저장합니다.');
+      return;
+    }
+    if (event.status === 'measuring') {
+      setGaitMessage('보행 측정 시작', '지금부터 20초 동안 평소처럼 걸어 주세요.');
       return;
     }
     if (event.status === 'uploading') {
-      if (gaitMeasureStatus) gaitMeasureStatus.textContent = '서버 분석 중';
-      if (gaitMeasureHelp) gaitMeasureHelp.textContent = `센서 샘플 ${event.sampleCount || 0}개를 서버로 전송하고 있습니다.`;
+      gaitMeasureStatus.textContent = '서버 분석 중';
+      gaitMeasureHelp.textContent = `센서 샘플 ${event.sampleCount || 0}개를 서버로 전송하고 있습니다.`;
       setGaitMessage('측정 완료', '보행 데이터를 서버에서 전처리하고 모델로 분석 중입니다.');
       return;
     }
     if (event.status === 'complete') {
       window.clearInterval(gaitCountdownTimer);
       gaitMeasureBtn.disabled = false;
-      gaitMeasureBtn.textContent = '20초 다시 측정';
-      if (event.ok) {
-        window.location.href = event.redirect_url || '/gait/avatar';
+      gaitMeasureBtn.textContent = '다시 측정';
+      if (event.ok === true || event.redirect_url) {
+        gaitMeasureStatus.textContent = '측정 성공';
+        setGaitMessage('측정 성공', '보행 분석이 완료되었습니다. 결과 화면으로 이동합니다.');
+        window.setTimeout(() => {
+          window.location.href = event.redirect_url || '/gait/avatar';
+        }, 300);
       } else {
-        setGaitMessage('분석 실패', event.error || '서버 분석 결과를 확인할 수 없습니다.');
+        gaitMeasureStatus.textContent = '분석 실패';
+        setGaitMessage('분석 실패', '보행 데이터 분석에 실패했습니다. 스마트폰을 허리에 고정하고 다시 측정해 주세요.');
       }
       return;
     }
     if (event.status === 'error') {
       window.clearInterval(gaitCountdownTimer);
       gaitMeasureBtn.disabled = false;
-      gaitMeasureBtn.textContent = '20초 다시 측정';
-      if (gaitMeasureStatus) gaitMeasureStatus.textContent = '측정 실패';
-      setGaitMessage('측정 실패', event.message || 'APK 센서 측정 중 오류가 발생했습니다.');
+      gaitMeasureBtn.textContent = '다시 측정';
+      gaitMeasureStatus.textContent = '측정 실패';
+      setGaitMessage('측정 실패', '센서 측정 또는 전송 중 문제가 생겼습니다. 스마트폰을 허리에 고정하고 다시 측정해 주세요.');
     }
   };
 
@@ -201,6 +273,8 @@
     if (window.AndroidBridge && typeof window.AndroidBridge.startGaitMeasurement === 'function') {
       const payload = {
         uploadUrl: `${window.location.origin}/gait/upload-csv`,
+        wearSec: WEAR_SEC,
+        readySec: READY_SEC,
         durationSec: COLLECTION_SEC,
         memberPhone: getMemberPhone(),
       };
