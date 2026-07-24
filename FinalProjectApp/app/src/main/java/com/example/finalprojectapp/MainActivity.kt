@@ -59,6 +59,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
     private var gaitTtsReady = false
     private var pengteuRecognizer: SpeechRecognizer? = null
 
+    // "펭트야" always-on 웨이크워드 (네이티브 전용 — WebView엔 Web Speech 없음)
+    private var wakeRecognizer: SpeechRecognizer? = null
+    private var wakeWantsRun = false        // 웨이크 리스너를 계속 돌려야 하는 상태
+    private var isWakeListening = false      // 현재 실제로 듣고 있는지
+    private var isPengteuSttActive = false   // 명령 STT 중(마이크 점유) → 웨이크 정지
+    private var isTtsSpeaking = false        // 펭트/보행 TTS 발화 중 → 자기목소리 오탐 방지
+    private val wakeRestartToken = Any()     // 웨이크 재시작 예약 취소용 핸들러 토큰
+
     private val mainHandler = Handler(Looper.getMainLooper())
     private val gaitSamples = mutableListOf<GaitSample>()
     private var isGaitSessionActive = false
@@ -187,19 +195,27 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
         gaitTts?.language = Locale.KOREAN
         gaitTts?.setSpeechRate(0.9f)
         gaitTts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-            override fun onStart(utteranceId: String?) {}
+            override fun onStart(utteranceId: String?) {
+                // 발화 중엔 웨이크 인식을 멈춰 TTS 소리로 자기 자신을 깨우지 않게 한다.
+                isTtsSpeaking = true
+                mainHandler.post { pauseWakeForOther() }
+            }
 
             override fun onDone(utteranceId: String?) {
+                isTtsSpeaking = false
                 if (utteranceId?.startsWith("pengteu-") == true) {
                     notifyPengteuNative("onTtsEnd")
                 }
+                mainHandler.post { resumeWake() }
             }
 
             @Deprecated("Deprecated in Java")
             override fun onError(utteranceId: String?) {
+                isTtsSpeaking = false
                 if (utteranceId?.startsWith("pengteu-") == true) {
                     notifyPengteuNative("onTtsEnd")
                 }
+                mainHandler.post { resumeWake() }
             }
         })
     }
@@ -468,6 +484,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
                 override fun onError(error: Int) {
                     notifyPengteuNative("onSttEnd")
                     notifyPengteuNative("onSttError", "음성을 잘 듣지 못했어요. 마이크를 다시 눌러 말해 주세요.")
+                    isPengteuSttActive = false
+                    resumeWake()
                 }
 
                 override fun onResults(results: Bundle?) {
@@ -479,6 +497,8 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
                     } else {
                         notifyPengteuNative("onSttResult", text)
                     }
+                    isPengteuSttActive = false
+                    resumeWake()
                 }
 
                 override fun onPartialResults(partialResults: Bundle?) {}
@@ -491,7 +511,119 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         }
+        // 명령 STT가 마이크를 점유하는 동안 웨이크 리스너 정지(안드로이드는 SR 동시 1개만)
+        isPengteuSttActive = true
+        pauseWakeForOther()
         recognizer.startListening(intent)
+    }
+
+    // ── "펭트야" always-on 웨이크워드 (네이티브 엔진) ─────────────
+    // 웹의 wakeShouldPause() 경합 로직이 startWakeWord/stopWakeWord로 큰 스위치를 제어하고,
+    // 네이티브는 발화가 끝날 때마다 스스로 재시작하며(SR은 1발화 후 정지) 자기 STT/TTS 중엔 즉시 자가정지.
+    private fun isWakeWord(raw: String): Boolean {
+        val t = raw.replace(Regex("\\s+"), "")
+        if (t.isEmpty()) return false
+        if (Regex("[펭팽펜]트[야아님씨이]").containsMatchIn(t)) return true          // 펭트야/펜트야/펭트님…
+        if (t.length <= 3 && Regex("[펭팽펜]트").containsMatchIn(t)) return true      // 짧게 "펭트"만 불러도
+        return false
+    }
+
+    private fun ensureWakeRecognizer(): SpeechRecognizer? {
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) return null
+        return wakeRecognizer ?: SpeechRecognizer.createSpeechRecognizer(this).also {
+            wakeRecognizer = it
+            it.setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) { isWakeListening = true }
+                override fun onBeginningOfSpeech() {}
+                override fun onRmsChanged(rmsdB: Float) {}
+                override fun onBufferReceived(buffer: ByteArray?) {}
+                override fun onEndOfSpeech() {}
+
+                override fun onError(error: Int) {
+                    isWakeListening = false
+                    scheduleWakeRestart()
+                }
+
+                override fun onResults(results: Bundle?) {
+                    isWakeListening = false
+                    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    if (matches?.any { isWakeWord(it) } == true) onWakeDetected() else scheduleWakeRestart()
+                }
+
+                override fun onPartialResults(partialResults: Bundle?) {
+                    // 부분 결과로 빠르게 감지(발화 종료 전 반응)
+                    val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    if (matches?.any { isWakeWord(it) } == true) onWakeDetected()
+                }
+
+                override fun onEvent(eventType: Int, params: Bundle?) {}
+            })
+        }
+    }
+
+    private fun onWakeDetected() {
+        if (isPengteuSttActive) return
+        mainHandler.removeCallbacksAndMessages(wakeRestartToken)
+        isWakeListening = false
+        runCatching { wakeRecognizer?.cancel() }
+        // 웹의 onWakeWord(=activateByWake): 패널 열고 응대 후 명령 청취로 전환.
+        notifyPengteuNative("onWakeWord")
+    }
+
+    private fun pumpWake() {
+        if (!wakeWantsRun || isWakeListening || isPengteuSttActive || isTtsSpeaking) return
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return
+        val recognizer = ensureWakeRecognizer() ?: return
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+        }
+        isWakeListening = true
+        runCatching { recognizer.startListening(intent) }.onFailure {
+            isWakeListening = false
+            scheduleWakeRestart()
+        }
+    }
+
+    private fun scheduleWakeRestart() {
+        if (!wakeWantsRun) return
+        mainHandler.removeCallbacksAndMessages(wakeRestartToken)
+        // 짧은 텀을 둬 busy-loop/발열을 피하고 마이크를 잠깐 놓아준다.
+        mainHandler.postAtTime(
+            { pumpWake() },
+            wakeRestartToken,
+            android.os.SystemClock.uptimeMillis() + 600L
+        )
+    }
+
+    private fun startWakeWord() {
+        wakeWantsRun = true
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), WAKE_AUDIO_PERMISSION_REQUEST)
+            return
+        }
+        pumpWake()
+    }
+
+    private fun stopWakeWord() {
+        wakeWantsRun = false
+        mainHandler.removeCallbacksAndMessages(wakeRestartToken)
+        isWakeListening = false
+        runCatching { wakeRecognizer?.cancel() }
+    }
+
+    // 다른 마이크 사용자(명령 STT·TTS)를 위해 일시정지하되, 재개 의사(wakeWantsRun)는 유지.
+    private fun pauseWakeForOther() {
+        mainHandler.removeCallbacksAndMessages(wakeRestartToken)
+        isWakeListening = false
+        runCatching { wakeRecognizer?.cancel() }
+    }
+
+    private fun resumeWake() {
+        if (!wakeWantsRun || isPengteuSttActive || isTtsSpeaking) return
+        scheduleWakeRestart()
     }
 
     private fun requestOrientationLocation() {
@@ -625,13 +757,27 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
+    override fun onPause() {
+        super.onPause()
+        // 백그라운드에선 마이크를 놓아준다(재개 의사 wakeWantsRun은 유지).
+        pauseWakeForOther()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        resumeWake()
+    }
+
     override fun onDestroy() {
         isGaitSessionActive = false
         isGaitMeasuring = false
         mainHandler.removeCallbacksAndMessages(GAIT_STOP_TOKEN)
+        mainHandler.removeCallbacksAndMessages(wakeRestartToken)
+        wakeWantsRun = false
         gaitTts?.stop()
         gaitTts?.shutdown()
         pengteuRecognizer?.destroy()
+        wakeRecognizer?.destroy()
         sensorManager.unregisterListener(this)
         super.onDestroy()
     }
@@ -647,6 +793,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
                 startPengteuStt()
             } else {
                 notifyPengteuNative("onSttError", "마이크 권한이 필요해요. 앱 설정에서 마이크 권한을 허용해 주세요.")
+            }
+            return
+        }
+        if (requestCode == WAKE_AUDIO_PERMISSION_REQUEST) {
+            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+                pumpWake()
             }
             return
         }
@@ -707,6 +859,16 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
         }
 
         @JavascriptInterface
+        fun startWakeWord() {
+            mainHandler.post { this@MainActivity.startWakeWord() }
+        }
+
+        @JavascriptInterface
+        fun stopWakeWord() {
+            mainHandler.post { this@MainActivity.stopWakeWord() }
+        }
+
+        @JavascriptInterface
         fun requestOrientationLocation() {
             this@MainActivity.requestOrientationLocation()
         }
@@ -727,6 +889,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
         private const val PREF_MEMBER_PHONE = "member_phone"
         private const val PREF_EDUCATION_LEVEL = "education_level"
         private const val AUDIO_PERMISSION_REQUEST = 1101
+        private const val WAKE_AUDIO_PERMISSION_REQUEST = 1102
         private const val LOCATION_PERMISSION_REQUEST = 1201
         private val GAIT_STOP_TOKEN = Any()
     }
