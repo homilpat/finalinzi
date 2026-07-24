@@ -7,7 +7,7 @@ import json
 import joblib
 import pandas as pd
 
-from gait_axis_aligned_core import (
+from modeling.gait_axis_aligned_core import (
     FEATURES, DAILY_FEATURES, BEST10_FEATURES,
     extract_axis_aligned_gait_features,
     extract_subwindow_daily_features,

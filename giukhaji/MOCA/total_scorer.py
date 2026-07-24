@@ -6,14 +6,14 @@ MoCA-K 총점 계산 모듈
 © Z. Nasreddine MD, JY. Lee 한국판. www.mocatest.org
 """
 
-from attention     import score_attention
-from naming        import score_naming
-from memory        import score_memory
-from orientation   import score_orientation
-from language      import score_language
-from abstraction   import score_abstraction
-from trail_making  import score_trail_making
-from version_manager import get_version_config
+from MOCA.attention     import score_attention
+from MOCA.naming        import score_naming
+from MOCA.memory        import score_memory
+from MOCA.orientation   import score_orientation
+from MOCA.language      import score_language
+from MOCA.abstraction   import score_abstraction
+from MOCA.trail_making  import score_trail_making
+from core.version_manager import get_version_config
 
 
 # ────────────────────────────────────────────
@@ -209,7 +209,7 @@ def score_total(
 # 테스트
 # ────────────────────────────────────────────
 if __name__ == "__main__":
-    from trail_making import NODE_POSITIONS
+    from MOCA.trail_making import NODE_POSITIONS
     from datetime import datetime
 
     W, H = 400, 600
