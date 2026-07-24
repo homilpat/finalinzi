@@ -153,7 +153,7 @@ def score_memory(
 # 테스트
 # ────────────────────────────────────────────
 if __name__ == "__main__":
-    from version_manager import get_version_config
+    from core.version_manager import get_version_config
 
     for ver in ("MoCA-K", "K-MoCA"):
         cfg   = get_version_config(ver)
