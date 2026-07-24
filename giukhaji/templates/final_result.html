@@ -5,56 +5,110 @@
   /* 4 Quadrants Grid */
   .care-quadrant-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
     gap: 12px;
     margin: 20px 0;
+    align-items: stretch;
+  }
+  .care-quadrant-grid.active-a {
+    grid-template-columns: 1fr 130px;
+    grid-template-rows: auto 90px;
+  }
+  .care-quadrant-grid.active-b {
+    grid-template-columns: 130px 1fr;
+    grid-template-rows: auto 90px;
+  }
+  .care-quadrant-grid.active-c {
+    grid-template-columns: 1fr 130px;
+    grid-template-rows: 90px auto;
+  }
+  .care-quadrant-grid.active-d {
+    grid-template-columns: 130px 1fr;
+    grid-template-rows: 90px auto;
+  }
+  .care-quadrant-grid > div:nth-child(1):not(.active) {
+    justify-self: end;
+    align-self: end;
+  }
+  .care-quadrant-grid > div:nth-child(2):not(.active) {
+    justify-self: start;
+    align-self: end;
+  }
+  .care-quadrant-grid > div:nth-child(3):not(.active) {
+    justify-self: end;
+    align-self: start;
+  }
+  .care-quadrant-grid > div:nth-child(4):not(.active) {
+    justify-self: start;
+    align-self: start;
   }
   .quadrant-card {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 16px 12px;
-    border-radius: 18px;
-    border: 2px solid #eef2f6;
-    background-color: #ffffff;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+    border-radius: 20px;
     transition: all 0.25s ease;
+    box-sizing: border-box;
+  }
+  .quadrant-card:not(.active) {
+    width: 130px;
+    height: 90px;
+    padding: 12px 8px;
+    border: 1.5px solid #e2e8f0;
+    background-color: #ffffff;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.01);
+    opacity: 0.45;
+  }
+  .quadrant-card:not(.active) .type-name {
+    font-size: 14px;
+    font-weight: 800;
+    color: #4a5568;
+  }
+  .quadrant-card:not(.active) .type-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #718096;
+    margin-top: 2px;
+    text-align: center;
+  }
+  .quadrant-card:not(.active) .type-desc {
+    display: none;
   }
   .quadrant-card.active {
-    border-color: #005da7;
-    background-color: rgba(0, 93, 167, 0.05);
-    box-shadow: 0 6px 16px rgba(0, 93, 167, 0.1);
-  }
-  .quadrant-card .type-name {
-    font-size: 20px;
-    font-weight: 800;
-    color: #a0aec0;
+    width: 100%;
+    min-height: 140px;
+    border: 3.5px solid #005da7;
+    background-color: #f0f7ff;
+    box-shadow: 0 10px 20px rgba(0, 93, 167, 0.12);
+    padding: 24px 16px;
+    opacity: 1;
+    justify-self: stretch;
+    align-self: stretch;
   }
   .quadrant-card.active .type-name {
     color: #005da7;
-    font-size: 22px;
-  }
-  .quadrant-card .type-label {
-    font-size: 13px;
-    font-weight: 700;
-    color: #cbd5e0;
-    margin-top: 4px;
-    word-break: keep-all;
-    text-align: center;
-    line-height: 1.3;
+    font-size: 28px;
+    font-weight: 900;
   }
   .quadrant-card.active .type-label {
     color: #005da7;
+    font-size: 18px;
+    font-weight: 800;
+    margin-top: 6px;
+    text-align: center;
+  }
+  .quadrant-card.active .type-desc {
+    color: #005da7;
+    font-size: 14px;
+    font-weight: 600;
+    display: block;
+    margin-top: 4px;
+    opacity: 0.85;
   }
 
   /* Summary Box */
   .care-summary-box {
-    background: #eef4ff;
-    border-radius: 16px;
-    padding: 18px 20px;
-    margin-bottom: 24px;
-    border: 1px solid #dbe5ff;
+    display: none;
   }
   .care-summary-text {
     font-size: 17px;
@@ -128,35 +182,83 @@
     <span class="design-header-spacer" aria-hidden="true"></span>
   </header>
 
+  <!-- 개발 테스트용 ABCD 유형 선택 바 (시뮬레이터) -->
+  <div id="test-quadrant-bar" style="background: #f7fafc; border: 1.5px dashed #cbd5e0; padding: 12px; margin: 12px 16px; border-radius: 12px; display: flex; flex-direction: column; gap: 8px; align-items: center; z-index: 9999; box-sizing: border-box;">
+    <span style="font-size: 14px; font-weight: 800; color: #4a5568;">[개발자 테스트 도구] 유형별 점수 시뮬레이터</span>
+    <div style="display: flex; gap: 6px; justify-content: center; width: 100%; box-sizing: border-box;">
+      <button onclick="simulateType('A', 70, 80)" style="flex: 1; padding: 8px 4px; font-size: 13px; font-weight: 800; border-radius: 8px; border: 1px solid #2b6cb0; background: #ebf8ff; color: #2b6cb0; cursor: pointer;">A 유형 (70/80)</button>
+      <button onclick="simulateType('B', 20, 90)" style="flex: 1; padding: 8px 4px; font-size: 13px; font-weight: 800; border-radius: 8px; border: 1px solid #b7791f; background: #fefcbf; color: #b7791f; cursor: pointer;">B 유형 (20/90)</button>
+      <button onclick="simulateType('C', 30, 90)" style="flex: 1; padding: 8px 4px; font-size: 13px; font-weight: 800; border-radius: 8px; border: 1px solid #2f855a; background: #f0fff4; color: #2f855a; cursor: pointer;">C 유형 (30/90)</button>
+      <button onclick="simulateType('D', 40, 60)" style="flex: 1; padding: 8px 4px; font-size: 13px; font-weight: 800; border-radius: 8px; border: 1px solid #c53030; background: #fff5f5; color: #c53030; cursor: pointer;">D 유형 (40/60)</button>
+    </div>
+  </div>
+
+  <script>
+    function simulateType(type, physScore, cogScore) {
+      // 1. Grid class update
+      const grid = document.querySelector('.care-quadrant-grid');
+      if (grid) {
+        grid.className = 'care-quadrant-grid active-' + type.toLowerCase();
+      }
+
+      // 2. Active card update
+      const cards = document.querySelectorAll('.quadrant-card');
+      cards.forEach((card, idx) => {
+        card.classList.remove('active');
+        if ((type === 'A' && idx === 0) ||
+            (type === 'B' && idx === 1) ||
+            (type === 'C' && idx === 2) ||
+            (type === 'D' && idx === 3)) {
+          card.classList.add('active');
+        }
+      });
+
+      // 3. Physical Gauge Update (First card)
+      const physScoreText = document.querySelector('.gauge-card:nth-of-type(1) .gauge-score');
+      if (physScoreText) physScoreText.innerText = physScore + '점';
+      const physBar = document.querySelector('.gauge-card:nth-of-type(1) .gauge-bar-fill');
+      if (physBar) {
+        physBar.style.width = physScore + '%';
+        const bgSize = physScore > 0 ? (10000.0 / physScore).toFixed(2) : 100;
+        physBar.style.backgroundSize = bgSize + '% 100%';
+      }
+
+      // 4. Cognitive Gauge Update (Second card)
+      const cogScoreText = document.querySelector('.gauge-card:nth-of-type(2) .gauge-score');
+      if (cogScoreText) cogScoreText.innerText = cogScore + '점';
+      const cogBar = document.querySelector('.gauge-card:nth-of-type(2) .gauge-bar-fill');
+      if (cogBar) {
+        cogBar.style.width = cogScore + '%';
+        const bgSize = cogScore > 0 ? (10000.0 / cogScore).toFixed(2) : 100;
+        cogBar.style.backgroundSize = bgSize + '% 100%';
+      }
+    }
+  </script>
+
 
 
   <!-- 4 Quadrants Grid -->
-  <div class="care-quadrant-grid">
+  <div class="care-quadrant-grid active-{{ care_type.code | lower }}">
     <!-- A 유형 -->
     <div class="quadrant-card {% if care_type.code == 'A' %}active{% endif %}">
       <span class="type-name">A 유형</span>
-      <span class="type-label">유지형<br><small style="font-size: 11px; opacity: 0.8; font-weight: normal;">(신체 양호 · 인지 양호)</small></span>
+      <span class="type-label">유지형<br><small class="type-desc">(신체 양호 · 인지 양호)</small></span>
     </div>
     <!-- B 유형 -->
     <div class="quadrant-card {% if care_type.code == 'B' %}active{% endif %}">
       <span class="type-name">B 유형</span>
-      <span class="type-label">인지관리형<br><small style="font-size: 11px; opacity: 0.8; font-weight: normal;">(신체 저하 · 인지 양호)</small></span>
+      <span class="type-label">인지강화형<br><small class="type-desc">(신체 저하 · 인지 양호)</small></span>
     </div>
     <!-- C 유형 -->
     <div class="quadrant-card {% if care_type.code == 'C' %}active{% endif %}">
       <span class="type-name">C 유형</span>
-      <span class="type-label">신체관리형<br><small style="font-size: 11px; opacity: 0.8; font-weight: normal;">(신체 양호 · 인지 저하)</small></span>
+      <span class="type-label">신체강화형<br><small class="type-desc">(신체 양호 · 인지 저하)</small></span>
     </div>
     <!-- D 유형 -->
     <div class="quadrant-card {% if care_type.code == 'D' %}active{% endif %}">
       <span class="type-name">D 유형</span>
-      <span class="type-label">통합관리형<br><small style="font-size: 11px; opacity: 0.8; font-weight: normal;">(신체 저하 · 인지 저하)</small></span>
+      <span class="type-label">통합강화형<br><small class="type-desc">(신체 저하 · 인지 저하)</small></span>
     </div>
-  </div>
-
-  <!-- Summary Box -->
-  <div class="care-summary-box">
-    <p class="care-summary-text">{{ care_type.summary }}</p>
   </div>
 
   <!-- Score Gauges -->
@@ -180,6 +282,19 @@
     {% set total_score_100 = ((cog_score_100 + phys_score_100) / 2) | int %}
     {% set star_count = (total_score_100 / 20) | int %}
 
+    {# Calculate dynamic background-size so the gradient stretches to 100% of parent width #}
+    {% if phys_score_100 > 0 %}
+      {% set phys_bg_size = (10000.0 / phys_score_100) | round(2) %}
+    {% else %}
+      {% set phys_bg_size = 100.0 %}
+    {% endif %}
+
+    {% if cog_score_100 > 0 %}
+      {% set cog_bg_size = (10000.0 / cog_score_100) | round(2) %}
+    {% else %}
+      {% set cog_bg_size = 100.0 %}
+    {% endif %}
+
     <!-- Physical Function Gauge -->
     <div class="gauge-card">
       <div class="gauge-header">
@@ -193,8 +308,8 @@
         <span class="gauge-score" style="color: #006b5a;">{{ phys_score_100 }}점</span>
       </div>
       <div class="gauge-bar-bg" style="margin-top: 14px; margin-bottom: 6px; overflow: visible;">
-        <div style="width: 100%; background: #ffffff; border-radius: 999px; height: 14px; overflow: hidden; position: relative;">
-          <div class="gauge-bar-fill" style="width: {{ phys_score_100 }}%; background: #006b5a; height: 100%;"></div>
+        <div style="width: 100%; background: #e2e8f0; border-radius: 999px; height: 14px; overflow: hidden; position: relative;">
+          <div class="gauge-bar-fill" style="width: {{ phys_score_100 }}%; background: linear-gradient(to right, #ff4d4d, #ecc94b, #22c55e); background-size: {{ phys_bg_size }}% 100%; background-repeat: no-repeat; background-position: left center; height: 100%;"></div>
         </div>
         <!-- Tick line at threshold -->
         <div style="position: absolute; left: {{ phys_threshold_100 }}%; top: -4px; width: 3px; height: 22px; background: #e53e3e; border-radius: 2px; z-index: 2;"></div>
@@ -220,8 +335,8 @@
         <span class="gauge-score" style="color: #005da7;">{{ cog_score_100 }}점</span>
       </div>
       <div class="gauge-bar-bg" style="margin-top: 14px; margin-bottom: 6px; overflow: visible;">
-        <div style="width: 100%; background: #ffffff; border-radius: 999px; height: 14px; overflow: hidden; position: relative;">
-          <div class="gauge-bar-fill" style="width: {{ cog_score_100 }}%; background: #005da7; height: 100%;"></div>
+        <div style="width: 100%; background: #e2e8f0; border-radius: 999px; height: 14px; overflow: hidden; position: relative;">
+          <div class="gauge-bar-fill" style="width: {{ cog_score_100 }}%; background: linear-gradient(to right, #ff4d4d, #ecc94b, #22c55e); background-size: {{ cog_bg_size }}% 100%; background-repeat: no-repeat; background-position: left center; height: 100%;"></div>
         </div>
         <!-- Tick line at 76.7% (23 points) -->
         <div style="position: absolute; left: 76.7%; top: -4px; width: 3px; height: 22px; background: #e53e3e; border-radius: 2px; z-index: 2;"></div>

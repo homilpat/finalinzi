@@ -1,0 +1,14 @@
+- [x] 안드로이드 매니페스트 및 리소스 설정
+    - [x] `AndroidManifest.xml`에 인터넷 권한 추가
+    - [x] `activity_main.xml`의 `TextView`를 `WebView`로 교체
+- [x] 센서 로직 구현
+    - [x] `CalibrationProfile.kt` 구현
+    - [x] `SensorPreprocessor.kt` 구현 (중력/선형 가속도 분리)
+    - [x] `Detectors.kt` 구현 (Stop, WeightShift, Step, KneeExtension 등)
+    - [x] `MotionClassifier.kt` 구현 (동작 조율 및 디바운싱)
+- [x] WebView 브릿지 및 MainActivity 통합
+    - [x] `MainActivity.kt`에서 WebView 설정 및 자바스크립트 인터페이스 구현
+    - [x] `MotionClassifier`를 `MainActivity`에 통합 및 센서 데이터 전달
+- [x] 검증 및 마무리
+    - [x] 빌드 확인
+    - [x] 동작 테스트 및 결과 요약
