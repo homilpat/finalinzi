@@ -69,6 +69,7 @@ CANDIDATE_DIR = OUT_DIR / "candidate_models"
 MODEL_RESULT_DIR = OUT_DIR / "model_results"
 ROC_DIR = OUT_DIR / "roc_curves"
 CM_DIR = OUT_DIR / "confusion_matrices"
+PLOT_TITLE = "60s free-walk: pooled ROC over 100 subject-level repeats"
 
 GAIT_PROJECT = next(
     path for path in ROOT.parent.iterdir() if (path / "physionet_AWS").exists()
@@ -812,7 +813,7 @@ def save_plots(predictions: pd.DataFrame) -> None:
     ax.plot([0, 1], [0, 1], "k--", lw=1)
     ax.set_xlabel("False Positive Rate")
     ax.set_ylabel("True Positive Rate")
-    ax.set_title("60s free-walk: pooled ROC over 100 subject-level repeats")
+    ax.set_title(PLOT_TITLE)
     ax.grid(alpha=0.25)
     ax.legend(loc="lower right", fontsize=8)
     fig.tight_layout()
