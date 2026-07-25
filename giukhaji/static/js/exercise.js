@@ -342,6 +342,17 @@
   };
   window.SensorBridge = SensorBridge;
 
+  // 펭트(app.js)가 "운동 어려워"에 재설명할 때 현재 동작 정보를 읽어가도록 노출.
+  window.ExercisePengteuInfo = {
+    current: function () {
+      return {
+        name: (phaseNameLabel && phaseNameLabel.textContent || '').trim(),
+        cue:  (sensorCueBox && sensorCueBox.textContent || '').trim(),
+        playing: isPlaying,
+      };
+    },
+  };
+
   // 운동 중 오랫동안 동작 이벤트가 없으면(막혔거나 놓쳤을 때) 다시 설명을 제안한다.
   // 도입/대기(1단계)·안내 멘트 중·펭트 대화 중에는 개입하지 않는다.
   function checkExerciseIdle() {
