@@ -64,9 +64,7 @@
   border-radius: 20px;
   padding: 24px 28px;
   color: #fff;
-  background:
-    radial-gradient(circle at 94% 70%, rgba(255,255,255,0.16) 0 48px, transparent 49px),
-    linear-gradient(120deg, #FF877E 0%, #84DFC7 100%);
+  background: linear-gradient(135deg, #005da7 0%, #006b5a 100%);
   box-shadow: 0 12px 24px rgba(55, 88, 116, 0.14);
 }
 

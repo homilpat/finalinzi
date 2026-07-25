@@ -179,59 +179,6 @@
     <span class="design-header-spacer" aria-hidden="true"></span>
   </header>
 
-  <!-- 개발 테스트용 ABCD 유형 선택 바 (시뮬레이터) -->
-  <div id="test-quadrant-bar" style="background: #f7fafc; border: 1.5px dashed #cbd5e0; padding: 12px; margin: 12px 16px; border-radius: 12px; display: flex; flex-direction: column; gap: 8px; align-items: center; z-index: 9999; box-sizing: border-box;">
-    <span style="font-size: 14px; font-weight: 800; color: #4a5568;">[개발자 테스트 도구] 유형별 점수 시뮬레이터</span>
-    <div style="display: flex; gap: 6px; justify-content: center; width: 100%; box-sizing: border-box;">
-      <button onclick="simulateType('A', 70, 80)" style="flex: 1; padding: 8px 4px; font-size: 13px; font-weight: 800; border-radius: 8px; border: 1px solid #2b6cb0; background: #ebf8ff; color: #2b6cb0; cursor: pointer;">A 유형 (70/80)</button>
-      <button onclick="simulateType('B', 20, 90)" style="flex: 1; padding: 8px 4px; font-size: 13px; font-weight: 800; border-radius: 8px; border: 1px solid #b7791f; background: #fefcbf; color: #b7791f; cursor: pointer;">B 유형 (20/90)</button>
-      <button onclick="simulateType('C', 30, 90)" style="flex: 1; padding: 8px 4px; font-size: 13px; font-weight: 800; border-radius: 8px; border: 1px solid #2f855a; background: #f0fff4; color: #2f855a; cursor: pointer;">C 유형 (30/90)</button>
-      <button onclick="simulateType('D', 40, 60)" style="flex: 1; padding: 8px 4px; font-size: 13px; font-weight: 800; border-radius: 8px; border: 1px solid #c53030; background: #fff5f5; color: #c53030; cursor: pointer;">D 유형 (40/60)</button>
-    </div>
-  </div>
-
-  <script>
-    function simulateType(type, physScore, cogScore) {
-      // 1. Grid class update
-      const grid = document.querySelector('.care-quadrant-grid');
-      if (grid) {
-        grid.className = 'care-quadrant-grid active-' + type.toLowerCase();
-      }
-
-      // 2. Active card update
-      const cards = document.querySelectorAll('.quadrant-card');
-      cards.forEach((card, idx) => {
-        card.classList.remove('active');
-        if ((type === 'A' && idx === 0) ||
-            (type === 'B' && idx === 1) ||
-            (type === 'C' && idx === 2) ||
-            (type === 'D' && idx === 3)) {
-          card.classList.add('active');
-        }
-      });
-
-      // 3. Physical Gauge Update (First card)
-      const physScoreText = document.querySelector('.gauge-card:nth-of-type(1) .gauge-score');
-      if (physScoreText) physScoreText.innerText = physScore + '점';
-      const physBar = document.querySelector('.gauge-card:nth-of-type(1) .gauge-bar-fill');
-      if (physBar) {
-        physBar.style.width = physScore + '%';
-        const bgSize = physScore > 0 ? (10000.0 / physScore).toFixed(2) : 100;
-        physBar.style.backgroundSize = bgSize + '% 100%';
-      }
-
-      // 4. Cognitive Gauge Update (Second card)
-      const cogScoreText = document.querySelector('.gauge-card:nth-of-type(2) .gauge-score');
-      if (cogScoreText) cogScoreText.innerText = cogScore + '점';
-      const cogBar = document.querySelector('.gauge-card:nth-of-type(2) .gauge-bar-fill');
-      if (cogBar) {
-        cogBar.style.width = cogScore + '%';
-        const bgSize = cogScore > 0 ? (10000.0 / cogScore).toFixed(2) : 100;
-        cogBar.style.backgroundSize = bgSize + '% 100%';
-      }
-    }
-  </script>
-
 
 
   <!-- 4 Quadrants Grid -->

@@ -14,7 +14,8 @@
       <h1>AI 시니어<br>건강 케어 파트너</h1>
     </div>
 
-    <div class="splash-bottom">
+    <div class="splash-bottom" style="position: relative;">
+      <a href="{{ url_for('demo_mode') }}" class="demo-btn" style="position: absolute; right: 15px; bottom: 15px; padding: 6px 12px; background: rgba(0, 93, 167, 0.85); border: 1px solid rgba(255,255,255,0.6); border-radius: 12px; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 800; z-index: 9999; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">데모</a>
       <a href="{{ url_for('main_home_page') }}" class="skip-test-btn" style="display: inline-block; padding: 6px 14px; margin: 0 auto 10px auto; background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); border-radius: 20px; color: #ffffff; text-decoration: none; font-size: 14px; font-weight: bold; text-align: center; width: fit-content; z-index: 9999; position: relative; transition: background 0.2s;">검사 건너뛰기</a>
       <div class="splash-message">
         기억과 하지를 든든하게!

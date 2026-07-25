@@ -1153,8 +1153,8 @@ def exercise_sensor_analyze():
 @app.route('/report/detail')
 def report_detail_page():
     member_id = _current_member_id()
-    logs = []
-    if member_id:
+    logs = session.get('demo_exercise_logs', [])
+    if not logs and member_id:
         with get_conn() as conn:
             rows = conn.execute(
                 """
@@ -1167,10 +1167,16 @@ def report_detail_page():
                 (member_id,),
             ).fetchall()
             logs = [dict(r) for r in rows]
+    
+    exercise_data = _personal_exercise_data()
+    if session.get('demo_mode'):
+        exercise_data['report']['exercise_minutes'] = 40
+        exercise_data['today']['type'] = 'C유형 맞춤'
+
     today_score = session.get('today_exercise_score', 95)
     return render_template(
         'report_detail.html',
-        exercise=_personal_exercise_data(),
+        exercise=exercise_data,
         back_url='/exercise/complete',
         cognitive=_get_cognitive_result(),
         gait=_get_gait_result(),
@@ -1480,6 +1486,20 @@ def save_profile():
     user_name = request.form.get('user_name', '').strip()
     if user_name:
         session['user_name'] = user_name
+
+    if session.get('demo_mode'):
+        # 데모 모드에서 프로필 입력 시 데모 세션 정보와 결합
+        user_name = request.form.get('user_name', '').strip()
+        if user_name:
+            session['user_name'] = user_name
+            session['member_code'] = user_name
+            uid = session.get('uid')
+            if uid and uid in _store:
+                _store[uid]['member_code'] = user_name
+        session['location'] = loc or '필동'
+        session['sigungu'] = sgg or '중구'
+        session['is_new_member'] = False
+        return redirect(url_for('home', registered='1'))
 
     session['member_id'] = member_id
     session['member_code'] = member_code
@@ -2086,6 +2106,160 @@ def _score_canvas(img_b64, kind):
     except Exception as e:
         print(f'[캔버스 채점 오류] {kind}: {e}')
     return None
+
+
+
+# ─────────────────────────────────────────────────────────────────────
+# 데모 모드: C유형 시나리오 전체 주입
+# ─────────────────────────────────────────────────────────────────────
+@app.route('/demo')
+def demo_mode():
+    """데모 버튼 클릭 시 C유형 결과를 세션에 주입하고 메인홈으로 이동"""
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    uid = uuid4().hex
+    session.clear()
+    session['uid'] = uid
+    session['access_granted'] = True
+    session['member_id'] = 'demo_user'
+    session['member_code'] = '데모'
+    session['education_years'] = 12
+    session['education_level'] = 'high'
+    session['education_label'] = '고등학교 이상'
+    session['phone_last4'] = '0000'
+    session['is_new_member'] = False
+    session['demo_mode'] = True
+    session['today_exercise_score'] = 85
+
+    W, H = 400, 320
+    # ── 길만들기: 정확한 순서로 노드를 통과하는 터치포인트 ──
+    # NODE_POSITIONS 캔버스 400×320 비율 좌표로 각 노드 중심점 직접 지정
+    demo_trail_points = [
+        [96, 179],   # 1
+        [248, 44],   # 가
+        [264, 96],   # 2
+        [180, 134],  # 나
+        [272, 217],  # 3
+        [72, 278],   # 다
+        [188, 224],  # 4
+        [40, 224],   # 라
+        [28, 118],   # 5
+        [120, 32]    # 마
+    ]
+
+    # ── 인지 검사 raw 데이터 (27점 → 90점 환산) ──
+    demo_raw = {
+        # 길만들기
+        'trail_touch_points': demo_trail_points,
+        'canvas_width':  W,
+        'canvas_height': H,
+        # 그리기 (만점)
+        'cube_score': 1,
+        'clock_contour': 1,
+        'clock_numbers': 1,
+        'clock_hands': 1,
+        # 어휘력 (만점)
+        'animal1_stt': '사자',
+        'animal2_stt': '코뿔소',
+        'animal3_stt': '낙타',
+        # 기억력 (만점)
+        'immediate1_stt': '얼굴 교회 비단 진달래 빨강',
+        'immediate2_stt': '얼굴 교회 비단 진달래 빨강',
+        'delayed_recall_stt': '얼굴 교회 비단 진달래 빨강',
+        # 주의력 - 숫자 바로/거꾸로 (만점)
+        'forward_stt': '2 1 8 5 4',
+        'backward_stt': '2 4 7',
+        # 주의력 - 손뼉치기 6점 중 4점 (정답 인덱스 11개 중 4개 탭)
+        'tapped_indices': [2, 6, 7, 12],
+        # 계산 (만점 3점 → 5개 정답)
+        'serial7_stt': '100 93 86 79 72 65 58',
+        # 따라말하기 (만점 2점)
+        'sentence1_stt': '오늘 나를 도와줄 사람은 철수 뿐이다',
+        'sentence2_stt': '강아지가 방에 들어오면 고양이는 의자 밑에 숨는다',
+        # 단어유창성 (만점 1점)
+        'fluency_stt': '가방 가위 가지 가마 가을 가수 가정 가족 가방 가나다',
+        # 추상력 (1점: 첫 번째 쌍만 정답)
+        'abstraction_pair1_stt': '탈 것이다',
+        'abstraction_pair2_stt': '숫자가 있다',
+        # 지남력 (만점 6점)
+        'year_stt': '2026년',
+        'month_stt': '7월',
+        'day_stt': '26일',
+        'weekday_stt': '일요일',
+        'place_stt': '필동',
+        'sigungu_stt': '중구',
+    }
+
+    # ── MoCASession 유사 객체 ──
+    demo_sess = SimpleNamespace(
+        version='MoCA-K',
+        education_years=12,
+    )
+
+    _store[uid] = {
+        'sess': demo_sess,
+        'raw': demo_raw,
+        'location': '필동',
+        'sigungu': '중구',
+        'member_code': '데모',
+        'education_label': '고등학교 이상',
+        'phone_last4': '0000',
+        'member_id': 'demo_user',
+        'result_saved': True,  # DB 저장 방지
+    }
+
+    # ── 보행 결과: C유형 = 신체 저하 (probability > threshold) ──
+    gait_result_id = uuid4().hex
+    demo_features = {
+        'v_jerk_rms_median': 0.85,
+        'v_jerk_rms_iqr': 1.15,
+        'v_harmonic_ratio_iqr': 0.25,
+    }
+    demo_gait = {
+        'result_id': gait_result_id,
+        'prediction': 1,           # 저하
+        'probability': 0.68,       # 68% 위험 → 100점 환산 32점 (50점 미만)
+        'threshold': 0.50,
+        'label': '저하 위험',
+        'model_mode': 'daily_gait',
+        'insights': _gait_feature_insights(demo_features),
+        'explainability': [
+            {'label': '수직 추진/충격 크기', 'value': 0.85, 'direction': 'risk', 'description': '충격 크기가 낮아 주의 판정에 기여'},
+            {'label': '수직 움직임 변동성', 'value': 1.15, 'direction': 'risk', 'description': '변동성이 높아 주의 판정에 기여'},
+            {'label': '보행 리듬 변동성', 'value': 0.25, 'direction': 'risk', 'description': '리듬 변동성이 높아 주의 판정에 기여'},
+        ],
+        'visual': {
+            'animation_sec': 1.8,
+            'sway_px': 14,
+            'bob_px': 9,
+            'rotation_deg': 16,
+            'stride_px': 28,
+        },
+        'features': demo_features,
+    }
+    _gait_result_store[gait_result_id] = demo_gait
+    session['gait_result_id'] = gait_result_id
+
+    # ── 운동 기록 데모: 40분 (두 세션) ──
+    session['demo_exercise_logs'] = [
+        {
+            'completed_date': datetime.now().strftime('%Y-%m-%d'),
+            'duration_min': 20,
+            'exercise_name': 'C유형 맞춤 운동__1',
+            'exercise_type': 'C',
+            'score': 88,
+        },
+        {
+            'completed_date': datetime.now().strftime('%Y-%m-%d'),
+            'duration_min': 20,
+            'exercise_name': 'C유형 맞춤 운동__2',
+            'exercise_type': 'C',
+            'score': 82,
+        },
+    ]
+
+    return redirect(url_for('main_home_page'))
 
 
 def _compute_score(raw, entry, s):
