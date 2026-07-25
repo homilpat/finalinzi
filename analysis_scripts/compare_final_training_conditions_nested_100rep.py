@@ -14,8 +14,18 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    accuracy_score,
+    confusion_matrix,
+    f1_score,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+    roc_curve,
+)
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import RobustScaler
 
@@ -211,6 +221,136 @@ def make_comparison_model(name: str, seed: int) -> Pipeline:
     )
 
 
+def save_subject_consensus_plots(predictions: pd.DataFrame) -> None:
+    """Collapse repeated OOF predictions so each subject appears once."""
+    rows = []
+    metric_rows = []
+    all_roc_fig, all_roc_ax = plt.subplots(figsize=(8, 7))
+
+    for model_name, part in predictions.groupby("model", sort=True):
+        subject = (
+            part.groupby("subject_id", as_index=False)
+            .agg(
+                target=("target", "first"),
+                probability_mean=("probability", "mean"),
+                probability_median=("probability", "median"),
+                threshold_mean=("threshold", "mean"),
+                threshold_median=("threshold", "median"),
+                positive_vote_rate=("prediction", "mean"),
+                n_oof_predictions=("prediction", "size"),
+            )
+        )
+        # Each repeat used its own training-only threshold. Majority voting
+        # preserves those decisions without inventing a post-hoc threshold.
+        subject["prediction"] = (
+            subject["positive_vote_rate"] >= 0.5
+        ).astype(int)
+        subject["model"] = model_name
+        rows.append(subject)
+
+        y = subject["target"].to_numpy(int)
+        probability = subject["probability_mean"].to_numpy(float)
+        prediction = subject["prediction"].to_numpy(int)
+        tn, fp, fn, tp = confusion_matrix(
+            y, prediction, labels=[0, 1]
+        ).ravel()
+        auc = roc_auc_score(y, probability)
+        metric_rows.append(
+            {
+                "model": model_name,
+                "n_subjects": len(subject),
+                "auc_subject_mean_oof_probability": auc,
+                "sensitivity_majority_vote": recall_score(
+                    y, prediction, zero_division=0
+                ),
+                "specificity_majority_vote": (
+                    tn / (tn + fp) if tn + fp else np.nan
+                ),
+                "precision_majority_vote": precision_score(
+                    y, prediction, zero_division=0
+                ),
+                "accuracy_majority_vote": accuracy_score(y, prediction),
+                "f1_majority_vote": f1_score(
+                    y, prediction, zero_division=0
+                ),
+                "tn": tn,
+                "fp": fp,
+                "fn": fn,
+                "tp": tp,
+            }
+        )
+
+        fpr, tpr, _ = roc_curve(y, probability)
+        all_roc_ax.plot(
+            fpr, tpr, lw=1.8, label=f"{model_name} AUC={auc:.3f}"
+        )
+        roc_fig, roc_ax = plt.subplots(figsize=(6, 5))
+        roc_ax.plot(fpr, tpr, lw=2, label=f"AUC={auc:.3f}")
+        roc_ax.plot([0, 1], [0, 1], "k--", lw=1)
+        roc_ax.set_xlabel("False Positive Rate")
+        roc_ax.set_ylabel("True Positive Rate")
+        roc_ax.set_title(f"{model_name}: subject-level consensus ROC (n=71)")
+        roc_ax.grid(alpha=0.25)
+        roc_ax.legend(loc="lower right")
+        roc_fig.tight_layout()
+        roc_fig.savefig(
+            engine.ROC_DIR / f"roc_{model_name}_subject_consensus.png",
+            dpi=180,
+        )
+        plt.close(roc_fig)
+
+        matrix = np.asarray([[tn, fp], [fn, tp]])
+        cm_fig, cm_ax = plt.subplots(figsize=(4.5, 4))
+        cm_ax.imshow(matrix, cmap="Blues")
+        for row in range(2):
+            for column in range(2):
+                cm_ax.text(
+                    column,
+                    row,
+                    f"{matrix[row, column]:,}",
+                    ha="center",
+                    va="center",
+                    fontsize=12,
+                )
+        cm_ax.set_xticks([0, 1], ["Pred normal", "Pred impaired"])
+        cm_ax.set_yticks([0, 1], ["True normal", "True impaired"])
+        cm_ax.set_title(f"{model_name}: subject consensus (n=71)")
+        cm_fig.tight_layout()
+        cm_fig.savefig(
+            engine.CM_DIR
+            / f"confusion_matrix_{model_name}_subject_consensus.png",
+            dpi=180,
+        )
+        plt.close(cm_fig)
+
+    all_roc_ax.plot([0, 1], [0, 1], "k--", lw=1)
+    all_roc_ax.set_xlabel("False Positive Rate")
+    all_roc_ax.set_ylabel("True Positive Rate")
+    all_roc_ax.set_title(
+        "Subject-level mean OOF probability over 100 repeats (n=71)"
+    )
+    all_roc_ax.grid(alpha=0.25)
+    all_roc_ax.legend(loc="lower right", fontsize=8)
+    all_roc_fig.tight_layout()
+    all_roc_fig.savefig(
+        engine.ROC_DIR / "roc_all_models_subject_consensus.png", dpi=180
+    )
+    plt.close(all_roc_fig)
+
+    pd.concat(rows, ignore_index=True).to_csv(
+        OUT_DIR / "subject_consensus_predictions.csv",
+        index=False,
+        encoding="utf-8-sig",
+    )
+    pd.DataFrame(metric_rows).sort_values(
+        "auc_subject_mean_oof_probability", ascending=False
+    ).to_csv(
+        OUT_DIR / "subject_consensus_metrics.csv",
+        index=False,
+        encoding="utf-8-sig",
+    )
+
+
 def finalize() -> pd.DataFrame:
     metrics, predictions = engine.collect_results()
     if metrics.empty:
@@ -232,6 +372,7 @@ def finalize() -> pd.DataFrame:
         encoding="utf-8-sig",
     )
     engine.save_plots(predictions)
+    save_subject_consensus_plots(predictions)
     metadata = {
         "status": "experimental_comparison_deployed_model_unchanged",
         "features": FEATURES,
@@ -261,6 +402,11 @@ def finalize() -> pd.DataFrame:
             "then maximum specificity"
         ),
         "preprocessing": "fit within each training fold only",
+        "reporting_plots": (
+            "subject consensus: one row per subject; ROC uses mean OOF "
+            "probability over 100 repeats and confusion matrix uses majority "
+            "vote of training-only-threshold predictions"
+        ),
         "deployed_model_modified": False,
     }
     (OUT_DIR / "metadata.json").write_text(
