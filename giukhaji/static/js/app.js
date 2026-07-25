@@ -24,6 +24,7 @@ const App = {
   itemName:      '',
   timerStarted:  false,
   activeAudio:   null,
+  answerBuffer:  '',       // 현재 답변 턴에 누적된 음성 텍스트(침묵으로 확정하지 않음)
 
   // 다중 응답 (naming, sentence_repeat 등)
   multiStep:     0,
@@ -272,7 +273,12 @@ function onTTSComplete() {
 
   if (App.itemType === 'voice_multi' && App.multiStep === 0 && App.voiceMultiParts && App.voiceMultiParts.length > 0) {
     const au = new Audio(App.voiceMultiParts[0]);
-    au.play().catch((e) => console.error('Audio play error:', e));
+    App.activeAudio = au;
+    if (window.MicBus) MicBus.setAudioBusy(true);   // 자동 마이크가 이 음성을 주워듣지 않게 게이트
+    const done = () => { App.activeAudio = null; if (window.MicBus) MicBus.setAudioBusy(false); };
+    au.onended = done;
+    au.onerror = done;
+    au.play().catch(() => done());
   }
 
   if (App.timerStarted) {
@@ -357,6 +363,13 @@ function startTimer(seconds) {
       submitItem();
     }
   }, 1000);
+
+  // 자동 마이크: 답변 차례가 시작되면(음성 문항) 문항 음성이 끝난 뒤 자동 청취.
+  // → 노인이 마이크 버튼을 누를 필요 없이 듣고 말하기만 하면 된다. 그리기/손뼉은 제외.
+  if (!['drawing', 'clapping'].includes(App.itemType)) {
+    App.answerBuffer = '';
+    setTimeout(() => autoStartMicSafe(), 200);
+  }
 }
 
 function stopTimer() {
@@ -377,22 +390,42 @@ async function submitItem() {
     return;
   }
 
-  // naming 이나 orientation 진행 도중이고 마지막 스텝이 아닌 경우, 다음 스텝으로 진행
+  clearTimeout(App.answerIdleTimer);
+  // 현재 답변 버퍼를 확정 저장한다(음성 "다음"·버튼·타이머 어느 경로로 왔든 동일).
+  const _buf = (App.answerBuffer || '').trim();
+  if (_buf) {
+    const _k = getCurrentSTTKey();
+    App.responses[_k] = _buf;
+    App.multiAnswers[_k] = _buf;
+  }
+  App.answerBuffer = '';
+
+  // 진행 시 마이크를 잠깐 끈다: 다음 단계 질문 음성을 마이크가 주워듣지 않게.
+  // (다음 단계의 startTimer가 음성 종료 후 autoStartMicSafe로 다시 켠다.)
+  stopTestMic();
+
+  // 다중 단계 진행 도중이고 마지막 스텝이 아니면 다음 스텝으로(누적 답변을 전달).
   if (App.itemType === 'naming') {
     if (App.multiStep < (App.namingAnimals || []).length - 1) {
-      advanceMultiStep("");
+      advanceMultiStep(_buf);
       return;
     }
   }
   if (App.itemType === 'orientation') {
     if (App.multiStep < (App.orientQuestions || []).length - 1) {
-      advanceMultiStep("");
+      advanceMultiStep(_buf);
       return;
     }
   }
   if (App.itemType === 'voice_multi') {
     if (App.multiStep < (App.voiceMultiParts || []).length - 1) {
-      onVoiceMultiStep("");
+      onVoiceMultiStep(_buf);
+      return;
+    }
+  }
+  if (App.itemType === 'memory') {
+    if (App.multiStep < 1) {
+      onMemoryStep(_buf);
       return;
     }
   }
@@ -460,7 +493,41 @@ async function submitItem() {
 // ────────────────────────────────────────────
 // Web Speech API STT
 // ────────────────────────────────────────────
-function initSpeech(onResult) {
+// 진행/명령 판별 — 답변 끝에 붙는 "다음/넘어가/완료/끝" 류를 진행 명령으로 인식.
+// (검사 답변에는 거의 안 나오는 표현이라 오판 위험 낮음. 명령은 답변에서 잘라낸다.)
+const NAV_CMD_RE = /\s*(다음\s*(문제|이요|이오|으로|요)?|넘어\s*가(요|주세요)?|넘겨\s*(줘|주세요)?|다\s*했어(요)?|끝났어(요)?|완료)\s*$/;
+function extractNavCommand(txt) {
+  const m = txt.match(NAV_CMD_RE);
+  if (m) return { isNav: true, answer: txt.slice(0, m.index).trim() };
+  return { isNav: false, answer: txt };
+}
+
+// 실제 발화가 있을 때만 답변 버퍼에 누적하고 현재 문항 key에 저장한다.
+function appendTestAnswer(t) {
+  if (!t) return;
+  App.answerBuffer = (App.answerBuffer ? App.answerBuffer + ' ' : '') + t;
+  const key = getCurrentSTTKey();
+  App.responses[key] = App.answerBuffer;
+  App.multiAnswers[key] = App.answerBuffer;
+  enableSubmit();
+}
+
+function updateTranscriptDisplay(interim) {
+  const el = document.getElementById('transcriptText');
+  if (!el) return;
+  const shown = ((App.answerBuffer || '') + ' ' + (interim || '')).trim();
+  if (shown) { el.textContent = shown; el.classList.add('has-text'); }
+}
+
+// 최종 인식 조각 처리: "다음" 류면 진행, 아니면 답변으로 누적(침묵으론 아무 것도 안 함).
+function handleFinalChunk(txt) {
+  if (!txt || App.stepAdvancing) return;
+  const { isNav, answer } = extractNavCommand(txt);
+  if (answer) appendTestAnswer(answer);
+  if (isNav) submitItem();   // submitItem이 버퍼 저장 + 다음 단계/제출을 처리
+}
+
+function initSpeech() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { console.warn('SpeechRecognition 미지원'); return null; }
   const r = new SR();
@@ -469,15 +536,18 @@ function initSpeech(onResult) {
   r.interimResults = true;
 
   r.onresult = (e) => {
-    const text = Array.from(e.results).map(x => x[0].transcript).join('');
-    const el = document.getElementById('transcriptText');
-    if (el) { el.textContent = text; el.classList.add('has-text'); }
-    if (e.results[e.results.length - 1].isFinal && onResult && !App.stepAdvancing) {
-      const finalText = text.trim();
-      if (finalText) onResult(finalText);
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const res = e.results[i];
+      const txt = (res[0] && res[0].transcript) ? res[0].transcript : '';
+      if (res.isFinal) handleFinalChunk(txt.trim());
+      else interim += txt;
     }
+    updateTranscriptDisplay(interim);
+    scheduleAnswerIdle();   // 발화가 있으면 무입력 안내 타이머 리셋
   };
   r.onend = () => {
+    // 침묵으로 인식 세션이 끊겨도 사용자가 멈춘 게 아니면 계속 듣는다(고민 시간 보장).
     if (App.recording && !App.micStopRequested) {
       setTimeout(() => {
         try {
@@ -500,48 +570,85 @@ function initSpeech(onResult) {
   return r;
 }
 
-function toggleMic() {
-  if (!App.recognition) {
-    App.recognition = initSpeech((text) => {
-      const key = getCurrentSTTKey();
-      App.responses[key] = text;
-      App.multiAnswers[key] = text;
-      enableSubmit();
-
-      // 다중 단계: 자동 다음 단계
-      if (['naming', 'memory', 'voice_multi', 'orientation'].includes(App.itemType)) {
-        onStepComplete(text);
-      }
-    });
+// ── 마이크 시작/정지 (자동·수동 공용) ──
+function startTestMic() {
+  if (['drawing', 'clapping'].includes(App.itemType)) return;
+  if (!App.recognition) App.recognition = initSpeech();
+  if (!App.recognition || App.recording) return;
+  // 마이크 회수: 펭트가 쓰고 있으면 멈추고 검사 STT가 마이크를 가져간다.
+  if (window.PengteuAssistant && typeof window.PengteuAssistant.stop === 'function') {
+    window.PengteuAssistant.stop();
   }
+  MicBus.owner = 'test';
+  App.micStopRequested = false;
+  try {
+    App.recognition.start();
+  } catch (e) {
+    console.warn('STT 시작 오류:', e.message);
+    return;
+  }
+  App.recording = true;
+  const btn = document.getElementById('micBtn');
+  if (btn) btn.classList.add('recording');
+  const status = document.getElementById('micStatus');
+  if (status) status.textContent = '듣는 중...';
+  scheduleAnswerIdle();
+}
 
-  if (!App.recognition) return;
+function stopTestMic() {
+  clearTimeout(App.answerIdleTimer);
+  if (!App.recognition || !App.recording) { App.recording = false; return; }
+  App.micStopRequested = true;
+  App.recording = false;
+  try { App.recognition.stop(); } catch (e) {}
+  const btn = document.getElementById('micBtn');
+  if (btn) btn.classList.remove('recording');
+  const status = document.getElementById('micStatus');
+  if (status) status.textContent = '완료';
+}
 
-  if (App.recording) {
-    App.micStopRequested = true;
-    App.recording = false;
-    App.recognition.stop();
-    const btn = document.getElementById('micBtn');
-    if (btn) btn.classList.remove('recording');
-    const status = document.getElementById('micStatus');
-    if (status) status.textContent = '완료';
+function toggleMic() {
+  if (App.recording) stopTestMic(); else startTestMic();
+}
+
+// 문항/단계 음성이 재생 중이면 그 소리를 주워듣지 않도록, 오디오가 끝난 뒤에 마이크를 켠다.
+function autoStartMicSafe(tries) {
+  if (['drawing', 'clapping'].includes(App.itemType)) return;
+  const busy = (window.MicBus && MicBus.audioBusy) ||
+               (App.activeAudio && !App.activeAudio.paused && !App.activeAudio.ended);
+  if (busy) {
+    if ((tries || 0) < 30) setTimeout(() => autoStartMicSafe((tries || 0) + 1), 300);
+    return;
+  }
+  if (!App.recording) startTestMic();
+}
+
+// ── 무입력 안내: 오래 조용하면 펭트가 "다음이라 말하세요"를 제안(세션 전체 예산) ──
+const ANSWER_IDLE_MS = 7000;
+const MAX_ADVANCE_NUDGE = 2;   // 세션 통틀어 최대 횟수(잔소리 방지)
+function scheduleAnswerIdle() {
+  if (!App.recording) return;
+  if (['drawing', 'clapping'].includes(App.itemType)) return;
+  clearTimeout(App.answerIdleTimer);
+  App.answerIdleTimer = setTimeout(fireAdvanceNudge, ANSWER_IDLE_MS);
+}
+function fireAdvanceNudge() {
+  if (!App.recording || App.stepAdvancing) { scheduleAnswerIdle(); return; }
+  const used = parseInt(sessionStorage.getItem('pt_advNudge') || '0', 10);
+  if (used >= MAX_ADVANCE_NUDGE) return;
+  if (!(window.PengteuProactive && window.PengteuProactive.say)) return;
+  // 안내 발화를 마이크가 주워듣지 않게 STT를 잠깐 멈췄다가, 말이 끝나면 재개한다.
+  stopTestMic();
+  const said = window.PengteuProactive.say("다 말씀하셨으면 '다음'이라고 말씀해 주세요. 더 생각하셔도 괜찮아요.");
+  if (said) {
+    sessionStorage.setItem('pt_advNudge', String(used + 1));
+    const resume = () => {
+      window.removeEventListener('pengteu-speaking-end', resume);
+      startTestMic();
+    };
+    window.addEventListener('pengteu-speaking-end', resume);
   } else {
-    // 마이크 회수: 펭트가 쓰고 있으면 멈추고 검사 STT가 마이크를 가져간다.
-    if (window.PengteuAssistant && typeof window.PengteuAssistant.stop === 'function') {
-      window.PengteuAssistant.stop();
-    }
-    MicBus.owner = 'test';
-    App.micStopRequested = false;
-    try {
-      App.recognition.start();
-    } catch (e) {
-      console.warn('STT 시작 오류:', e.message);
-      return;
-    }
-    App.recording = true;
-    const btn = document.getElementById('micBtn');
-    if (btn) btn.classList.add('recording');
-    document.getElementById('micStatus').textContent = '듣는 중...';
+    startTestMic();
   }
 }
 
@@ -718,15 +825,19 @@ function onMemoryStep(text) {
       let idx = 0;
       function playNext2() {
         if (idx >= audio2.length) {
+          App.activeAudio = null;
+          if (window.MicBus) MicBus.setAudioBusy(false);
           startTimer(App.duration);
           return;
         }
         const au = new Audio(audio2[idx]);
+        App.activeAudio = au;
         au.onended = () => { idx++; playNext2(); };
         au.onerror = () => { idx++; playNext2(); };
         au.play().catch(() => { idx++; playNext2(); });
       }
       stopTimer();
+      if (window.MicBus) MicBus.setAudioBusy(true);
       playNext2();
     });
   } else {
@@ -763,17 +874,18 @@ function onVoiceMultiStep(text) {
         lbl.textContent = App.voiceMultiLabels[App.multiStep];
       }
       const au = new Audio(App.voiceMultiParts[App.multiStep]);
-      au.onended = () => {
+      App.activeAudio = au;
+      if (window.MicBus) MicBus.setAudioBusy(true);
+      const nextTurn = () => {
+        App.activeAudio = null;
+        if (window.MicBus) MicBus.setAudioBusy(false);
         startTimer(App.duration);
       };
-      au.onerror = () => {
-        startTimer(App.duration);
-      };
+      au.onended = nextTurn;
+      au.onerror = nextTurn;
       stopTimer();
       App.timerStarted = true;
-      au.play().catch(() => {
-        startTimer(App.duration);
-      });
+      au.play().catch(nextTurn);
 
       const mst = document.getElementById('micStatus');
       if (mst) mst.textContent = App.recording ? '듣는 중...' : '준비';
@@ -1576,9 +1688,68 @@ function redrawCanvas() {
     startPengteuListening();
   }
 
+  // 운동 페이지에서 "어려워/모르겠어/다시 설명" 류를 도움 요청으로 인식.
+  function isExerciseHelpIntent(message) {
+    const path = window.location.pathname || '';
+    if (!path.startsWith('/exercise')) return false;
+    const t = (message || '').replace(/\s+/g, '');
+    return ['어려', '모르겠', '못하겠', '못따라', '어떻게해', '다시설명', '다시알려',
+            '헷갈', '이해가안', '따라하기힘', '천천히설명'].some(k => t.includes(k));
+  }
+
+  // 로컬 폴백: 현재 안내 문장을 짧게 끊어 "차근차근" 다시(항상 동작, GPT 불필요).
+  function buildSimpleExerciseSteps(info) {
+    const name = (info && info.name) ? `지금은 ${info.name} 시간이에요. ` : '';
+    const cue = (info && info.cue || '').trim();
+    const prefixes = ['먼저', '그다음', '이어서', '마지막으로'];
+    let body;
+    if (cue) {
+      const parts = cue.split(/[.。!?！？]\s*/).map(s => s.trim()).filter(Boolean).slice(0, 4);
+      body = parts.length
+        ? parts.map((s, i) => `${prefixes[i] || ''} ${s}`).join('. ')
+        : cue;
+    } else {
+      body = '화면의 그림을 보고 저를 천천히 따라 해 주세요';
+    }
+    return `괜찮아요, 천천히 같이 해봐요. ${name}${body}. 급하지 않아요, 편하게 하시면 돼요. 제가 옆에서 기다릴게요.`;
+  }
+
+  // "운동 어려워" → 현재 동작을 GPT로 '다른 표현'으로 쉽게(키 있을 때), 아니면 로컬 폴백.
+  async function reexplainExercise() {
+    const info = (window.ExercisePengteuInfo && window.ExercisePengteuInfo.current)
+      ? (window.ExercisePengteuInfo.current() || {}) : {};
+    const cue = (info.cue || info.name || '').trim();
+    if (cue) {
+      try {
+        const res = await fetch('/assistant/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message:
+            `어르신이 지금 하는 운동 동작을 어려워하세요. 아래 안내를 더 짧고 쉬운 다른 표현으로, ` +
+            `한 동작씩 차근차근 2~4문장으로 다시 설명해 주세요. 새로운 동작을 지어내지 말고 ` +
+            `같은 동작만 쉽게 풀어 주세요: "${cue}"` }),
+        });
+        const data = await res.json();
+        if (data && data.ok && data.reply_source === 'openai_fallback' && data.reply) {
+          appendMessage('assistant', data.reply);
+          speak(data.reply);
+          return;
+        }
+      } catch (e) { /* 로컬 폴백으로 진행 */ }
+    }
+    const local = buildSimpleExerciseSteps(info);
+    appendMessage('assistant', local);
+    speak(local);
+  }
+
   async function askPengteu(message) {
     openPanel();
     appendMessage('user', message);
+    // 운동 중 "어려워/다시 설명" → 현재 동작을 쉽게 다시 설명(로컬 명령·GPT보다 우선).
+    if (isExerciseHelpIntent(message)) {
+      await reexplainExercise();
+      return;
+    }
     const command = getPengteuCommand(message);
     if (command) {
       await persistProfile(command.profile);
@@ -1678,9 +1849,8 @@ function redrawCanvas() {
   const pengteuPath = window.location.pathname || '';
   const isTestPage = pengteuPath.startsWith('/item');
   const IDLE_MS = 10000;
-  const MAX_IDLE_PROMPTS = 2;
+  const MAX_IDLE_PROMPTS = 2;   // 세션 전체 상한(페이지마다 리셋되지 않음)
   let idleTimer = null;
-  let idlePromptCount = 0;
   let sttFailStreak = 0;
 
   function proactiveSay(text) {
@@ -1693,10 +1863,12 @@ function redrawCanvas() {
   }
 
   function fireIdlePrompt() {
-    if (idlePromptCount >= MAX_IDLE_PROMPTS) return;
+    const used = parseInt(sessionStorage.getItem('pt_idlePrompt') || '0', 10);
+    if (used >= MAX_IDLE_PROMPTS) return;                       // 세션 전체 예산 소진
     if (pengteuSpeaking || pengteuListening) { scheduleIdle(); return; }
+    if (window.App && App.recording) { scheduleIdle(); return; } // 녹음 중이면 advance-nudge가 담당
     const said = proactiveSay('많이 어려우신가요? 원하시면 "글씨 키워줘"라고 말씀해 주세요. 제가 글씨를 키우거나 천천히 안내해 드릴게요.');
-    if (said) idlePromptCount += 1;
+    if (said) sessionStorage.setItem('pt_idlePrompt', String(used + 1));
     scheduleIdle();
   }
 
@@ -1715,7 +1887,8 @@ function redrawCanvas() {
     }
   }
   function registerSttSuccess() { sttFailStreak = 0; }
-  window.PengteuProactive = { registerSttFailure, registerSttSuccess };
+  // say: 검사 화면의 무입력 안내(advance-nudge)가 펭트 목소리로 말할 수 있게 노출.
+  window.PengteuProactive = { registerSttFailure, registerSttSuccess, say: proactiveSay };
 
   if (isTestPage) {
     ['pointerdown', 'keydown', 'touchstart', 'input', 'wheel'].forEach((ev) => {
