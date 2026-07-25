@@ -1226,7 +1226,6 @@ function redrawCanvas() {
       next.high_contrast = 0;
       return { profile: next, reply: '네, 글씨 크기와 화면 색상을 원래 기본 설정대로 돌려놓았어요.' };
     }
-
     // 글씨 키우기 — 잘 안 보임 / 눈이 침침 / 흐릿 등 자연어 포함
     if (text.includes('잘안보') || text.includes('안보여') || text.includes('안보임') || text.includes('글씨키')
         || text.includes('크게보') || text.includes('화면키') || text.includes('침침') || text.includes('흐려')
@@ -1508,7 +1507,27 @@ function redrawCanvas() {
   }
 
   function initWakeListener() {
-    // 네이티브 STT 브릿지 환경에서는 웹 연속인식을 쓰지 않는다(네이티브 엔진이 담당).
+    // 네이티브 앱(WebView): Web Speech가 없으므로 네이티브 always-on 엔진을 구동한다.
+    // 마이크 경합(문항TTS·검사STT·펭트 대화)엔 웹의 wakeShouldPause 로직이 큰 스위치를 껐다 켠다.
+    if (window.AndroidBridge && typeof window.AndroidBridge.startWakeWord === 'function') {
+      let nativeWakeOn = false;
+      const syncNativeWake = () => {
+        const shouldRun = !wakeShouldPause();
+        if (shouldRun && !nativeWakeOn) {
+          nativeWakeOn = true;
+          try { window.AndroidBridge.startWakeWord(); } catch (e) {}
+        } else if (!shouldRun && nativeWakeOn) {
+          nativeWakeOn = false;
+          try { window.AndroidBridge.stopWakeWord(); } catch (e) {}
+        }
+      };
+      window.addEventListener('pengteu-speaking-end', () => setTimeout(syncNativeWake, 300));
+      document.addEventListener('visibilitychange', syncNativeWake);
+      setInterval(syncNativeWake, 3000);
+      syncNativeWake();
+      return;
+    }
+    // 네이티브 STT만 있고 웨이크 엔진이 없는 구버전 브릿지: 웹 연속인식도 끈다.
     if (window.AndroidBridge && typeof window.AndroidBridge.startPengteuStt === 'function') return;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
