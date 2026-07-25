@@ -133,31 +133,32 @@
     </section>
 
     <section class="mode-panel" id="modePanel" aria-label="평가 메뉴" style="margin-top: 24px;">
-      <button class="mode-card mode-card-primary" type="button" id="cognitiveModeBtn">
+      <button class="mode-card mode-card-primary" type="button" id="gaitModeBtn">
         <span class="mode-icon" aria-hidden="true">
           <svg viewBox="0 0 48 48" fill="none">
-            <rect x="8" y="8" width="32" height="32" rx="12" fill="rgba(255,255,255,0.22)"/>
-            <path d="M16 25h5l3-8 5 15 3-7h5" stroke="white" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="24" cy="14" r="6" fill="rgba(255,255,255,0.94)"/>
+            <path d="M17 24h14l5 15h-6l-3-9h-6l-3 9h-6l5-15z" fill="rgba(255,255,255,0.94)"/>
           </svg>
         </span>
         <span>
-          <strong style="font-size: 22px;">인지기능검사</strong>
+          <strong style="font-size: 22px;">신체기능검사</strong>
         </span>
         <span class="mode-arrow" style="font-size: 22px; font-weight: 900; background: #005da7; color: #ffffff; padding: 10px 22px; border-radius: 14px;">시작</span>
       </button>
 
       <div class="mode-grid">
-        <button class="mode-card mode-card-secondary" type="button" id="gaitModeBtn">
+        <button class="mode-card mode-card-secondary{% if cognitive_locked %} is-locked{% endif %}" type="button" id="cognitiveModeBtn"{% if cognitive_locked %} data-locked="1" aria-disabled="true"{% endif %}>
           <span class="mode-icon" aria-hidden="true">
             <svg viewBox="0 0 48 48" fill="none">
-              <circle cx="24" cy="14" r="6" fill="rgba(255,255,255,0.94)"/>
-              <path d="M17 24h14l5 15h-6l-3-9h-6l-3 9h-6l5-15z" fill="rgba(255,255,255,0.94)"/>
+              <rect x="8" y="8" width="32" height="32" rx="12" fill="rgba(255,255,255,0.22)"/>
+              <path d="M16 25h5l3-8 5 15 3-7h5" stroke="white" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </span>
           <span>
-            <strong style="font-size: 20px;">신체기능검사</strong>
+            <strong style="font-size: 20px;">인지기능검사</strong>
+            {% if cognitive_locked %}<small style="display:block; font-size:12px; font-weight:700; margin-top:3px; opacity:0.85;">최근 검사 완료 · {{ cognitive_unlock_date }}부터 가능</small>{% endif %}
           </span>
-          <span class="mode-arrow" style="font-size: 22px; font-weight: 900; background: #005da7; color: #ffffff; padding: 10px 22px; border-radius: 14px;">시작</span>
+          <span class="mode-arrow" style="font-size: 22px; font-weight: 900; background: {% if cognitive_locked %}#94a3b8{% else %}#005da7{% endif %}; color: #ffffff; padding: 10px 22px; border-radius: 14px;">{% if cognitive_locked %}완료{% else %}시작{% endif %}</span>
         </button>
 
         <a class="mode-card mode-card-secondary mode-card-link" href="/physical/guide">
@@ -315,11 +316,20 @@
   const guardianModeBtn = document.getElementById('guardianModeBtn');
   const formBackBtn = document.getElementById('formBackBtn');
 
+  // 펭트는 노인(홈 본문)·보호자 화면에서만 보이게 한다.
+  // 스플래시·"어떤 분이신가요?" 선택 화면(나뉘는 부분)에서는 숨긴다.
+  function setPengteuVisible(show) {
+    const pw = document.getElementById('pengteuWidget');
+    if (pw) pw.style.display = show ? '' : 'none';
+  }
+  setPengteuVisible(false);   // 초기 화면은 스플래시 → 숨김
+
   function showSplash() {
     splashScreen.hidden = false;
     userSelectScreen.hidden = true;
     homeMain.hidden = true;
     memberForm.hidden = true;
+    setPengteuVisible(false);
     splashScreen.scrollIntoView({block: 'start'});
   }
 
@@ -328,6 +338,7 @@
     userSelectScreen.hidden = false;
     homeMain.hidden = true;
     memberForm.hidden = true;
+    setPengteuVisible(false);
     userSelectScreen.scrollIntoView({block: 'start'});
   }
 
@@ -337,6 +348,7 @@
     homeMain.hidden = false;
     modePanel.hidden = false;
     memberForm.hidden = true;
+    setPengteuVisible(true);
     homeMain.scrollIntoView({block: 'start'});
   }
 
@@ -346,6 +358,7 @@
     homeMain.hidden = true;
     modePanel.hidden = true;
     memberForm.hidden = false;
+    setPengteuVisible(true);
     memberForm.scrollIntoView({block: 'start'});
   }
 
@@ -355,6 +368,7 @@
     homeMain.hidden = false;
     memberForm.hidden = true;
     modePanel.hidden = false;
+    setPengteuVisible(true);
     modePanel.scrollIntoView({block: 'start'});
   }
 
@@ -372,6 +386,10 @@
   });
   homeMainBackBtn.addEventListener('click', showUserSelect);
   cognitiveModeBtn.addEventListener('click', () => {
+    if (cognitiveModeBtn.dataset.locked === '1') {
+      alert('최근 6개월 이내에 인지검사를 완료하셨어요.\n{{ cognitive_unlock_date }}부터 다시 하실 수 있어요.');
+      return;
+    }
     if (profileReady) {
       window.location.href = '/start_saved';
       return;

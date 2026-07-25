@@ -1797,9 +1797,59 @@ function redrawCanvas() {
   }
 
   toggle.addEventListener('click', () => {
+    if (widget.dataset.dragging === 'moved') { widget.dataset.dragging = ''; return; } // 방금 드래그면 패널 안 엶
     if (panel.hidden) openPanel();
     else closePanel();
   });
+
+  // 펭트 버튼 자유 이동(드래그) + 위치 기억 — 겹치면 원하는 곳으로 옮길 수 있게.
+  (function initPengteuDrag() {
+    const POS_KEY = 'pengteuFabPos';
+    toggle.style.touchAction = 'none';   // 드래그 중 화면 스크롤 방지
+    function applyPos(left, top) {
+      const w = widget.offsetWidth, h = widget.offsetHeight;
+      left = Math.max(6, Math.min(left, window.innerWidth - w - 6));
+      top  = Math.max(6, Math.min(top,  window.innerHeight - h - 6));
+      widget.style.left = left + 'px';
+      widget.style.top = top + 'px';
+      widget.style.right = 'auto';
+      widget.style.bottom = 'auto';
+    }
+    try {
+      const saved = JSON.parse(localStorage.getItem(POS_KEY) || 'null');
+      if (saved && typeof saved.left === 'number') requestAnimationFrame(() => applyPos(saved.left, saved.top));
+    } catch (e) {}
+
+    let startX = 0, startY = 0, baseL = 0, baseT = 0, moved = false, dragging = false;
+    const THRESH = 6;
+    function onMove(e) {
+      if (!dragging) return;
+      const dx = e.clientX - startX, dy = e.clientY - startY;
+      if (!moved && Math.hypot(dx, dy) < THRESH) return;
+      moved = true;
+      widget.dataset.dragging = 'moved';
+      e.preventDefault();
+      applyPos(baseL + dx, baseT + dy);
+    }
+    function onUp() {
+      dragging = false;
+      window.removeEventListener('pointermove', onMove);
+      if (moved) {
+        const r = widget.getBoundingClientRect();
+        try { localStorage.setItem(POS_KEY, JSON.stringify({ left: r.left, top: r.top })); } catch (e) {}
+      }
+    }
+    toggle.addEventListener('pointerdown', (e) => {
+      const r = widget.getBoundingClientRect();
+      startX = e.clientX; startY = e.clientY; baseL = r.left; baseT = r.top;
+      moved = false; dragging = true; widget.dataset.dragging = '';
+      window.addEventListener('pointermove', onMove, { passive: false });
+      window.addEventListener('pointerup', onUp, { once: true });
+    });
+    window.addEventListener('resize', () => {
+      if (widget.style.left) { const r = widget.getBoundingClientRect(); applyPos(r.left, r.top); }
+    });
+  })();
   closeBtn.addEventListener('click', closePanel);
   form.addEventListener('submit', (event) => {
     event.preventDefault();
