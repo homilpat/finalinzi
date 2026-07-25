@@ -25,16 +25,17 @@
     </section>
 
     <section class="today-exercise-card">
-      <div class="today-visual" aria-hidden="true">
-        <div class="room-window"></div>
-        <div class="walker-figure">
-          <span class="walker-head"></span>
-          <span class="walker-body"></span>
-          <span class="walker-arm left"></span>
-          <span class="walker-arm right"></span>
-          <span class="walker-leg left"></span>
-          <span class="walker-leg right"></span>
-        </div>
+      <div class="today-visual" style="background: #000000 !important; display: flex; align-items: center; justify-content: center;" aria-label="운동 안내 동영상">
+        {% if 'A' in exercise.today.type %}
+          {% set video_src = '/static/video/marching_in_place.mp4' %}
+        {% elif 'B' in exercise.today.type %}
+          {% set video_src = '/static/video/side_step2.mp4' %}
+        {% elif 'C' in exercise.today.type %}
+          {% set video_src = '/static/video/knee_extension_2.mp4' %}
+        {% else %}
+          {% set video_src = '/static/video/leg_spreads_chair.mp4' %}
+        {% endif %}
+        <video src="{{ video_src }}" controls autoplay loop playsinline style="width: 100%; height: 100%; object-fit: contain; background: #000000; border-radius: 10px;"></video>
       </div>
       <!-- <h2>{{ exercise.today.exercise_name }}</h2> -->
       <p style="color: #000000; font-size: 26px; font-weight: 800; margin: 15px 0 5px;">{{ exercise.today.sets }} · {{ exercise.today.set_duration }}</p>
