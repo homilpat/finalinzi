@@ -1052,6 +1052,23 @@ def home():
             return redirect(url_for('main_home_page'))
     is_new = bool(request.args.get('registered')) or session.get('is_new_member', False)
     template = 'home_new.html' if is_new else 'home.html'
+    # 최근 6개월 이내에 인지검사를 완료했으면 재시작을 막는다(학습효과·재검주기 고려).
+    cognitive_locked = False
+    cognitive_last_date = ''
+    cognitive_unlock_date = ''
+    member_id = session.get('member_id')
+    if member_id:
+        latest = get_latest_assessment(member_id)
+        done_raw = (latest or {}).get('completed_at')
+        if done_raw:
+            try:
+                done = datetime.fromisoformat(done_raw)
+                if (datetime.now() - done).days < 180:
+                    cognitive_locked = True
+                    cognitive_last_date = done.strftime('%Y년 %m월 %d일')
+                    cognitive_unlock_date = (done + timedelta(days=180)).strftime('%Y년 %m월 %d일')
+            except (ValueError, TypeError):
+                pass
     return render_template(
         template,
         education_levels=EDUCATION_LEVELS,
@@ -1059,6 +1076,9 @@ def home():
         assessment_phase=request.args.get('phase', ''),
         profile_ready=bool(session.get('member_id') and get_member(session.get('member_id'))),
         registered=request.args.get('registered', ''),
+        cognitive_locked=cognitive_locked,
+        cognitive_last_date=cognitive_last_date,
+        cognitive_unlock_date=cognitive_unlock_date,
     )
 
 
@@ -1522,6 +1542,16 @@ def start_saved():
     education_level = session.get('education_level', 'high')
     if not member_id or not member_code or edu is None:
         return redirect(url_for('home', error='기본정보를 먼저 입력해 주세요.'))
+
+    # 6개월 이내 인지검사 완료 시 서버에서도 재시작을 막는다(직접 URL 우회 방지).
+    latest = get_latest_assessment(member_id)
+    done_raw = (latest or {}).get('completed_at')
+    if done_raw:
+        try:
+            if (datetime.now() - datetime.fromisoformat(done_raw)).days < 180:
+                return redirect(url_for('home', select='1'))
+        except (ValueError, TypeError):
+            pass
 
     return _start_assessment(
         member_id,

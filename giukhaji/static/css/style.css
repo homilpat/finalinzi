@@ -2188,6 +2188,25 @@ body {
   z-index: 1200;
   font-size: calc(16px * var(--pengteu-text-scale, 1));
 }
+/* 하단 고정 액션바가 있는 화면(검사문항·보행·운동·신체측정)에서는
+   펭트 버튼이 그 버튼들을 가리지 않도록 위로 띄운다. */
+body:has(.submit-area) .pengteu-widget,
+body:has(#gaitMeasureBtn) .pengteu-widget,
+body:has(.exercise-fixed-cta) .pengteu-widget,
+body:has(.physical-measure-cta) .pengteu-widget {
+  bottom: 176px;
+}
+/* 노인 홈: 카드의 오른쪽 '시작' 버튼을 가리지 않도록 펭트 기본 위치를 왼쪽으로. */
+body:has(.vital-hero) .pengteu-widget {
+  left: max(14px, calc((100vw - 480px) / 2 + 14px));
+  right: auto;
+}
+/* 6개월 이내 인지검사 완료 → 인지검사 카드 회색 비활성 표시 */
+.mode-card.is-locked {
+  filter: grayscale(0.9);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 .pengteu-fab {
   min-width: 98px;
   min-height: 58px;
