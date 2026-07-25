@@ -890,20 +890,24 @@ function startClappingSequence() {
     au.play().catch(() => {});
   }
 
-  // 시각 시퀀스 (1.5초 간격)
+  // 시각 시퀀스 (동적 매칭 속도 + 초기 싱크 딜레이)
   const letter = document.getElementById('clapLetter');
+  const isMocaK = cfg.version === 'MoCA-K';
+  const interval = isMocaK ? 930 : 970;
+  const startDelay = interval; // 음성 파일 시작부의 묵음 및 첫 음절 발음 시점을 맞추기 위해 1개 간격(약 1초) 딜레이 적용
+
   sequence.forEach((ch, i) => {
     setTimeout(() => {
       App.clapCurrentIdx = i;
       if (letter) letter.textContent = ch;
-    }, i * 1500);
+    }, startDelay + (i * interval));
   });
 
   // 시퀀스 종료 후 탭 종료
   setTimeout(() => {
     App.clapCurrentIdx = -1;
     enableSubmit();
-  }, sequence.length * 1500 + 1000);
+  }, startDelay + (sequence.length * interval) + 1000);
 }
 
 // ────────────────────────────────────────────
@@ -1215,6 +1219,13 @@ function redrawCanvas() {
     const text = (message || '').replace(/\s+/g, '').toLowerCase();
     if (!text) return null;
     const next = { ...profile };
+
+    // 원래대로 복구 (글씨 크기 1.0, 고대비 해제)
+    if (text.includes('원래대로') || text.includes('원상복구') || text.includes('정상으로') || text.includes('돌려놔') || text.includes('돌려줘') || text.includes('고대비해제') || text.includes('고대비꺼') || text.includes('대비꺼') || text.includes('글씨원래') || text.includes('초기화')) {
+      next.text_scale = 1.0;
+      next.high_contrast = 0;
+      return { profile: next, reply: '네, 글씨 크기와 화면 색상을 원래 기본 설정대로 돌려놓았어요.' };
+    }
 
     // 글씨 키우기 — 잘 안 보임 / 눈이 침침 / 흐릿 등 자연어 포함
     if (text.includes('잘안보') || text.includes('안보여') || text.includes('안보임') || text.includes('글씨키')

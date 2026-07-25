@@ -235,15 +235,19 @@
       <section class="final-panel" id="cognitivePanel" {% if panel == 'gait' %}hidden{% endif %}>
         {% if cognitive %}
           {% set score = cognitive.score %}
-          <div class="final-score-card {% if score.mci.label == 0 %}is-normal{% else %}is-risk{% endif %}">
-            <span>{{ cognitive.version }}</span>
-            <strong>{{ score.final_score }}<small>/30</small></strong>
-            <em>{{ score.mci.interpretation }}</em>
+          <div class="final-score-card {% if score.mci.label == 0 %}is-normal{% else %}is-risk{% endif %}" style="padding: 24px 20px;">
+            <strong style="font-size: 20px; line-height: 1.4; display: block; word-break: keep-all; font-weight: 800;">
+              {% if score.mci.label == 0 %}
+                인지기능 상태가 양호합니다.
+              {% else %}
+                경도인지장애 가능성이 관찰되었습니다.
+              {% endif %}
+            </strong>
           </div>
 
           {% set drawing_val = score.sections.get('trail_making', 0) + score.sections.get('drawing', 0) %}
           {% set transformed_sections = [
-            ('시공간/실행', drawing_val, 5),
+            ('시공간/실행력', drawing_val, 5),
             ('어휘력', score.sections.get('naming', 0), 3),
             ('기억력', score.sections.get('memory', 0), 5),
             ('주의력', score.sections.get('attention', 0), 6),
@@ -311,10 +315,14 @@
 
       <section class="final-panel" id="gaitPanel" {% if panel != 'gait' %}hidden{% endif %}>
         {% if gait %}
-          <div class="final-score-card {% if gait.prediction %}is-risk{% else %}is-normal{% endif %}">
-            <span>보행 모델</span>
-            <strong>{{ '%.1f'|format(gait.probability * 100) }}<small>%</small></strong>
-            <em>{{ gait.label }}</em>
+          <div class="final-score-card {% if gait.prediction %}is-risk{% else %}is-normal{% endif %}" style="padding: 24px 20px;">
+            <strong style="font-size: 20px; line-height: 1.4; display: block; word-break: keep-all; font-weight: 800;">
+              {% if gait.prediction %}
+                보행기능 저하 가능성이 관찰되었습니다.
+              {% else %}
+                보행기능이 안정적입니다.
+              {% endif %}
+            </strong>
           </div>
 
           <!-- 아바타 보행 스테이지 & 결과 카드 (gait_avatar.html 동일 화면) -->
@@ -322,7 +330,7 @@
             <div class="avatar-stage-wrap">
               <div class="walk-stage avatar-full-stage treadmill-stage"
                    aria-label="보행 아바타"
-                   style="--walk-speed: {{ gait.visual.animation_sec|default(1.0) }}s; --sway: {{ gait.visual.sway_px|default(8) }}px; --bob: {{ gait.visual.bob_px|default(6) }}px; --trunk-rot: {{ gait.visual.rotation_deg|default(10) }}deg; --stride: {{ gait.visual.stride_px|default(36) }}px;">
+                   style="--walk-speed: {{ (gait.visual.animation_sec if (gait.visual and gait.visual.animation_sec is defined) else 1.0) }}s; --sway: {{ (gait.visual.sway_px if (gait.visual and gait.visual.sway_px is defined) else 8) }}px; --bob: {{ (gait.visual.bob_px if (gait.visual and gait.visual.bob_px is defined) else 6) }}px; --trunk-rot: {{ (gait.visual.rotation_deg if (gait.visual and gait.visual.rotation_deg is defined) else 10) }}deg; --stride: {{ (gait.visual.stride_px if (gait.visual and gait.visual.stride_px is defined) else 36) }}px;">
                 <div class="walk-grid"></div>
                 <div class="motion-road">
                   {% for i in range(9) %}<span></span>{% endfor %}
@@ -416,7 +424,7 @@
                   </g>
                 </svg>
                 <div class="motion-label label-user">나의 보행</div>
-                <div class="motion-label label-ref">표준 보행</div>
+                <div class="motion-label label-ref">일반 보행</div>
               </div>
             </div>
 
@@ -559,6 +567,13 @@
           <div class="final-empty" style="text-align: center; padding: 30px; color: #a0aec0;">아직 신체평가 결과가 없습니다.</div>
         {% endif %}
       </section>
+    </div>
+
+    <!-- Disclaimer -->
+    <div style="padding: 0 20px; text-align: center; margin-top: 20px; margin-bottom: 10px;">
+      <p style="font-size: 11px; color: #a0aec0; line-height: 1.5; margin: 0; word-break: keep-all;">
+        본 결과는 보행 및 인지 검사를 기반으로 AI가 분석한 결과입니다. 의료적 진단을 대신하지 않으며, 필요한 경우 의료 전문가와 상담하시기 바랍니다.
+      </p>
     </div>
 
     <!-- Spacer to prevent bottom nav from covering content -->

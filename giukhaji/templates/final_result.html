@@ -78,32 +78,29 @@
     width: 100%;
     min-height: 140px;
     border: 3.5px solid #005da7;
-    background-color: #f0f7ff;
-    box-shadow: 0 10px 20px rgba(0, 93, 167, 0.12);
+    background-color: #005da7;
+    box-shadow: 0 10px 20px rgba(0, 93, 167, 0.2);
     padding: 24px 16px;
     opacity: 1;
     justify-self: stretch;
     align-self: stretch;
   }
   .quadrant-card.active .type-name {
-    color: #005da7;
+    color: #ffffff;
     font-size: 28px;
     font-weight: 900;
   }
   .quadrant-card.active .type-label {
-    color: #005da7;
-    font-size: 18px;
-    font-weight: 800;
+    color: #ffffff;
+    font-size: 32px;
+    font-weight: 900;
     margin-top: 6px;
     text-align: center;
+    white-space: nowrap;
+    letter-spacing: -1px;
   }
   .quadrant-card.active .type-desc {
-    color: #005da7;
-    font-size: 14px;
-    font-weight: 600;
-    display: block;
-    margin-top: 4px;
-    opacity: 0.85;
+    display: none;
   }
 
   /* Summary Box */
@@ -242,22 +239,22 @@
     <!-- A 유형 -->
     <div class="quadrant-card {% if care_type.code == 'A' %}active{% endif %}">
       <span class="type-name">A 유형</span>
-      <span class="type-label">유지형<br><small class="type-desc">(신체 양호 · 인지 양호)</small></span>
+      <span class="type-label">유지형</span>
     </div>
     <!-- B 유형 -->
     <div class="quadrant-card {% if care_type.code == 'B' %}active{% endif %}">
       <span class="type-name">B 유형</span>
-      <span class="type-label">인지강화형<br><small class="type-desc">(신체 저하 · 인지 양호)</small></span>
+      <span class="type-label">인지강화형</span>
     </div>
     <!-- C 유형 -->
     <div class="quadrant-card {% if care_type.code == 'C' %}active{% endif %}">
       <span class="type-name">C 유형</span>
-      <span class="type-label">신체강화형<br><small class="type-desc">(신체 양호 · 인지 저하)</small></span>
+      <span class="type-label">신체강화형</span>
     </div>
     <!-- D 유형 -->
     <div class="quadrant-card {% if care_type.code == 'D' %}active{% endif %}">
       <span class="type-name">D 유형</span>
-      <span class="type-label">통합강화형<br><small class="type-desc">(신체 저하 · 인지 저하)</small></span>
+      <span class="type-label">통합강화형</span>
     </div>
   </div>
 

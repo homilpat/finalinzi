@@ -218,14 +218,15 @@ class MoCASession:
     # ────────────────────────────────────────
     # 세션 상태 요약
     # ────────────────────────────────────────
-    def get_status(self) -> dict:
-        return {
-            "user_id":      self.user_id,
-            "version":      self.version,
-            "state":        self.state.value,
-            "current_item": self.current_item,
-            "progress":     f"{self.item_index}/{len(ITEM_SEQUENCE)}",
-        }
+    def jump_to_item(self, item_name):
+        if item_name in ITEM_SEQUENCE:
+            self.item_index = ITEM_SEQUENCE.index(item_name)
+            self.current_item = item_name
+            if item_name == 'delayed_recall':
+                self.state = SessionState.DELAYED_RECALL
+            else:
+                self.state = SessionState.IN_PROGRESS
+
 
 
 # ────────────────────────────────────────────

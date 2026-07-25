@@ -90,7 +90,12 @@ def score_serial_7(stt_text: str) -> int:
     연속 오류 허용: 92→85→78→71→64 (4개 정답 → 3점)
     0개: 0점 / 1개: 1점 / 2~3개: 2점 / 4~5개: 3점
     """
-    numbers = extract_numbers(stt_text)
+    # 100과 93이 붙어 '193' 또는 '백구십삼'으로 오인식된 경우 분리
+    text_clean = stt_text
+    text_clean = re.sub(r'\b193\b', '100 93', text_clean)
+    text_clean = text_clean.replace('백구십삼', '백 구십삼')
+
+    numbers = extract_numbers(text_clean)
     if not numbers:
         return 0
 

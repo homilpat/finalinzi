@@ -217,6 +217,40 @@
 
 </div><!-- /item-screen -->
 
+  {# === DEVELOPER JUMP MENU (EASY TO REMOVE) === #}
+  {% if item.item == 'trail_making' %}
+  <div style="margin-top: 30px; text-align: center; border-top: 1px dashed #cbd5e1; padding-top: 20px;">
+    <button type="button" class="btn btn-secondary" onclick="document.getElementById('devJumpModal').style.display='flex'" style="background: #e2e8f0; color: #475569; border: 1.5px solid #cbd5e1; font-weight: bold; padding: 8px 16px; border-radius: 8px;">
+      🛠️ 개발자 문항 건너뛰기 메뉴
+    </button>
+  </div>
+
+  <!-- Developer Modal -->
+  <div id="devJumpModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box;">
+    <div style="background: white; border-radius: 20px; width: 100%; max-width: 400px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); box-sizing: border-box; display: flex; flex-direction: column; gap: 16px;">
+      <h3 style="margin: 0; font-size: 20px; font-weight: 800; color: #1e293b; text-align: center;">문항 건너뛰기 (개발자용)</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; max-height: 300px; overflow-y: auto; padding-right: 4px;">
+        <button type="button" class="btn btn-secondary" onclick="location.href='/item?jump=trail_making'" style="font-size: 13px; padding: 8px; background: #e2e8f0; border: 1px solid #cbd5e1; color: #334155; border-radius: 6px;">1. 길만들기</button>
+        <button type="button" class="btn btn-secondary" onclick="location.href='/item?jump=cube'" style="font-size: 13px; padding: 8px; background: #e2e8f0; border: 1px solid #cbd5e1; color: #334155; border-radius: 6px;">2. 육면체</button>
+        <button type="button" class="btn btn-secondary" onclick="location.href='/item?jump=clock'" style="font-size: 13px; padding: 8px; background: #e2e8f0; border: 1px solid #cbd5e1; color: #334155; border-radius: 6px;">3. 시계그리기</button>
+        <button type="button" class="btn btn-secondary" onclick="location.href='/item?jump=naming'" style="font-size: 13px; padding: 8px; background: #e2e8f0; border: 1px solid #cbd5e1; color: #334155; border-radius: 6px;">4. 어휘력</button>
+        <button type="button" class="btn btn-secondary" onclick="location.href='/item?jump=memory_immediate'" style="font-size: 13px; padding: 8px; background: #e2e8f0; border: 1px solid #cbd5e1; color: #334155; border-radius: 6px;">5. 즉각회상</button>
+        <button type="button" class="btn btn-secondary" onclick="location.href='/item?jump=forward_digits'" style="font-size: 13px; padding: 8px; background: #e2e8f0; border: 1px solid #cbd5e1; color: #334155; border-radius: 6px;">6. 숫자 바로</button>
+        <button type="button" class="btn btn-secondary" onclick="location.href='/item?jump=backward_digits'" style="font-size: 13px; padding: 8px; background: #e2e8f0; border: 1px solid #cbd5e1; color: #334155; border-radius: 6px;">7. 숫자 거꾸로</button>
+        <button type="button" class="btn btn-secondary" onclick="location.href='/item?jump=clapping'" style="font-size: 13px; padding: 8px; background: #e2e8f0; border: 1px solid #cbd5e1; color: #334155; border-radius: 6px;">8. 손뼉치기</button>
+        <button type="button" class="btn btn-secondary" onclick="location.href='/item?jump=serial_7'" style="font-size: 13px; padding: 8px; background: #e2e8f0; border: 1px solid #cbd5e1; color: #334155; border-radius: 6px;">9. 100-7 계산</button>
+        <button type="button" class="btn btn-secondary" onclick="location.href='/item?jump=sentence_repeat'" style="font-size: 13px; padding: 8px; background: #e2e8f0; border: 1px solid #cbd5e1; color: #334155; border-radius: 6px;">10. 따라말하기</button>
+        <button type="button" class="btn btn-secondary" onclick="location.href='/item?jump=verbal_fluency'" style="font-size: 13px; padding: 8px; background: #e2e8f0; border: 1px solid #cbd5e1; color: #334155; border-radius: 6px;">11. 단어유창성</button>
+        <button type="button" class="btn btn-secondary" onclick="location.href='/item?jump=abstraction'" style="font-size: 13px; padding: 8px; background: #e2e8f0; border: 1px solid #cbd5e1; color: #334155; border-radius: 6px;">12. 추상력</button>
+        <button type="button" class="btn btn-secondary" onclick="location.href='/item?jump=delayed_recall'" style="font-size: 13px; padding: 8px; background: #e2e8f0; border: 1px solid #cbd5e1; color: #334155; border-radius: 6px;">13. 지연회상</button>
+        <button type="button" class="btn btn-secondary" onclick="location.href='/item?jump=orientation'" style="font-size: 13px; padding: 8px; background: #e2e8f0; border: 1px solid #cbd5e1; color: #334155; border-radius: 6px;">14. 지남력</button>
+      </div>
+      <button type="button" class="btn btn-primary" onclick="document.getElementById('devJumpModal').style.display='none'" style="width: 100%; padding: 12px; border-radius: 10px; background: #64748b; border: none; font-weight: 800; color: white;">닫기</button>
+    </div>
+  </div>
+  {% endif %}
+  {# ============================================ #}
+
 <!-- 숨겨진 응답 저장 -->
 <input type="hidden" id="responseData" value="{}">
 {% endblock %}

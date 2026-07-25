@@ -1028,7 +1028,8 @@ def _tts_urls(item_name, version):
 @app.route('/')
 def home():
     if request.args.get('registered') == '1' and not request.args.get('select'):
-        return redirect(url_for('main_home_page'))
+        if not session.get('is_new_member', False):
+            return redirect(url_for('main_home_page'))
     is_new = bool(request.args.get('registered')) or session.get('is_new_member', False)
     template = 'home_new.html' if is_new else 'home.html'
     return render_template(
@@ -1036,7 +1037,7 @@ def home():
         education_levels=EDUCATION_LEVELS,
         error=request.args.get('error', ''),
         assessment_phase=request.args.get('phase', ''),
-        profile_ready=bool(session.get('member_id')),
+        profile_ready=bool(session.get('member_id') and get_member(session.get('member_id'))),
         registered=request.args.get('registered', ''),
     )
 
@@ -1446,7 +1447,7 @@ def save_profile():
     session['sigungu'] = sgg
     session['is_new_member'] = is_new
 
-    return redirect(url_for('home', registered='1', select='1'))
+    return redirect(url_for('home', registered='1'))
 
 
 @app.route('/start_saved')
@@ -1505,6 +1506,10 @@ def item_page():
         return redirect(url_for('home'))
 
     s    = _store[uid]['sess']
+    jump = request.args.get('jump')
+    if jump:
+        s.jump_to_item(jump)
+        return redirect(url_for('item_page'))
     info = s._get_current_item_info()
     item = info['item']
     ver  = s.version
