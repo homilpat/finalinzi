@@ -30,7 +30,10 @@
   <section class="h-[280px] w-full illustration-bg rounded-b-[40px] flex flex-col items-center relative overflow-hidden shrink-0">
     <!-- Brand Header -->
     <div class="mt-[56px] text-center">
-      <h1 class="text-[20px] font-bold text-white tracking-[2px]">기억하지</h1>
+      <h1 class="text-[20px] font-bold text-white tracking-[2px] inline-flex items-center justify-center gap-1.5">
+        기억하지
+        <img src="{{ url_for('static', filename='images/hazi_logo2.png') }}" alt="로고" class="h-[36px] w-auto">
+      </h1>
       <p class="text-[14px] text-white opacity-75 mt-1">보호자 · 가족 모드</p>
     </div>
     <!-- Center Illustration -->
@@ -63,6 +66,7 @@
             <span class="material-symbols-outlined absolute left-5 top-1/2 -translate-y-1/2 text-[#6B7A8D] text-[24px]">smartphone</span>
             <input class="w-full h-[56px] pl-14 pr-6 bg-[#eef4ff] border-2 border-transparent rounded-xl text-[18px] placeholder:text-[#c1c7d3] font-medium transition-all" placeholder="010-0000-0000" type="tel" id="guardianPhone" required>
           </div>
+          <p class="text-[14px] text-[#ba1a1a] mt-1 hidden" id="guardianPhoneError"></p>
         </div>
         <div class="space-y-3 hidden" id="guardianCodeField">
           <div class="flex flex-col">
@@ -109,6 +113,7 @@
   // Submission validation and redirection
   const loginForm = document.getElementById('guardianLoginForm');
   const phoneInput = document.getElementById('guardianPhone');
+  const phoneError = document.getElementById('guardianPhoneError');
   const codeInput = document.getElementById('guardianCode');
   const codeField = document.getElementById('guardianCodeField');
   const codeHint = document.getElementById('guardianCodeHint');
@@ -131,10 +136,11 @@
           });
           const data = await res.json();
           if (!data.ok) {
-              codeHint.textContent = data.error || '인증번호 발급에 실패했습니다.';
-              codeHint.classList.add('text-[#ba1a1a]');
+              phoneError.textContent = data.error || '인증번호 발급에 실패했습니다.';
+              phoneError.classList.remove('hidden');
               return;
           }
+          phoneError.classList.add('hidden');
           codeSent = true;
           codeField.classList.remove('hidden');
           phoneInput.readOnly = true;
