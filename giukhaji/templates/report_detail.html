@@ -134,6 +134,27 @@
   .treadmill-stage .reference-figure .figure-shin line {
     stroke-width: 14 !important;
   }
+
+  /* Active states for metric-card tabs (Request 1, 2, 3) */
+  .metric-card {
+    transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease !important;
+    border: 2px solid transparent;
+  }
+  .metric-card.blue.is-active {
+    background-color: #e0f2fe !important; /* Premium soft blue */
+    border-color: #0A68B3 !important;
+    box-shadow: inset 0 -6px 0 #0A68B3, 0 16px 28px rgba(10, 104, 179, 0.16) !important;
+  }
+  .metric-card.green.is-active {
+    background-color: #d1fae5 !important; /* Premium soft green */
+    border-color: #087E70 !important;
+    box-shadow: inset 0 -6px 0 #087E70, 0 16px 28px rgba(8, 126, 112, 0.16) !important;
+  }
+  .metric-card.red.is-active {
+    background-color: #fee2e2 !important; /* Premium soft red */
+    border-color: #A54538 !important;
+    box-shadow: inset 0 -6px 0 #A54538, 0 16px 28px rgba(165, 69, 56, 0.16) !important;
+  }
 </style>
 {% endblock %}
 
@@ -199,38 +220,30 @@
       {% set exe_bg_size = 100.0 %}
     {% endif %}
 
-    <section class="report-metric-grid">
-      <article class="metric-card blue">
+    <section class="report-metric-grid" style="cursor: pointer; user-select: none;">
+      <article class="metric-card blue {% if panel == 'cognitive' or (panel != 'gait' and panel != 'exercise') %}is-active{% endif %}" data-tab="cognitive" onclick="switchReportTab('cognitive')">
         <span>🧠</span>
         <strong>인지</strong>
         <p>{{ cog_score_val }}점 <small>▲{{ exercise.report.cognitive_delta }}</small></p>
         <div style="background: #e2e8f0;"><span style="width: {{ cog_score_val }}%; background: linear-gradient(to right, #ff4d4d, #ecc94b, #22c55e); background-size: {{ cog_bg_size }}% 100%; background-repeat: no-repeat; background-position: left center;"></span></div>
       </article>
-      <article class="metric-card green">
+      <article class="metric-card green {% if panel == 'gait' %}is-active{% endif %}" data-tab="gait" onclick="switchReportTab('gait')">
         <span>🚶</span>
         <strong>보행</strong>
         <p>{{ gait_score_val }}점 <small>▲{{ exercise.report.gait_delta }}</small></p>
         <div style="background: #e2e8f0;"><span style="width: {{ gait_score_val }}%; background: linear-gradient(to right, #ff4d4d, #ecc94b, #22c55e); background-size: {{ gait_bg_size }}% 100%; background-repeat: no-repeat; background-position: left center;"></span></div>
       </article>
-      <article class="metric-card red">
+      <article class="metric-card red {% if panel == 'exercise' %}is-active{% endif %}" data-tab="exercise" onclick="switchReportTab('exercise')">
         <span>⏱</span>
         <strong>운동량</strong>
         <p>{{ exercise.report.exercise_minutes }}분</p>
         <div style="background: #e2e8f0;"><span style="width: {{ exercise_percent }}%; background: linear-gradient(to right, #ff4d4d, #ecc94b, #22c55e); background-size: {{ exe_bg_size }}% 100%; background-repeat: no-repeat; background-position: left center;"></span></div>
-        <small>목표 {{ exercise.report.exercise_goal_minutes }}분</small>
+        <small style="display: block; margin-top: 4px;">목표 {{ exercise.report.exercise_goal_minutes }}분</small>
       </article>
     </section>
 
     <!-- 인지/신체 검사 결과 리포트 섹션 추가 -->
     <div id="report-tabs" style="margin-top: 30px; scroll-margin-top: 20px;">
-      <nav class="final-tabs" aria-label="결과 선택" style="margin-bottom: 20px;">
-        <button type="button" class="{% if panel != 'gait' %}is-active{% endif %}" data-panel="cognitive" style="flex: 1; padding: 14px; font-weight: bold; border: none; background: #f7fafc; border-bottom: 2px solid #e2e8f0; color: #718096; cursor: pointer;">
-          인지점수 확인
-        </button>
-        <button type="button" class="{% if panel == 'gait' %}is-active{% endif %}" data-panel="gait" style="flex: 1; padding: 14px; font-weight: bold; border: none; background: #f7fafc; border-bottom: 2px solid #e2e8f0; color: #718096; cursor: pointer;">
-          신체점수 확인
-        </button>
-      </nav>
 
       <section class="final-panel" id="cognitivePanel" {% if panel == 'gait' %}hidden{% endif %}>
         {% if cognitive %}
@@ -238,7 +251,7 @@
           <div class="final-score-card {% if score.mci.label == 0 %}is-normal{% else %}is-risk{% endif %}" style="padding: 24px 20px;">
             <strong style="font-size: 20px; line-height: 1.4; display: block; word-break: keep-all; font-weight: 800;">
               {% if score.mci.label == 0 %}
-                인지기능 상태가 양호합니다.
+                인지기능 상태가 양호하십니다.
               {% else %}
                 경도인지장애 가능성이 관찰되었습니다.
               {% endif %}
@@ -320,7 +333,7 @@
               {% if gait.prediction %}
                 보행기능 저하 가능성이 관찰되었습니다.
               {% else %}
-                보행기능이 안정적입니다.
+                보행기능이 안정적이십니다.
               {% endif %}
             </strong>
           </div>
@@ -563,9 +576,60 @@
             <p class="xai-note" style="font-size: 12px; color: #718096; margin-top: 12px;">밝은 부분은 해당 시간대에 특정 보행 리듬이 더 강하게 나타난 구간입니다.</p>
             <button class="pengteu-explain-btn" type="button" data-pengteu-prompt="스펙트럼 설명을 펭트가 쉽게 설명해줘">펭트에게 설명 듣기</button>
           </div>
-        {% else %}
-          <div class="final-empty" style="text-align: center; padding: 30px; color: #a0aec0;">아직 신체평가 결과가 없습니다.</div>
         {% endif %}
+      </section>
+
+      <!-- Exercise Panel (Request 3: 오늘 한 운동 점수 목록) -->
+      <section class="final-panel" id="exercisePanel" {% if panel != 'exercise' %}hidden{% endif %}>
+        <div class="final-card" style="background: #ffffff; border-radius: 20px; padding: 24px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); margin-bottom: 20px;">
+          {% set today_parts = datetime_now_str.split('-') %}
+          {% set today_mm_dd = today_parts[1] ~ '/' ~ today_parts[2] %}
+          <h3 style="font-size: 22px; font-weight: 900; color: #021d33; margin: 0 0 20px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px;">
+            <span>🏃 오늘의 운동 기록</span>
+            <span style="font-size: 15px; font-weight: 800; color: #0A68B3; background: #e0f2fe; padding: 3px 8px; border-radius: 6px; letter-spacing: -0.5px;">오늘 {{ today_mm_dd }}</span>
+          </h3>
+          
+          {% set ns = namespace(has_today=false) %}
+          {% if exercise_logs %}
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+              {% for log in exercise_logs %}
+                {% if log.completed_date == datetime_now_str %}
+                  {% set ns.has_today = true %}
+                  {% set name_parts = log.exercise_name.split('__') %}
+                  {% if name_parts|length > 1 %}
+                    {% set clean_name = name_parts[0] %}
+                    {% set iter_num = name_parts[1] %}
+                  {% else %}
+                    {% if ' (' in log.exercise_name and '회차)' in log.exercise_name %}
+                      {% set temp_parts = log.exercise_name.split(' (') %}
+                      {% set clean_name = temp_parts[0] %}
+                      {% set iter_num = temp_parts[1].replace('회차)', '') %}
+                    {% else %}
+                      {% set clean_name = log.exercise_name %}
+                      {% set iter_num = '1' %}
+                    {% endif %}
+                  {% endif %}
+                  
+                  <div class="exercise-log-item" style="display: flex; align-items: center; justify-content: justify; gap: 18px; background: #f8fafc; padding: 18px 22px; border-radius: 18px; border: 1.5px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.02);">
+                    <div style="flex-grow: 1;">
+                      <p style="font-size: 18px; font-weight: 900; color: #0A68B3; margin: 0 0 6px;">완료 ({{ iter_num }}회차)</p>
+                      <p style="font-size: 15px; font-weight: 800; color: #334155; margin: 0; line-height: 1.4; word-break: keep-all;">{{ clean_name }} ({{ log.exercise_type }})</p>
+                    </div>
+                    <div style="text-align: right; flex-shrink: 0; display: flex; align-items: baseline; gap: 2px;">
+                      {% set record_score = log.get('raw_json', {}).get('score') %}
+                      <span style="font-size: 28px; font-weight: 950; color: #0A68B3; line-height: 1;">{{ record_score if record_score is not none else today_score }}</span>
+                      <span style="font-size: 14px; font-weight: 800; color: #64748b;">점</span>
+                    </div>
+                  </div>
+                {% endif %}
+              {% endfor %}
+            </div>
+          {% endif %}
+          
+          {% if not ns.has_today %}
+            <div style="text-align: center; padding: 40px 10px; color: #94a3b8; font-size: 16px; font-weight: 800;">오늘 완료한 운동 기록이 없습니다.</div>
+          {% endif %}
+        </div>
       </section>
     </div>
 
@@ -600,36 +664,29 @@
 </div>
 
 <script>
-  // 탭 클릭 전환
-  const tabs = document.querySelectorAll('#report-tabs .final-tabs button');
-  const cognitivePanel = document.getElementById('cognitivePanel');
-  const gaitPanel = document.getElementById('gaitPanel');
-  tabs.forEach((tab) => {
-    tab.addEventListener('click', () => {
-      const isGait = tab.dataset.panel === 'gait';
-      tabs.forEach((item) => {
-        item.classList.toggle('is-active', item === tab);
-        if (item === tab) {
-          item.style.color = '#005da7';
-          item.style.borderBottom = '3px solid #005da7';
-        } else {
-          item.style.color = '#718096';
-          item.style.borderBottom = '2px solid #e2e8f0';
-        }
-      });
-      cognitivePanel.hidden = isGait;
-      gaitPanel.hidden = !isGait;
-    });
-  });
+  // 탭 클릭 전환 (인지, 보행, 운동량 카드 탭 연동)
+  window.switchReportTab = function(panelId) {
+    // 모든 패널 숨기기
+    document.getElementById('cognitivePanel').hidden = true;
+    const gaitPanel = document.getElementById('gaitPanel');
+    if (gaitPanel) gaitPanel.hidden = true;
+    const exercisePanel = document.getElementById('exercisePanel');
+    if (exercisePanel) exercisePanel.hidden = true;
 
-  // 초기 로드 시 active 스타일 지정
-  tabs.forEach((tab) => {
-    const isActive = tab.classList.contains('is-active');
-    if (isActive) {
-      tab.style.color = '#005da7';
-      tab.style.borderBottom = '3px solid #005da7';
-    }
-  });
+    // 선택한 패널 보이기
+    const activePanel = document.getElementById(panelId + 'Panel');
+    if (activePanel) activePanel.hidden = false;
+
+    // 모든 metric-card에서 is-active 제거
+    const cards = document.querySelectorAll('.report-metric-grid .metric-card');
+    cards.forEach(card => {
+      card.classList.remove('is-active');
+    });
+
+    // 선택한 탭에 is-active 추가
+    const activeCard = document.querySelector(`.report-metric-grid .metric-card[data-tab="${panelId}"]`);
+    if (activeCard) activeCard.classList.add('is-active');
+  };
 
   // 내 응답 기록 토글 기능
   function toggleResponseRecord() {

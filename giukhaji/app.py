@@ -47,6 +47,7 @@ from core.database import (
     find_member_by_code_or_name,
     find_member_by_phone,
     get_exercise_summary,
+    get_conn,
     get_guardian_dashboard,
     get_guardian_cheers,
     get_latest_assessment,
@@ -742,7 +743,7 @@ def _exercise_mock_data():
             'mission_title': '오늘의 미션',
             'mission': '걷기 + 기억력 게임',
             'duration_min': 20,
-            'exercise_name': '제자리 걷기',
+            'exercise_name': '제자리 걷기 + 규칙 기반 얼음땡',
             'sets': '3세트',
             'set_duration': '각 2분',
             'notice': '휴대폰을 허리에 고정하고 가볍게 걷는 동작을 유지하세요.',
@@ -898,10 +899,29 @@ def _record_exercise_completion(exercise):
     if not member_id:
         return
     today = exercise.get('today', {})
+    score = session.get('today_exercise_score')
+    
+    from datetime import datetime
+    today_date = datetime.now().strftime('%Y-%m-%d')
+    exercise_name = today.get('mission') or today.get('exercise_name') or 'exercise'
+    
+    with get_conn() as conn:
+        row = conn.execute(
+            """
+            SELECT COUNT(*) FROM exercise_records
+             WHERE member_id = ? AND completed_date = ? AND exercise_name LIKE ?
+            """,
+            (member_id, today_date, f"{exercise_name}%")
+        ).fetchone()
+        count = row[0] if row else 0
+        
+    display_name = f"{exercise_name}__{count + 1}"
+        
     save_exercise_record(member_id, _current_assessment_id(), {
-        'exercise_name': today.get('exercise_name') or 'exercise',
+        'exercise_name': display_name,
         'type': today.get('type') or today.get('mission'),
         'duration_min': today.get('duration_min') or 0,
+        'score': score
     })
 
 
@@ -1094,10 +1114,15 @@ def exercise_active_page():
 
 @app.route('/exercise/complete')
 def exercise_complete_page():
+    score = request.args.get('score', type=int)
+    if score is not None:
+        session['today_exercise_score'] = score
+    else:
+        score = session.get('today_exercise_score', 95)
     exercise = _personal_exercise_data()
     _record_exercise_completion(exercise)
     exercise = _personal_exercise_data()
-    return render_template('exercise_complete.html', exercise=exercise)
+    return render_template('exercise_complete.html', exercise=exercise, score=score)
 
 
 @app.route('/exercise/sensor/analyze', methods=['POST'])
@@ -1127,13 +1152,32 @@ def exercise_sensor_analyze():
 
 @app.route('/report/detail')
 def report_detail_page():
+    member_id = _current_member_id()
+    logs = []
+    if member_id:
+        with get_conn() as conn:
+            rows = conn.execute(
+                """
+                SELECT completed_date, duration_min, completed_at, exercise_name, exercise_type
+                  FROM exercise_records
+                 WHERE member_id = ?
+                 ORDER BY completed_date DESC, completed_at DESC
+                 LIMIT 10
+                """,
+                (member_id,),
+            ).fetchall()
+            logs = [dict(r) for r in rows]
+    today_score = session.get('today_exercise_score', 95)
     return render_template(
         'report_detail.html',
         exercise=_personal_exercise_data(),
         back_url='/exercise/complete',
         cognitive=_get_cognitive_result(),
         gait=_get_gait_result(),
-        panel=request.args.get('panel', 'cognitive')
+        panel=request.args.get('panel', 'cognitive'),
+        exercise_logs=logs,
+        today_score=today_score,
+        datetime_now_str=datetime.now().strftime('%Y-%m-%d')
     )
 
 

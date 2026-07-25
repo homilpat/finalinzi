@@ -2601,11 +2601,16 @@ body.pengteu-reduced-motion *::after {
 .cube-reference { display: flex; justify-content: center; margin-top: 8px; }
 
 .item-inst {
-  font-size: 17px;
-  color: var(--neutral);
+  font-size: 19px;
+  font-weight: 800;
+  color: #0e7867;
+  background-color: #b5eae0;
   text-align: center;
-  padding: 10px 20px 4px;
+  padding: 16px 20px;
   line-height: 1.6;
+  border-radius: 12px;
+  margin: 16px 0 24px;
+  box-shadow: 0 4px 12px rgba(181, 234, 224, 0.3);
 }
 
 /* ── 어휘력 ── */

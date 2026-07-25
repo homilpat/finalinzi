@@ -121,23 +121,23 @@
 </head>
 <body class="flex flex-col">
 <!-- Top Illustration Zone -->
-<section class="h-[280px] w-full illustration-bg rounded-b-[40px] flex flex-col items-center relative overflow-hidden shrink-0">
+<section class="h-[300px] w-full illustration-bg rounded-b-[40px] flex flex-col items-center relative overflow-hidden shrink-0">
 <!-- Brand Header -->
-<div class="mt-[56px] text-center">
+<div class="mt-[56px] text-center z-10">
 <h1 class="text-[20px] font-bold text-white tracking-[2px]">두근두근</h1>
 <p class="text-[14px] text-white opacity-75 mt-1">보호자 · 가족 모드</p>
+<p class="text-[17px] font-bold text-white mt-2">부모님의 건강을 함께 지켜요 💙</p>
 </div>
 <!-- Center Illustration -->
-<div class="h-[140px] w-full flex justify-center items-center">
-<img class="h-full object-contain" data-alt="A warm and friendly flat design illustration of a 40-year-old adult in a cozy sweater holding a modern smartphone. A vibrant blue glowing heart icon floats gently above the phone screen, symbolizing care and health monitoring. The style is clean, minimalist, and modern, using a professional color palette of blue, soft gray, and white against a gradient background of deep navy and bright blue." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDkfv2tpqdFiwtfgklGmx8aqiy_gwSJNO1MpXq-3pqZdq8wbqlCs6SNKvYO7mMGmNvflqeivPCvQ7R5Esm8P5sAuDhDYfdUc2RjDeQ-o-5pjpwFd7oyt8D5VCaD_tRDurSVVmW582VHF9lLz0vDeTeXeteSOvh5AK9NE_ggqJg_tVmrsQdUWjwqr526zbkfudGRdY_6l9HkeV3Z1rJSvNS4c5pINUqMpEzxNLcbcvOZSu2p8eECdFOoD4EVYcGPkLfuSFxvQtt6qUFZ">
-</div>
-<!-- Bottom Zone Text -->
-<div class="absolute bottom-6 w-full text-center">
-<p class="text-[18px] font-bold text-white">부모님의 건강을 함께 지켜요 💙</p>
+<div class="h-[140px] w-full flex justify-center items-center relative">
+<!-- Circular gradient background behind image -->
+<div style="position: absolute; width: 170px; height: 170px; border-radius: 50%; background: radial-gradient(circle, rgba(0, 93, 167, 0.95) 0%, rgba(0, 93, 167, 0.4) 50%, rgba(0, 93, 167, 0) 80%); z-index: 1;"></div>
+<!-- Image on top -->
+<img class="h-full object-contain" src="/static/images/guardian.png" style="position: relative; z-index: 2;" alt="보호자 일러스트">
 </div>
 </section>
 <!-- Login Card Container -->
-<main class="px-container-padding flex-1 -mt-[32px] z-10">
+<main class="px-container-padding flex-1 -mt-[20px] z-10">
 <div class="bg-white rounded-[28px] custom-shadow p-[28px_24px] flex flex-col">
 <!-- Card Header -->
 <header class="mb-8">

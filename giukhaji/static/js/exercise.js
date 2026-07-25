@@ -1,6 +1,11 @@
 (function () {
   'use strict';
 
+  function splitIntoSentences(text) {
+    if (!text) return [];
+    return text.split(/(?<=[.!?])\s+/).filter(Boolean);
+  }
+
   // 1. 상태 변수
   let currentType = 'A'; // A, B, C, D (유형)
   let currentPhase = 1;  // 1, 2, 3, 4 (단계)
@@ -12,6 +17,20 @@
   let pausedByPengteu = false;
   let wasPlayingBeforePengteu = false;
   let bgmWasPlayingBeforePengteu = false;
+
+  window.exerciseSuccessCount = 0;
+  window.exerciseTotalQuestions = 0;
+
+  window.onCompleteExercise = function(event) {
+    if (event) event.preventDefault();
+    let score = 95; // 기본값
+    if (window.exerciseTotalQuestions > 0) {
+      score = Math.round((window.exerciseSuccessCount / window.exerciseTotalQuestions) * 100);
+      if (score > 100) score = 100;
+    }
+    console.log("Exercise complete. Score:", score, "Success:", window.exerciseSuccessCount, "Total:", window.exerciseTotalQuestions);
+    window.location.href = '/exercise/complete?score=' + score;
+  };
 
   // 펭트 능동 안내: 운동 중 '운동 전용 센서(onSensorEvent) 동작 이벤트'가
   // 일정 시간 없으면 다시 설명을 제안한다.
@@ -117,6 +136,33 @@
       if (!isPlaying) return;
       console.log("Speak:", text);
       
+      // 만약 안드로이드 앱 내부에서 실행 중이라면, 네이티브 TTS를 호출합니다.
+      if (window.AndroidBridge && typeof window.AndroidBridge.speakPengteu === 'function') {
+        if (activeTtsAudio) {
+          try { activeTtsAudio.pause(); activeTtsAudio.onended = null; } catch(e){}
+          activeTtsAudio = null;
+        }
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+        
+        window.onPengteuTtsEnd = () => {
+          window.onPengteuTtsEnd = null;
+          if (onEnd) onEnd();
+        };
+        
+        window.PengteuAssistantNative = {
+          onTtsEnd: function() {
+            if (window.onPengteuTtsEnd) {
+              window.onPengteuTtsEnd();
+            }
+          }
+        };
+
+        window.AndroidBridge.speakPengteu(text, 0.9, 0.8);
+        return;
+      }
+      
       // 이전 재생 중이던 TTS 오디오 인스턴스가 있다면 일시정지 및 초기화
       if (activeTtsAudio) {
         try {
@@ -195,6 +241,32 @@
           if (onEnd) onEnd();
         };
       }).catch(runFallback);
+    },
+    speakSentences: function(sentences, onSentenceStart, onComplete) {
+      if (!isPlaying) {
+        if (onComplete) onComplete();
+        return;
+      }
+      let idx = 0;
+      function next() {
+        if (!isPlaying) {
+          if (onComplete) onComplete();
+          return;
+        }
+        if (idx >= sentences.length) {
+          if (onComplete) onComplete();
+          return;
+        }
+        const sentence = sentences[idx];
+        if (onSentenceStart) {
+          onSentenceStart(sentence);
+        }
+        AudioManager.speak(sentence, () => {
+          idx++;
+          next();
+        });
+      }
+      next();
     }
   };
 
@@ -330,17 +402,8 @@
         }
       }
 
-      // C유형 2단계: 안내 멘트 완료 전까지 19초 지점에서 홀딩
-      if (currentPhase === 2 && currentType === 'C') {
-        if (phaseGameData.welcomeSpeaking) {
-          if (phaseElapsed >= 19) {
-            phaseElapsed = 19;
-          }
-        }
-      }
-
-      // D유형 2단계: 안내 멘트 완료 전까지 19초 지점에서 홀딩
-      if (currentPhase === 2 && currentType === 'D') {
+      // A/B/C/D유형 2단계: 안내 멘트 완료 전까지 19초 지점에서 홀딩
+      if (currentPhase === 2 && (currentType === 'A' || currentType === 'B' || currentType === 'C' || currentType === 'D')) {
         if (phaseGameData.welcomeSpeaking) {
           if (phaseElapsed >= 19) {
             phaseElapsed = 19;
@@ -831,11 +894,14 @@
     let tts = "";
     if (currentType === 'A' || currentType === 'B') {
       tts = "안녕하세요. 오늘도 함께 즐겁게 운동을 시작해 보겠습니다. 첫 번째 운동은 노래를 들으며 움직이는 운동입니다. 노래에서 멈추세요라고 하면 멈추고, 오른쪽, 왼쪽이라는 말이 나오면 그 방향으로 움직이면 됩니다. 즐겁게 시작해 보겠습니다!";
+      const sentences = splitIntoSentences(tts);
       sensorCueBox.innerHTML = "안내 TTS가 진행 중입니다. 안내가 끝나면 BGM이 재생됩니다.";
       waitingSensorAction = "p1_bgm_lyrics_match";
       phaseGameData.welcomeSpeaking = true;
       
-      AudioManager.speak(tts, () => {
+      AudioManager.speakSentences(sentences, (sentence) => {
+        sensorCueBox.textContent = sentence;
+      }, () => {
         if (currentPhase === 1 && (currentType === 'A' || currentType === 'B') && isPlaying) {
           phaseGameData.welcomeSpeaking = false;
           phaseElapsed = 30;
@@ -852,11 +918,14 @@
     }
     else if (currentType === 'D') {
       tts = "안녕하세요. 오늘도 함께 운동을 시작하겠습니다. 먼저, 보호자분께서는 어르신 곁에 함께 있어 주세요. 운동하는 동안 어르신이 안전하게 움직일 수 있도록 가까이에서 살펴봐 주시기 바랍니다. 어르신께서는 등을 기대지 않고 의자에 깊숙이 편안하게 앉아 주세요. 두 발은 바닥에 편안하게 놓고, 몸이 흔들리지 않는지 확인하겠습니다. 잠시 후 노래가 시작됩니다. 노래를 들으면서 천천히 따라 움직여 보겠습니다. 노래에서 오른쪽이라고 들리면 몸을 오른쪽으로 천천히 움직여 주세요. 왼쪽이라고 들리면 몸을 왼쪽으로 천천히 움직여 주세요. 혹시 몸이 불편하거나 어지러운 느낌이 들면 바로 움직임을 멈춰 주세요. 보호자분께서도 함께 쉬도록 도와주시기 바랍니다. 준비가 되셨다면 노래를 들으며 함께 움직여 보겠습니다.";
+      const sentences = splitIntoSentences(tts);
       sensorCueBox.innerHTML = "안내 TTS가 진행 중입니다. 안내가 끝나면 BGM이 재생됩니다.";
       waitingSensorAction = "p1_bgm_lyrics_match";
       phaseGameData.welcomeSpeaking = true;
       
-      AudioManager.speak(tts, () => {
+      AudioManager.speakSentences(sentences, (sentence) => {
+        sensorCueBox.textContent = sentence;
+      }, () => {
         if (currentPhase === 1 && currentType === 'D' && isPlaying) {
           phaseGameData.welcomeSpeaking = false;
           phaseElapsed = 60;
@@ -873,11 +942,14 @@
     }
     else if (currentType === 'C') {
       tts = "안녕하세요. 오늘도 함께 운동을 시작하겠습니다. 이번 운동은 의자에 앉아 노래를 들으며 몸을 천천히 움직이는 시간입니다. 먼저 의자에 앉아주세요. 노래에서 오른쪽이라고 들리면 몸을 오른쪽으로 움직여 주세요. 왼쪽이라고 들리면 몸을 왼쪽으로 움직여 주세요. 편안한 범위에서 천천히 따라오시면 됩니다. 시작합니다.";
+      const sentences = splitIntoSentences(tts);
       sensorCueBox.innerHTML = "안내 TTS가 진행 중입니다. 안내가 끝나면 BGM이 재생됩니다.";
       waitingSensorAction = "p1_bgm_lyrics_match";
       phaseGameData.welcomeSpeaking = true;
       
-      AudioManager.speak(tts, () => {
+      AudioManager.speakSentences(sentences, (sentence) => {
+        sensorCueBox.textContent = sentence;
+      }, () => {
         if (currentPhase === 1 && currentType === 'C' && isPlaying) {
           phaseGameData.welcomeSpeaking = false;
           phaseElapsed = 30;
@@ -901,26 +973,48 @@
     let tts = "";
     
     if (currentType === 'A') {
-      sensorCueBox.textContent = "두 번째 운동을 시작하겠습니다. 이번에는 자세에 집중하며 다리의 힘과 균형을 기르는 시간입니다. 제가 안내하는 동작을 하나씩 천천히 따라 해 주세요. 속도는 중요하지 않습니다. 정확하고 편안하게 움직이는 것이 가장 중요합니다. 무리하지 않는 범위에서 함께 운동해 보겠습니다.";
+      tts = "두 번째 운동을 시작하겠습니다. 이번에는 자세에 집중하며 다리의 힘과 균형을 기르는 시간입니다. 제가 안내하는 동작을 하나씩 천천히 따라 해 주세요. 속도는 중요하지 않습니다. 정확하고 편안하게 움직이는 것이 가장 중요합니다. 무리하지 않는 범위에서 함께 운동해 보겠습니다.";
+      const sentences = splitIntoSentences(tts);
+      sensorCueBox.textContent = sentences[0];
+      phaseGameData.welcomeSpeaking = true;
       if (isPlaying) {
-        AudioManager.speak("두 번째 운동을 시작하겠습니다. 이번에는 자세에 집중하며 다리의 힘과 균형을 기르는 시간입니다. 제가 안내하는 동작을 하나씩 천천히 따라 해 주세요. 속도는 중요하지 않습니다. 정확하고 편안하게 움직이는 것이 가장 중요합니다. 무리하지 않는 범위에서 함께 운동해 보겠습니다.");
+        AudioManager.speakSentences(sentences, (sentence) => {
+          sensorCueBox.textContent = sentence;
+        }, () => {
+          phaseGameData.welcomeSpeaking = false;
+        });
+      } else {
+        phaseGameData.welcomeSpeaking = false;
       }
       return;
     }
     
     if (currentType === 'B') {
-      sensorCueBox.textContent = "두 번째 운동을 시작하겠습니다. 이번에는 옆으로 천천히 걸으며 다리의 힘과 균형을 기르는 운동입니다. 발을 너무 크게 내딛기보다는 안정적인 자세를 유지하는 것이 중요합니다. 제가 안내하는 속도에 맞춰 편안하게 따라와 주세요. 준비되셨다면 함께 시작하겠습니다.";
+      tts = "두 번째 운동을 시작하겠습니다. 이번에는 옆으로 천천히 걸으며 다리의 힘과 균형을 기르는 운동입니다. 발을 너무 크게 내딛기보다는 안정적인 자세를 유지하는 것이 중요합니다. 제가 안내하는 속도에 맞춰 편안하게 따라와 주세요. 준비되셨다면 함께 시작하겠습니다.";
+      const sentences = splitIntoSentences(tts);
+      sensorCueBox.textContent = sentences[0];
+      phaseGameData.welcomeSpeaking = true;
       if (isPlaying) {
-        AudioManager.speak("두 번째 운동을 시작하겠습니다. 이번에는 옆으로 천천히 걸으며 다리의 힘과 균형을 기르는 운동입니다. 발을 너무 크게 내딛기보다는 안정적인 자세를 유지하는 것이 중요합니다. 제가 안내하는 속도에 맞춰 편안하게 따라와 주세요. 준비되셨다면 함께 시작하겠습니다.");
+        AudioManager.speakSentences(sentences, (sentence) => {
+          sensorCueBox.textContent = sentence;
+        }, () => {
+          phaseGameData.welcomeSpeaking = false;
+        });
+      } else {
+        phaseGameData.welcomeSpeaking = false;
       }
       return;
     }
     
     if (currentType === 'C') {
-      sensorCueBox.textContent = "두 번째 운동을 시작하겠습니다. 이번 운동은 의자에 앉은 상태에서 다리의 힘을 기르는 운동입니다. 의자는 흔들리지 않는 안정된 의자를 사용해 주세요. 엉덩이를 의자 안쪽까지 깊숙이 앉고 등을 곧게 펴겠습니다. 준비가 되셨다면 천천히 시작하겠습니다.";
+      tts = "두 번째 운동을 시작하겠습니다. 이번 운동은 의자에 앉은 상태에서 다리의 힘을 기르는 운동입니다. 의자는 흔들리지 않는 안정된 의자를 사용해 주세요. 엉덩이를 의자 안쪽까지 깊숙이 앉고 등을 곧게 펴겠습니다. 준비가 되셨다면 천천히 시작하겠습니다.";
+      const sentences = splitIntoSentences(tts);
+      sensorCueBox.textContent = sentences[0];
       phaseGameData.welcomeSpeaking = true;
       if (isPlaying) {
-        AudioManager.speak("두 번째 운동을 시작하겠습니다. 이번 운동은 의자에 앉은 상태에서 다리의 힘을 기르는 운동입니다. 의자는 흔들리지 않는 안정된 의자를 사용해 주세요. 엉덩이를 의자 안쪽까지 깊숙이 앉고 등을 곧게 펴겠습니다. 준비가 되셨다면 천천히 시작하겠습니다.", () => {
+        AudioManager.speakSentences(sentences, (sentence) => {
+          sensorCueBox.textContent = sentence;
+        }, () => {
           phaseGameData.welcomeSpeaking = false;
         });
       } else {
@@ -928,10 +1022,14 @@
       }
       return;
     } else if (currentType === 'D') {
-      sensorCueBox.textContent = "자, 어르신! 음악 좋지요? 두 번째 운동을 시작하겠습니다. 의자에 편안하게 앉아주세요. 신나는 음악에 맞춰 엉덩이를 들썩들썩 해볼까요? 크게 움직이지 않아도 괜찮습니다. 준비되셨나요? 그럼 시작해 보겠습니다!";
+      tts = "자, 어르신! 음악 좋지요? 두 번째 운동을 시작하겠습니다. 의자에 편안하게 앉아주세요. 신나는 음악에 맞춰 엉덩이를 들썩들썩 해볼까요? 크게 움직이지 않아도 괜찮습니다. 준비되셨나요? 그럼 시작해 보겠습니다!";
+      const sentences = splitIntoSentences(tts);
+      sensorCueBox.textContent = sentences[0];
       phaseGameData.welcomeSpeaking = true;
       if (isPlaying) {
-        AudioManager.speak("자, 어르신! 음악 좋지요? 두 번째 운동을 시작하겠습니다. 의자에 편안하게 앉아주세요. 신나는 음악에 맞춰 엉덩이를 들썩들썩 해볼까요? 크게 움직이지 않아도 괜찮습니다. 준비되셨나요? 그럼 시작해 보겠습니다!", () => {
+        AudioManager.speakSentences(sentences, (sentence) => {
+          sensorCueBox.textContent = sentence;
+        }, () => {
           phaseGameData.welcomeSpeaking = false;
         });
       } else {
@@ -1032,9 +1130,12 @@
       if (elapsed >= 0 && elapsed < 30 && !phaseGameData.welcomeDone) {
         phaseGameData.welcomeDone = true;
         phaseGameData.introSpeaking = true;
-        sensorCueBox.textContent = "세 번째 운동을 시작하겠습니다. 제자리에서 무릎을 높이 들며 걷기를 계속해 주세요...";
-        AudioManager.speak(
-          "세 번째 운동을 시작하겠습니다. 이번 운동은 몸과 두뇌를 함께 사용하는 인지 운동입니다. 제자리에서 무릎을 높이 들며 걷기를 계속해 주세요. 제가 말하는 단어를 잘 듣고, 규칙에 맞게 움직이면 됩니다. 규칙은 중간에 바뀔 수도 있으니 제 안내를 잘 들어 주세요. 틀려도 괜찮습니다. 다음 동작부터 다시 따라오시면 됩니다. 준비되셨다면 함께 시작하겠습니다.",
+        const text = "세 번째 운동을 시작하겠습니다. 이번 운동은 몸과 두뇌를 함께 사용하는 인지 운동입니다. 제자리에서 무릎을 높이 들며 걷기를 계속해 주세요. 제가 말하는 단어를 잘 듣고, 규칙에 맞게 움직이면 됩니다. 규칙은 중간에 바뀔 수도 있으니 제 안내를 잘 들어 주세요. 틀려도 괜찮습니다. 다음 동작부터 다시 따라오시면 됩니다. 준비되셨다면 함께 시작하겠습니다.";
+        const sentences = splitIntoSentences(text);
+        sensorCueBox.textContent = sentences[0];
+        AudioManager.speakSentences(
+          sentences,
+          (sentence) => { sensorCueBox.textContent = sentence; },
           () => { phaseGameData.introSpeaking = false; }
         );
       }
@@ -1200,6 +1301,7 @@
 
       function triggerNextSequence() {
         if (phaseGameData.round < 1 || phaseGameData.round > 4) return;
+        window.exerciseTotalQuestions++;
         const len = phaseGameData.round + 1; // Round 1: 2dirs, Round 2: 3dirs, etc.
         phaseGameData.splitMode = false;
         const seq = generateSequence(len);
@@ -1212,9 +1314,12 @@
       if (elapsed >= 0 && elapsed < 30 && !phaseGameData.welcomeDone) {
         phaseGameData.welcomeDone = true;
         phaseGameData.introSpeaking = true;
-        sensorCueBox.textContent = "세 번째 운동을 시작하겠습니다. 방향 기억 스텝 안내 중...";
-        AudioManager.speak(
-          "세 번째 운동을 시작하겠습니다. 이번에는 몸과 두뇌를 함께 사용하는 운동입니다. 방금 연습한 옆으로 걷기 기억하시죠? 제가 방향을 한 번에 말씀드리면, 잘 기억하셨다가 같은 순서대로 옆으로 걸어 보겠습니다. 처음에는 두 가지 방향부터 시작하고, 점점 조금씩 길어집니다. 시작!",
+        const text = "세 번째 운동을 시작하겠습니다. 이번에는 몸과 두뇌를 함께 사용하는 운동입니다. 방금 연습한 옆으로 걷기 기억하시죠? 제가 방향을 한 번에 말씀드리면, 잘 기억하셨다가 같은 순서대로 옆으로 걸어 보겠습니다. 처음에는 두 가지 방향부터 시작하고, 점점 조금씩 길어집니다. 시작!";
+        const sentences = splitIntoSentences(text);
+        sensorCueBox.textContent = sentences[0];
+        AudioManager.speakSentences(
+          sentences,
+          (sentence) => { sensorCueBox.textContent = sentence; },
           () => {
             phaseGameData.introSpeaking = false;
             phaseGameData.round = 1;
@@ -1353,6 +1458,7 @@
 
       function triggerNextWord() {
         if (phaseGameData.round < 1 || phaseGameData.round > 3) return;
+        window.exerciseTotalQuestions++;
         const word = generateWord();
         phaseGameData.currentWord = word;
         phaseGameData.target = word.length;
@@ -1372,9 +1478,12 @@
       if (elapsed >= 0 && elapsed < 30 && !phaseGameData.welcomeDone) {
         phaseGameData.welcomeDone = true;
         phaseGameData.introSpeaking = true;
-        sensorCueBox.textContent = "세 번째 운동을 시작하겠습니다. 단어 글자수 무릎 펴기 안내 중...";
-        AudioManager.speak(
-          "세 번째 운동입니다. 이번에는 다리 운동과 두뇌 운동을 함께 해보겠습니다. 먼저 의자에 깊숙이 앉아 주세요. 등을 곧게 펴고 두 발은 바닥에 편안하게 놓습니다. 엉덩이가 의자에서 떨어지지 않도록 유지해 주세요. 제가 단어를 말씀드리면, 단어의 글자 수를 생각한 뒤 그 숫자만큼 양쪽 무릎을 앞으로 쭉 펴고 다시 내려놓겠습니다. 시작입니다.",
+        const text = "세 번째 운동입니다. 이번에는 다리 운동과 두뇌 운동을 함께 해보겠습니다. 먼저 의자에 깊숙이 앉아 주세요. 등을 곧게 펴고 두 발은 바닥에 편안하게 놓습니다. 엉덩이가 의자에서 떨어지지 않도록 유지해 주세요. 제가 단어를 말씀드리면, 단어의 글자 수를 생각한 뒤 그 숫자만큼 양쪽 무릎을 앞으로 쭉 펴고 다시 내려놓겠습니다. 시작입니다.";
+        const sentences = splitIntoSentences(text);
+        sensorCueBox.textContent = sentences[0];
+        AudioManager.speakSentences(
+          sentences,
+          (sentence) => { sensorCueBox.textContent = sentence; },
           () => {
             phaseGameData.introSpeaking = false;
             phaseGameData.round = 1;
@@ -1571,14 +1680,19 @@
           sensorCueBox.textContent = scriptD3[k].text;
           
           phaseGameData.introSpeaking = true;
+          const sentences = splitIntoSentences(scriptD3[k].text);
           if (scriptD3[k].wait) {
-            AudioManager.speak(scriptD3[k].text, () => {
+            window.exerciseTotalQuestions++;
+            AudioManager.speakSentences(sentences, (sentence) => {
+              sensorCueBox.textContent = sentence;
+            }, () => {
               phaseGameData.introSpeaking = false;
               phaseGameData.waitingSensor = true;
             });
           } else {
-            phaseGameData.introSpeaking = true;
-            AudioManager.speak(scriptD3[k].text, () => {
+            AudioManager.speakSentences(sentences, (sentence) => {
+              sensorCueBox.textContent = sentence;
+            }, () => {
               phaseGameData.introSpeaking = false;
               phaseGameData.waitingSensor = false;
             });
@@ -1756,6 +1870,7 @@
         // A유형 3단계는 단일 이중과제 운동 진행 (멈춤 감지 시 ding_bright.mp3 및 칭찬 송출)
         if (phaseGameData.targetAction === 'stop' && data.action === 'stop') {
           AudioManager.playEffect('ding_bright.mp3');
+          window.exerciseSuccessCount++;
           sensorCueBox.innerHTML = `<span style='color: #059669; font-weight: 800;'>정답 인식 성공! 🔔</span><br>단어: ${phaseGameData.currentWord} (동작: 멈춤)`;
           
           // 칭찬 멘트 무작위 송출 (30% 확률)
@@ -1791,6 +1906,7 @@
           if (phaseGameData.currentIndex === phaseGameData.currentSequence.length) {
             // 전체 시퀀스 매칭 성공!
             AudioManager.playEffect('ding_bright.mp3');
+            window.exerciseSuccessCount++;
             phaseGameData.waitingSensor = false;
             
             if (phaseGameData.splitMode && phaseGameData.splitPart === 1) {
@@ -1843,6 +1959,7 @@
             // 정답 완료!
             phaseGameData.waitingSensor = false;
             AudioManager.playEffect('ding_bright.mp3');
+            window.exerciseSuccessCount++;
             sensorCueBox.innerHTML = `<span style="color: #059669; font-weight: 800;">성공! 🔔</span><br>단어: ${phaseGameData.currentWord} (${phaseGameData.target}글자)`;
             
             // 50% 확률로 칭찬 멘트 송출
@@ -1873,6 +1990,7 @@
         if (phaseGameData.waitingSensor && !phaseGameData.introSpeaking) {
           phaseGameData.waitingSensor = false;
           AudioManager.playEffect('applause.mp3');
+          window.exerciseSuccessCount++;
           
           const praises = [
             "와! 정말 최고예요!",
@@ -1892,6 +2010,7 @@
 
   // A유형 3단계 랜덤 단어 출제 및 속성 판정 함수
   function triggerRandomWord(mode) {
+    window.exerciseTotalQuestions++;
     const fruits = ["포도", "사과", "귤", "복숭아", "참외"];
     const animals = ["사자", "토끼", "코끼리", "기린", "호랑이", "고양이", "강아지"];
     const wordsPool = fruits.concat(animals);

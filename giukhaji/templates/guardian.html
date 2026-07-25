@@ -37,9 +37,12 @@
 
 {% block content %}
 <!-- Calculate dynamic scores -->
-{% set cog_score = ((dashboard.latest_cognitive.final_score / 30 * 100) | int) if (dashboard.latest_cognitive and dashboard.latest_cognitive.final_score is not none) else 0 %}
-{% set gait_score = dashboard.latest_gait.gait_score if (dashboard.latest_gait and dashboard.latest_gait.gait_score is not none) else 0 %}
+{% set cog_score = ((dashboard.latest_cognitive.get('final_score', 0) / 30 * 100) | int) if (dashboard.latest_cognitive and dashboard.latest_cognitive.get('final_score') is not none) else 0 %}
+{% set gait_score = dashboard.latest_gait.get('gait_score', 0) if (dashboard.latest_gait and dashboard.latest_gait.get('gait_score') is not none) else 0 %}
 {% set overall_score = (((cog_score + (gait_score if dashboard.gait_done else 75)) / 2) | int) if dashboard.latest_cognitive else 0 %}
+{% set cog_bg_size = (10000.0 / cog_score) if cog_score > 0 else 100 %}
+{% set gait_bg_size = (10000.0 / gait_score) if gait_score > 0 else 100 %}
+{% set phys_threshold = ((1.0 - dashboard.latest_gait.get('raw_json', {}).get('threshold', 0.47)) * 100) | int if (dashboard.latest_gait and dashboard.latest_gait.get('raw_json', {}).get('threshold') is not none) else 53 %}
 
 <div class="relative w-full min-h-screen bg-[#F7FAFC] overflow-x-hidden flex flex-col pb-[100px]">
   
@@ -120,28 +123,48 @@
               <span class="text-[12px] text-[#6B7A8D]">점</span>
             </div>
           </div>
-          <div class="w-full h-3 bg-[#e4efff] rounded-full mb-4 overflow-hidden">
-            <div class="h-full bg-[#005da7] rounded-full transition-all duration-500" style="width: {{ cog_score }}%"></div>
+
+          <!-- Gauge Bar (Same as Senior Mode) -->
+          <div style="position: relative; width: 100%; margin-top: 14px; margin-bottom: 26px;">
+            <div style="width: 100%; background: #e2e8f0; border-radius: 999px; height: 14px; overflow: hidden; position: relative;">
+              <div style="width: {{ cog_score }}%; background: linear-gradient(to right, #ff4d4d, #ecc94b, #22c55e); background-size: {{ cog_bg_size }}% 100%; background-repeat: no-repeat; background-position: left center; height: 100%; transition: all 0.5s ease;"></div>
+            </div>
+            <!-- Tick line at 76.7% (23 points) -->
+            <div style="position: absolute; left: 76.7%; top: -4px; width: 3px; height: 22px; background: #e53e3e; border-radius: 2px; z-index: 2;"></div>
+            <!-- Ticks labels row -->
+            <div style="position: relative; width: 100%; height: 22px; margin-top: 6px;">
+              <span style="position: absolute; left: 0; font-size: 12px; color: #a0aec0; font-weight: 800;">0점</span>
+              <span style="position: absolute; left: 76.7%; transform: translateX(-50%); font-size: 12px; color: #e53e3e; font-weight: 800; white-space: nowrap; z-index: 2;">77점 (저하 기준)</span>
+              <span style="position: absolute; right: 0; font-size: 12px; color: #a0aec0; font-weight: 800;">100점</span>
+            </div>
           </div>
-          <div class="grid grid-cols-3 gap-2 bg-[#f8f9ff] p-3 rounded-xl text-center">
-            <div>
-              <p class="text-[#6B7A8D] text-[11px] mb-0.5">기억력</p>
-              <p class="font-bold text-[#021d33] text-[14px]">
-                {% if dashboard.latest_cognitive %}{{ (dashboard.latest_cognitive.score.get('sections', {}).get('memory', 0) / 5 * 100) | int }}{% else %}0{% endif %}%
-              </p>
-            </div>
-            <div class="border-x border-gray-100">
-              <p class="text-[#6B7A8D] text-[11px] mb-0.5">집중력</p>
-              <p class="font-bold text-[#021d33] text-[14px]">
-                {% if dashboard.latest_cognitive %}{{ (dashboard.latest_cognitive.score.get('sections', {}).get('attention', 0) / 6 * 100) | int }}{% else %}0{% endif %}%
-              </p>
-            </div>
-            <div>
-              <p class="text-[#6B7A8D] text-[11px] mb-0.5">판단력</p>
-              <p class="font-bold text-[#021d33] text-[14px]">
-                {% if dashboard.latest_cognitive %}{{ (dashboard.latest_cognitive.score.get('sections', {}).get('abstraction', 0) / 2 * 100) | int }}{% else %}0{% endif %}%
-              </p>
-            </div>
+
+          <!-- 7 Cognitive Domains Scores in % (Same as Senior Mode Detail Report) -->
+          <div class="grid grid-cols-4 gap-2 bg-[#f8f9ff] p-3.5 rounded-xl text-center">
+            {% if dashboard.latest_cognitive %}
+              {% set score = dashboard.latest_cognitive.score %}
+              {% set drawing_val = score.sections.get('trail_making', 0) + score.sections.get('drawing', 0) %}
+              {% set transformed_sections = [
+                ('시공간', drawing_val, 5),
+                ('어휘력', score.sections.get('naming', 0), 3),
+                ('기억력', score.sections.get('memory', 0), 5),
+                ('주의력', score.sections.get('attention', 0), 6),
+                ('문장력', score.sections.get('language', 0), 3),
+                ('추상력', score.sections.get('abstraction', 0), 2),
+                ('지남력', score.sections.get('orientation', 0), 6)
+              ] %}
+              {% for label, got, max_score in transformed_sections %}
+                {% set percent = ((got / max_score * 100) | int) if max_score > 0 else 0 %}
+                <div class="flex flex-col items-center">
+                  <span class="text-[#6B7A8D] text-[10px] leading-tight font-semibold">{{ label }}</span>
+                  <span class="font-bold text-[#021d33] text-[13px] mt-1">{{ percent }}%</span>
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="col-span-4 text-[#6B7A8D] text-[12px] py-1">
+                연동된 인지 검사 결과가 없습니다.
+              </div>
+            {% endif %}
           </div>
         </div>
 
@@ -165,22 +188,38 @@
               <span class="text-[12px] text-[#6B7A8D]">점</span>
             </div>
           </div>
-          <div class="w-full h-3 bg-[#e4efff] rounded-full mb-4 overflow-hidden">
-            <div class="h-full bg-[#006b5a] rounded-full transition-all duration-500" style="width: {{ gait_score }}%"></div>
+
+          <!-- Gauge Bar (Same as Senior Mode) -->
+          <div style="position: relative; width: 100%; margin-top: 14px; margin-bottom: 26px;">
+            <div style="width: 100%; background: #e2e8f0; border-radius: 999px; height: 14px; overflow: hidden; position: relative;">
+              <div style="width: {{ gait_score }}%; background: linear-gradient(to right, #ff4d4d, #ecc94b, #22c55e); background-size: {{ gait_bg_size }}% 100%; background-repeat: no-repeat; background-position: left center; height: 100%; transition: all 0.5s ease;"></div>
+            </div>
+            <!-- Tick line at threshold -->
+            <div style="position: absolute; left: {{ phys_threshold }}%; top: -4px; width: 3px; height: 22px; background: #e53e3e; border-radius: 2px; z-index: 2;"></div>
+            <!-- Ticks labels row -->
+            <div style="position: relative; width: 100%; height: 22px; margin-top: 6px;">
+              <span style="position: absolute; left: 0; font-size: 12px; color: #a0aec0; font-weight: 800;">0점</span>
+              <span style="position: absolute; left: {{ phys_threshold }}%; transform: translateX(-50%); font-size: 12px; color: #e53e3e; font-weight: 800; white-space: nowrap; z-index: 2;">{{ phys_threshold }}점 (저하 기준)</span>
+              <span style="position: absolute; right: 0; font-size: 12px; color: #a0aec0; font-weight: 800;">100점</span>
+            </div>
           </div>
-          <div class="grid grid-cols-3 gap-2 bg-[#f8f9ff] p-3 rounded-xl text-center">
-            <div>
-              <p class="text-[#6B7A8D] text-[11px] mb-0.5">균형감</p>
-              <p class="font-bold text-[#021d33] text-[14px]">{% if dashboard.gait_done %}{{ gait_score }}{% else %}0{% endif %}%</p>
-            </div>
-            <div class="border-x border-gray-100">
-              <p class="text-[#6B7A8D] text-[11px] mb-0.5">보행속도</p>
-              <p class="font-bold text-[#021d33] text-[14px]">{% if dashboard.gait_done %}{{ [0, gait_score - 5] | max }}{% else %}0{% endif %}%</p>
-            </div>
-            <div>
-              <p class="text-[#6B7A8D] text-[11px] mb-0.5">안정성</p>
-              <p class="font-bold text-[#021d33] text-[14px]">{% if dashboard.gait_done %}{{ [100, gait_score + 3] | min }}{% else %}0{% endif %}%</p>
-            </div>
+
+          <!-- 3 Gait Features (Same as Senior Mode Detail Report) -->
+          <div class="grid grid-cols-3 gap-2 bg-[#f8f9ff] p-3.5 rounded-xl text-center">
+            {% if dashboard.latest_gait and dashboard.latest_gait.get('raw_json') %}
+              {% for item in dashboard.latest_gait.get('raw_json', {}).get('insights', []) %}
+                <div>
+                  <p class="text-[#6B7A8D] text-[10px] leading-tight mb-0.5 font-semibold">{{ item.label }}</p>
+                  <p class="font-bold text-[#021d33] text-[13px] mt-1">
+                    {{ '%.3f'|format(item.value) }}{{ item.unit }}
+                  </p>
+                </div>
+              {% endfor %}
+            {% else %}
+              <div class="col-span-3 text-[#6B7A8D] text-[12px] py-1">
+                연동된 보행 검사 결과가 없습니다.
+              </div>
+            {% endif %}
           </div>
         </div>
       </section>

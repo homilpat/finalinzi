@@ -962,37 +962,37 @@ function drawTrailNodes(ctx, w, h) {
   const r = Math.min(w, h) * 0.055;
   ctx.save();
 
-  // 예시 연결선: 1→가→2 (PDF 문제지 힌트와 동일)
+  // 예시 연결선: 1→가→2 (PDF 문제지 힌트와 동일) - X좌표에 0.125 만큼 시프트 적용하여 가로 중앙 배치
   const hint = [["1","가"], ["가","2"]];
   hint.forEach(([a, b]) => {
     const [ax, ay] = TRAIL_NODES[a];
     const [bx, by] = TRAIL_NODES[b];
-    _drawDashedArrow(ctx, ax * w, ay * h, bx * w, by * h, r);
+    _drawDashedArrow(ctx, (ax + 0.125) * w, ay * h, (bx + 0.125) * w, by * h, r);
   });
 
-  // 노드 그리기
+  // 노드 그리기 - X좌표에 0.125 만큼 시프트 적용하여 가로 중앙 배치
   Object.entries(TRAIL_NODES).forEach(([label, [rx, ry]]) => {
-    const x = rx * w, y = ry * h;
+    const x = (rx + 0.125) * w, y = ry * h;
     // 원
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle = '#e8f8f5';
     ctx.fill();
-    ctx.strokeStyle = '#1A2B3C';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#0e7867';
+    ctx.lineWidth = 2.5;
     ctx.stroke();
     // 노드 라벨
-    ctx.fillStyle = '#1A2B3C';
+    ctx.fillStyle = '#0e7867';
     ctx.font = `bold ${Math.round(r * 0.95)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(label, x, y);
-    // 시작/끝 보조 라벨
+    // 시작/끝 보조 라벨 (검은색 텍스트로 원상복구)
     if (label === '1' || label === '마') {
       const subText = label === '1' ? '시작' : '끝';
-      ctx.font = `${Math.round(r * 0.7)}px sans-serif`;
-      ctx.fillStyle = '#555';
-      ctx.fillText(subText, x, y + r + Math.round(r * 0.75));
+      ctx.font = `bold ${Math.round(r * 0.75)}px sans-serif`;
+      ctx.fillStyle = '#000000';
+      ctx.fillText(subText, x, y + r + Math.round(r * 0.8));
     }
   });
   ctx.restore();
@@ -1058,25 +1058,36 @@ function moveDraw(e, canvas) {
   _currentStroke.push([p.x, p.y]);
 }
 
+function updateStrokePoints() {
+  if (App.itemName === 'trail_making') {
+    const canvas = document.getElementById('drawCanvas');
+    const w = canvas ? canvas.width : 1;
+    const offsetX = 0.125;
+    App.strokePoints = _strokes.flat().map(([px, py]) => [px - offsetX * w, py]);
+  } else {
+    App.strokePoints = _strokes.flat();
+  }
+}
+
 function endDraw() {
   if (!_drawing) return;
   _drawing = false;
   if (_currentStroke.length) {
     _strokes.push([..._currentStroke]);
-    App.strokePoints = _strokes.flat();
+    updateStrokePoints();
   }
 }
 
 function undoStroke() {
   if (!_strokes.length) return;
   _strokes.pop();
-  App.strokePoints = _strokes.flat();
+  updateStrokePoints();
   redrawCanvas();
 }
 
 function clearCanvas() {
   _strokes = [];
-  App.strokePoints = [];
+  updateStrokePoints();
   const canvas = document.getElementById('drawCanvas');
   if (!_ctx) return;
   _ctx.clearRect(0, 0, canvas.width, canvas.height);
