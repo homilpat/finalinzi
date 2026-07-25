@@ -22,17 +22,30 @@ import android.media.AudioAttributes
 import android.media.AudioManager
 import android.net.Uri
 import java.util.Locale
+import kotlin.math.sqrt
+import kotlin.math.abs
 
 class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnInitListener {
 
     private lateinit var webView: WebView
     private lateinit var progressBar: ProgressBar
+    private lateinit var debugTextView: android.widget.TextView
+    private var lastDebugUpdate = 0L
 
     private lateinit var sensorManager: SensorManager
     private var accelerometer: Sensor? = null
     private var gyroscope: Sensor? = null
 
-    private val classifier = MotionClassifier(CalibrationProfile())
+    private val calibrationProfile = CalibrationProfile()
+    private val classifier = MotionClassifier(calibrationProfile)
+
+    private val calibrationBuffer = mutableListOf<FloatArray>()
+    @Volatile
+    private var isCalibrating = false
+    private var calibrationStartTime = 0L
+    @Volatile
+    private var isPreparingToWear = false
+    private var wearPreparationStartTime = 0L
     private var isSensorRegistered = false
     private var sensorThread: HandlerThread? = null
     private var sensorHandler: Handler? = null
@@ -58,6 +71,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
 
         webView = findViewById(R.id.webView)
         progressBar = findViewById(R.id.progressBar)
+        debugTextView = findViewById(R.id.debugTextView)
 
         setupWebView()
         setupSensors()
@@ -263,10 +277,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
             startSensorThread()
             val handler = sensorHandler
             accelerometer?.let {
-                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI, handler)
+                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME, handler)
             }
             gyroscope?.let {
-                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI, handler)
+                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME, handler)
             }
             isSensorRegistered = true
         }
@@ -297,6 +311,51 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
             }
         }
 
+        if (isPreparingToWear) {
+            val elapsed = System.currentTimeMillis() - wearPreparationStartTime
+            if (elapsed >= 7000L) {
+                isPreparingToWear = false
+                isCalibrating = true
+                calibrationStartTime = System.currentTimeMillis()
+                calibrationBuffer.clear()
+            } else {
+                if (System.currentTimeMillis() - lastDebugUpdate >= 250L) {
+                    lastDebugUpdate = System.currentTimeMillis()
+                    val progressText = "Wear phone (back/out): ${7 - (elapsed / 1000)}s"
+                    runOnUiThread { debugTextView.text = progressText }
+                }
+            }
+            return
+        }
+
+        if (isCalibrating) {
+            calibrationBuffer.add(floatArrayOf(ax, ay, az, gx, gy, gz))
+            val elapsed = System.currentTimeMillis() - calibrationStartTime
+            if (elapsed >= 3000L) {
+                isCalibrating = false
+                performCalibration()
+            } else {
+                if (System.currentTimeMillis() - lastDebugUpdate >= 250L) {
+                    lastDebugUpdate = System.currentTimeMillis()
+                    val progressText = "Calibration (Stay still): ${3 - (elapsed / 1000)}s"
+                    runOnUiThread { debugTextView.text = progressText }
+                }
+            }
+            return
+        }
+
+        if (System.currentTimeMillis() - lastDebugUpdate >= 250L) {
+            lastDebugUpdate = System.currentTimeMillis()
+            val debugText = if (!calibrationProfile.isCalibrated) {
+                "Not Calibrated. Please start warming up."
+            } else {
+                classifier.latestDebugText
+            }
+            runOnUiThread { debugTextView.text = debugText }
+        }
+
+        if (!calibrationProfile.isCalibrated) return
+
         val detectedAction = classifier.onSensorData(
             System.currentTimeMillis(),
             ax, ay, az, gx, gy, gz
@@ -304,7 +363,72 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
 
         detectedAction?.let { action ->
             sendActionToWebView(action)
+            if (action == "weight_right") {
+                sendActionToWebView("weight_right_sit")
+            } else if (action == "weight_left") {
+                sendActionToWebView("weight_left_sit")
+            }
         }
+    }
+
+    private fun performCalibration() {
+        if (calibrationBuffer.isEmpty()) {
+            Log.e("Sensor", "Calibration failed: Buffer is empty")
+            return
+        }
+
+        var sumGx = 0f; var sumGy = 0f; var sumGz = 0f
+        var sumAx = 0f; var sumAy = 0f; var sumAz = 0f
+        for (row in calibrationBuffer) {
+            sumAx += row[0]; sumAy += row[1]; sumAz += row[2]
+            sumGx += row[3]; sumGy += row[4]; sumGz += row[5]
+        }
+        val n = calibrationBuffer.size.toFloat()
+        val meanAx = sumAx / n; val meanAy = sumAy / n; val meanAz = sumAz / n
+        val meanGx = sumGx / n; val meanGy = sumGy / n; val meanGz = sumGz / n
+
+        // 그람-슈미트 직교 정교화 (수직 Vert, 좌우 ML, 전후 AP 기저벡터 도출)
+        val gNorm = sqrt(meanAx * meanAx + meanAy * meanAy + meanAz * meanAz)
+        val uVertX = if (gNorm > 0.001f) meanAx / gNorm else 0f
+        val uVertY = if (gNorm > 0.001f) meanAy / gNorm else 0f
+        val uVertZ = if (gNorm > 0.001f) meanAz / gNorm else 1f
+
+        val candX = if (abs(uVertX) < 0.9f) 1f else 0f
+        val candY = if (abs(uVertX) < 0.9f) 0f else 1f
+        val candZ = 0f
+
+        val dotCandVert = candX * uVertX + candY * uVertY + candZ * uVertZ
+        val tempMlX = candX - dotCandVert * uVertX
+        val tempMlY = candY - dotCandVert * uVertY
+        val tempMlZ = candZ - dotCandVert * uVertZ
+        val mlNorm = sqrt(tempMlX * tempMlX + tempMlY * tempMlY + tempMlZ * tempMlZ)
+        val uMlX = if (mlNorm > 0.001f) tempMlX / mlNorm else 1f
+        val uMlY = if (mlNorm > 0.001f) tempMlY / mlNorm else 0f
+        val uMlZ = if (mlNorm > 0.001f) tempMlZ / mlNorm else 0f
+
+        val uApX = uMlY * uVertZ - uMlZ * uVertY
+        val uApY = uMlZ * uVertX - uMlX * uVertZ
+        val uApZ = uMlX * uVertY - uMlY * uVertX
+
+        calibrationProfile.apply {
+            isCalibrated = true
+            gyroBiasX = meanGx
+            gyroBiasY = meanGy
+            gyroBiasZ = meanGz
+            gravityMeanX = meanAx
+            gravityMeanY = meanAy
+            gravityMeanZ = meanAz
+            this.uVertX = uVertX
+            this.uVertY = uVertY
+            this.uVertZ = uVertZ
+            this.uMlX = uMlX
+            this.uMlY = uMlY
+            this.uMlZ = uMlZ
+            this.uApX = uApX
+            this.uApY = uApY
+            this.uApZ = uApZ
+        }
+        Log.d("Sensor", "Calibration completed successfully: Basis Vert=($uVertX, $uVertY, $uVertZ)")
     }
 
     private fun sendActionToWebView(action: String) {
@@ -327,7 +451,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
     inner class WebAppInterface {
         @JavascriptInterface
         fun startCalibration() {
-            Log.d("Sensor", "startCalibration called")
+            Log.d("Sensor", "startCalibration called (7s wear preparation + 3s still starts)")
+            calibrationBuffer.clear()
+            wearPreparationStartTime = System.currentTimeMillis()
+            isPreparingToWear = true
+            isCalibrating = false
             registerSensors()
         }
 

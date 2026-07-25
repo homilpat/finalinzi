@@ -385,7 +385,6 @@
           if (bgmAudio && !bgmAudio.paused) {
             bgmAudio.pause();
           }
-          sensorCueBox.innerHTML = `안내 TTS 진행 중... (안내가 끝나면 노래가 시작됩니다)`;
         } else {
           // 안내 완료 후: 30초 이상 구간 BGM 재생 상태 유지
           if (bgmAudio && bgmAudio.paused && isPlaying) {
@@ -404,7 +403,6 @@
           if (bgmAudio && !bgmAudio.paused) {
             bgmAudio.pause();
           }
-          sensorCueBox.innerHTML = `안내 TTS 진행 중... (안내가 끝나면 노래가 시작됩니다)`;
         } else {
           // 안내 완료 후: 60초 이상 구간 BGM 재생 상태 유지
           if (bgmAudio && bgmAudio.paused && isPlaying) {
