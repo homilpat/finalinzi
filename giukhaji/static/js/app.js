@@ -935,10 +935,22 @@ function requestOrientationLocationOnce() {
 }
 
 window.onOrientationLocationEvent = function(event) {
+  if (!event) return;
+  // 지남력 검사 화면: 위치 확인 상태 표시
   const status = document.getElementById('micStatus');
-  if (!status || !event) return;
-  if (event.ok) {
+  if (status && event.ok) {
     status.textContent = '위치 확인 완료';
+  }
+  // 기본정보 입력 폼: GPS로 얻은 동네/시군구를 자동으로 채운다.
+  // (사용자가 이미 입력한 값은 덮지 않고, 비어 있을 때만 채운다)
+  if (event.ok) {
+    const fill = (name, value) => {
+      if (!value) return;
+      const el = document.querySelector('#memberForm input[name="' + name + '"]');
+      if (el && !el.value.trim()) el.value = value;
+    };
+    fill('location', event.location);
+    fill('sigungu', event.sigungu);
   }
 };
 

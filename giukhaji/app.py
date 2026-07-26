@@ -1046,6 +1046,13 @@ def _tts_urls(item_name, version):
 
 # ── 라우트 ────────────────────────────────────
 
+@app.route('/ping')
+def ping():
+    # 안드로이드 앱이 같은 WiFi 서브넷을 스캔해 서버를 자동으로 찾을 때 쓰는 식별용 엔드포인트.
+    # 세션·인증 불필요. 다른 기기의 웹서버와 구분하기 위해 app 마커를 반환한다.
+    return jsonify(app='giukhaji', ok=True)
+
+
 @app.route('/')
 def home():
     if request.args.get('registered') == '1' and not request.args.get('select'):

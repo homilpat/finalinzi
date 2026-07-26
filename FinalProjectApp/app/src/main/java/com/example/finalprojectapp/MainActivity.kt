@@ -37,8 +37,12 @@ import androidx.core.view.WindowInsetsCompat
 import org.json.JSONObject
 import java.io.DataOutputStream
 import java.net.HttpURLConnection
+import java.net.Inet4Address
+import java.net.NetworkInterface
 import java.net.URL
 import java.util.Locale
+import java.util.concurrent.ExecutorCompletionService
+import java.util.concurrent.Executors
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnInitListener {
@@ -79,6 +83,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
     private var gaitStartTimestampNs = 0L
     private var rememberedLoginAttempted = false
 
+    // 실제로 접속할 서버 주소. 앱 시작 시 같은 WiFi 서브넷을 자동탐색해 결정한다.
+    // 탐색 전/실패 시에는 마지막으로 저장된 주소(없으면 빌드 기본값)를 쓴다.
+    @Volatile
+    private var serverBaseUrl: String = DEFAULT_SERVER_URL
+
     private var ax = 0f
     private var ay = 0f
     private var az = 0f
@@ -103,6 +112,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
 
         webView = findViewById(R.id.webView)
         progressBar = findViewById(R.id.progressBar)
+
+        // 저장된(마지막 성공) 서버 주소를 우선 폴백으로 둔다. 자동탐색이 새로 찾으면 갱신된다.
+        serverBaseUrl = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(PREF_SERVER_URL, null) ?: DEFAULT_SERVER_URL
 
         setupWebView()
         setupSensors()
@@ -141,12 +154,99 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
         }
         webView.addJavascriptInterface(WebAppInterface(), "AndroidBridge")
 
-        webView.loadUrl(DEFAULT_SERVER_URL)
+        discoverServerAndLoad()
+    }
+
+    /**
+     * 서버 주소를 자동으로 정한다. 발표장 WiFi가 바뀌어도 재빌드 없이 붙게 하기 위함.
+     * 1) 마지막으로 쓰던(또는 기본) 주소가 살아있으면 그대로 사용
+     * 2) 아니면 같은 WiFi /24 서브넷을 병렬 스캔해 /ping 응답 서버를 찾는다
+     * 3) 다 실패하면 폴백 주소로 로드한다(연결 실패는 웹 화면에서 드러남)
+     */
+    private fun discoverServerAndLoad() {
+        thread {
+            val fallback = serverBaseUrl
+            var target = if (pingServer(fallback)) fallback else null
+            if (target == null) target = scanSubnetForServer()
+            val finalUrl = target ?: fallback
+            if (target != null && target != fallback) saveServerUrl(target)
+            runOnUiThread {
+                serverBaseUrl = finalUrl
+                webView.loadUrl(finalUrl)
+            }
+        }
+    }
+
+    /** 해당 주소의 /ping 이 giukhaji 서버인지 짧은 타임아웃으로 확인한다. */
+    private fun pingServer(baseUrl: String): Boolean {
+        return try {
+            val url = URL("${baseUrl.trimEnd('/')}/ping")
+            val conn = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 600
+                readTimeout = 600
+            }
+            val ok = conn.responseCode == 200 &&
+                conn.inputStream.bufferedReader().use { it.readText() }.contains("giukhaji")
+            conn.disconnect()
+            ok
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** 현재 WiFi IPv4의 /24 서브넷(1~254)을 병렬로 훑어 giukhaji 서버를 찾는다. */
+    private fun scanSubnetForServer(): String? {
+        val localIp = localIpv4() ?: return null
+        val prefix = localIp.substringBeforeLast('.')      // 예: 192.168.50
+        val port = runCatching {
+            URL(serverBaseUrl).port.let { if (it > 0) it else 5001 }
+        }.getOrDefault(5001)
+
+        val pool = Executors.newFixedThreadPool(40)
+        val ecs = ExecutorCompletionService<String?>(pool)
+        var submitted = 0
+        for (i in 1..254) {
+            val candidate = "http://$prefix.$i:$port/"
+            ecs.submit { if (pingServer(candidate)) candidate else null }
+            submitted++
+        }
+        var found: String? = null
+        try {
+            for (n in 0 until submitted) {
+                val r = ecs.take().get()
+                if (r != null) { found = r; break }
+            }
+        } catch (e: Exception) {
+            // 무시하고 폴백
+        } finally {
+            pool.shutdownNow()
+        }
+        return found
+    }
+
+    /** 사이트 로컬(사설망) IPv4 주소를 반환한다. 별도 권한 불필요. */
+    private fun localIpv4(): String? {
+        return runCatching {
+            NetworkInterface.getNetworkInterfaces().toList()
+                .filter { runCatching { it.isUp && !it.isLoopback }.getOrDefault(false) }
+                .flatMap { it.inetAddresses.toList() }
+                .filterIsInstance<Inet4Address>()
+                .firstOrNull { it.isSiteLocalAddress }
+                ?.hostAddress
+        }.getOrNull()
+    }
+
+    private fun saveServerUrl(url: String) {
+        getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(PREF_SERVER_URL, url)
+            .apply()
     }
 
     private fun attemptRememberedLogin(url: String?) {
         if (rememberedLoginAttempted) return
-        if (url == null || !url.startsWith(DEFAULT_SERVER_URL.trimEnd('/'))) return
+        if (url == null || !url.startsWith(serverBaseUrl.trimEnd('/'))) return
 
         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val phone = prefs.getString(PREF_MEMBER_PHONE, "") ?: ""
@@ -286,7 +386,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
 
     private fun startGaitMeasurement(configJson: String) {
         val config = runCatching { JSONObject(configJson) }.getOrElse { JSONObject() }
-        gaitUploadUrl = config.optString("uploadUrl", "${DEFAULT_SERVER_URL.trimEnd('/')}/gait/upload-csv")
+        gaitUploadUrl = config.optString("uploadUrl", "${serverBaseUrl.trimEnd('/')}/gait/upload-csv")
         gaitMemberPhone = config.optString("memberPhone", "")
         gaitWearMs = (config.optDouble("wearSec", 7.0) * 1000.0).toLong().coerceIn(0L, 15_000L)
         gaitReadyMs = (config.optDouble("readySec", 3.0) * 1000.0).toLong().coerceIn(0L, 10_000L)
@@ -706,7 +806,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
         val payload = regionFromLocation(location)
         thread {
             try {
-                val url = URL("${DEFAULT_SERVER_URL.trimEnd('/')}/api/orientation/location")
+                val url = URL("${serverBaseUrl.trimEnd('/')}/api/orientation/location")
                 val body = payload.toString().toByteArray(Charsets.UTF_8)
                 val connection = (url.openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
@@ -715,24 +815,36 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
                     readTimeout = 8_000
                     setRequestProperty("Content-Type", "application/json; charset=utf-8")
                     setRequestProperty("Accept", "application/json")
-                    CookieManager.getInstance().getCookie(DEFAULT_SERVER_URL)?.let { cookie ->
+                    CookieManager.getInstance().getCookie(serverBaseUrl)?.let { cookie ->
                         setRequestProperty("Cookie", cookie)
                     }
                 }
                 connection.outputStream.use { it.write(body) }
                 val ok = connection.responseCode in 200..299
                 connection.disconnect()
-                notifyOrientationLocation(ok, if (ok) "위치를 확인했어요." else "위치를 저장하지 못했어요.")
+                notifyOrientationLocation(
+                    ok,
+                    if (ok) "위치를 확인했어요." else "위치를 저장하지 못했어요.",
+                    payload.optString("sigungu", ""),
+                    payload.optString("location", "")
+                )
             } catch (e: Exception) {
                 notifyOrientationLocation(false, "위치를 저장하지 못했어요.")
             }
         }
     }
 
-    private fun notifyOrientationLocation(ok: Boolean, message: String) {
+    private fun notifyOrientationLocation(
+        ok: Boolean,
+        message: String,
+        sigungu: String = "",
+        location: String = ""
+    ) {
         val payload = JSONObject()
             .put("ok", ok)
             .put("message", message)
+            .put("sigungu", sigungu)
+            .put("location", location)
         val script = "window.onOrientationLocationEvent && window.onOrientationLocationEvent($payload)"
         webView.post { webView.evaluateJavascript(script, null) }
     }
@@ -887,6 +999,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
         // 실제 서버 주소는 local.properties(gitignore)의 serverUrl로 빌드 시 주입된다.
         private val DEFAULT_SERVER_URL = BuildConfig.SERVER_URL
         private const val PREFS_NAME = "finalinzi_member"
+        private const val PREF_SERVER_URL = "server_url"
         private const val PREF_MEMBER_PHONE = "member_phone"
         private const val PREF_EDUCATION_LEVEL = "education_level"
         private const val AUDIO_PERMISSION_REQUEST = 1101
