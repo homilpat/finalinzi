@@ -30,7 +30,7 @@
 | 주의력 | 숫자·탭핑·연속계산 — STT + 숫자 파싱 |
 | 언어능력 | 따라말하기·단어 유창성 — SequenceMatcher + 화이트리스트 |
 | 추상력 | 두 사물 공통점 찾기 — STT + Fuzzy Matching |
-| 지남력 | 날짜·요일·장소 말하기 — STT + Regex |
+| 지남력 | 날짜·요일·장소 말하기 — STT + Regex, 장소는 **GPS 역지오코딩**으로 실제 동·시군구를 정답으로 자동 대조 |
 
 ### 신체평가 (보행 스크리닝)
 
@@ -52,7 +52,58 @@
 | 지식 검색·주입 | RAG (문항 설명·보행 가이드 청크) |
 | 노인 음성 특화 STT | Whisper 파인튜닝 — AI Hub 노인 음성 200h → WER 48%→22% |
 | 음성 입출력 | Android STT / TTS |
+| GPS 위치 연동 | 스마트폰 GPS → 카카오 좌표→행정구역 API → 지남력 '장소·시군구' 정답 자동 설정 (실패 시 클라이언트/수동 폴백) |
 | 버전 자동 로테이션 | MoCA-K ↔ K-MoCA 6개월 주기 (학습효과 차단) |
+
+### 펭트(Pengteu) — 대화형 AI 어시스턴트
+
+노인 사용자가 **조작을 거의 하지 않고** 검사·운동을 진행하도록 돕는 음성 우선 AI 코치. 항상 대기하는 **"펭트야"** 웨이크워드로 부르고, 개인 평가 기록과 지식베이스를 근거로 상황에 맞게 설명·안내하며, 필요하면 앱 화면(글자 크기·음성 속도 등)까지 스스로 조절한다.
+
+**① 대화 엔진 (서버)**
+
+| 기능 | 기술 / 구현 | 위치 |
+|---|---|---|
+| 하이브리드 응답 라우팅 | 로컬 규칙기반 우선 → OpenAI 폴백 → 로컬 재폴백 (키워드 게이팅) | `pengteu.py`, `/assistant/chat` |
+| 개인 맥락 주입 | 회원·인지 최종점수·보행 예측/확률·운동 연속일·접근성 프로필을 압축해 프롬프트에 주입 | `_compact_pengteu_context` |
+| LLM 폴백 | OpenAI Responses API (gpt-4.1-mini), 한국어 2~4문장·따뜻한 어투 제약 | `_openai_pengteu_fallback` |
+| RAG 지식검색 | 로컬 TF-IDF (char n-gram 2~5) + 코사인 유사도, 마크다운 헤더 청킹, 파일 mtime 캐시 | `rag_engine.py`, `knowledge/*.md` |
+| 안전 가드 | 검사 중 정답·힌트 거절, 진단 확정 금지(선별/주의 표현), RAG 누출 토큰 필터 + 320자 제한 | `_basic_pengteu_reply`, `_clean_pengteu_reply` |
+| 대화 로그 | 사용자·어시스턴트 메시지를 맥락과 함께 저장 | `save_assistant_message` |
+
+**② 노인 특화 음성 인식 (STT)** — `whisper_stt.py` `ElderlySTT`
+
+| 기능 | 기술 / 파라미터 | 근거 |
+|---|---|---|
+| Whisper 노인 최적화 | `small` 모델, `beam_size=5`, `no_speech_threshold=0.3`, temperature 폴백, 이전맥락 비참조 | ASR for Cognitive Impairment (2025) |
+| Silero VAD 전처리 | `threshold=0.3`, `min_silence=1500ms`, `speech_pad=600ms` — 묵음 제거로 환각 감소 | Silero VAD (2024) |
+| 항목별 프롬프트 | MoCA 문항 유형별 `initial_prompt`로 인식률 보정 | `ITEM_PROMPTS` |
+| 후처리 정규화 | 한글 숫자 → 아라비아 숫자, 구두점·공백 정리 | `_normalize_numbers` |
+
+**③ 음성 출력·호출 (TTS / 웨이크워드)**
+
+| 기능 | 기술 | 위치 |
+|---|---|---|
+| TTS 출력 | 네이티브 `speakPengteu` 우선 → Google 번역 TTS를 `Audio()`로 청크 재생 폴백 | `app.js` `speak` / `speakViaAudioFallback` |
+| "펭트야" 웨이크워드 | 네이티브 always-on `SpeechRecognizer` 연속 재시작 + 웹 연속인식 폴백, 정규식 `(펭\|팽\|펜)트(야\|아…)` | `MainActivity.kt` `wakeRecognizer`, `app.js` `initWakeListener` |
+| 검사 중 호출 | 검사 STT 트랜스크립트에서도 웨이크워드 동시 감지 (마이크 단일 점유 대응) | `handleFinalChunk` |
+
+**④ 마이크 조율·능동 안내**
+
+| 기능 | 기술 | 위치 |
+|---|---|---|
+| 반이중 마이크 뮤텍스 | 검사 STT ↔ 펭트 STT ↔ 웨이크워드 상호배제, 펭트 발화 중 문항 TTS 일시정지·복귀, 에코 게이트 | `app.js` `MicBus` |
+| 무입력 능동 안내 | 녹음 7초 침묵 → "다음이라 말하세요", 페이지 무입력 → "많이 어려우신가요?" (세션당 2회 예산) | `scheduleAnswerIdle`, `proactiveSay` |
+| 페이지 진입 안내 | 지정 페이지에서 짧은 안내(겹치면 자동 생략) | `proactiveOnLoad` |
+| 결과 위로 | 저하 결과(`data-impaired`) 시 먼저 따뜻하게 안내 | `proactiveOnLoad` |
+| 운동 재설명 | 운동 idle 25초 감지 → 현재 동작을 쉬운 표현으로 재안내 (보행 IMU와 분리) | `exercise.js` `checkExerciseIdle` |
+
+**⑤ 앱 동적 제어 (접근성)**
+
+| 기능 | 기술 | 위치 |
+|---|---|---|
+| 음성 자연어 명령 | "글자 키워 / 눈이 침침해 / 목소리 크게 / 천천히" 등 → 화면·음성 조절 | `app.js` `getPengteuCommand` |
+| 접근성 프로필 | `voice_rate`·`tts_volume`·`text_scale`·`high_contrast`·`reduced_motion` 저장/로드 | `/assistant/profile` |
+| 본문 확대 | `text_scale`을 `.page` `zoom`에 적용 → 검사 본문까지 함께 확대 | `style.css` / `app.js` |
 
 ---
 
