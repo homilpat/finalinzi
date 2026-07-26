@@ -362,6 +362,11 @@
     memberForm.hidden = false;
     setPengteuVisible(true);
     memberForm.scrollIntoView({block: 'start'});
+    // 폼이 열리면 GPS로 현재 동네/시군구를 받아 입력칸을 자동으로 채운다.
+    // (네이티브 앱에서만 동작하며, 빈 칸일 때만 채워 사용자 입력을 존중한다)
+    if (typeof requestOrientationLocationOnce === 'function') {
+      requestOrientationLocationOnce();
+    }
   }
 
   function showModePanel() {
