@@ -1901,7 +1901,8 @@ def guardian_verify_code():
 
 def _resolve_guardian_member(parent_name="", member_phone=""):
     member_id = _current_member_id()
-    if member_id:
+    # 데모 모드에서는 'demo_user' 문자열이 member_id로 들어오므로 필터링
+    if member_id and str(member_id) != 'demo_user':
         return member_id
     member_id = session.get("guardian_member_id")
     if member_id:
@@ -1917,6 +1918,96 @@ def _resolve_guardian_member(parent_name="", member_phone=""):
 
 @app.route('/guardian')
 def guardian_page():
+    # ── 데모 모드: 세션/메모리에서 C유형 데모 데이터를 조합해 대시보드 구성 ──
+    if session.get('demo_mode') or str(session.get('uid', '')) == 'demo_user':
+        cog = _get_cognitive_result()
+        gait = _get_gait_result()
+        care = _classify_care_type(cog, gait)
+
+        # 인지 점수
+        cog_final = 0
+        if cog:
+            cog_final = cog.get('score', {}).get('final_score', 0)
+
+        # 보행 점수 (probability로 환산)
+        gait_score = 0
+        if gait:
+            prob = gait.get('probability', 0)
+            gait_score = max(0, min(100, round((1.0 - prob) * 100)))
+
+        # 오늘 날짜 문자열
+        today_str = datetime.now().strftime('%Y-%m-%d')
+
+        # latest_cognitive 구조 (guardian.html 이 참조하는 키와 맞춤)
+        # guardian.html line 145: dashboard.latest_cognitive.score.sections.get(...)
+        latest_cognitive = None
+        if cog:
+            score_obj = cog.get('score', {})
+            score_sections = score_obj.get('sections', {})
+            latest_cognitive = {
+                "final_score": cog_final,
+                "raw_score": score_obj.get('raw_score', 0),
+                # guardian.html은 .score.sections 로 dot 접근하므로 score 딕셔너리 포함
+                "score": {
+                    "final_score": cog_final,
+                    "raw_score": score_obj.get('raw_score', 0),
+                    "sections": score_sections,
+                    "mci": score_obj.get('mci', {}),
+                },
+                "score_json": json.dumps({"sections": score_sections}),
+                "completed_at": today_str,
+                "version": cog.get('version', 'MoCA-K'),
+            }
+
+        # latest_gait 구조
+        latest_gait = None
+        if gait:
+            latest_gait = {
+                "gait_score": gait_score,
+                "gait_level": gait.get('label', ''),
+                "probability": gait.get('probability', 0),
+                "prediction": gait.get('prediction', 1),
+                "measured_at": today_str,
+                # guardian.html이 raw_json.insights 로 접근하므로 포함
+                "raw_json": {
+                    "insights": gait.get('insights', []),
+                    "threshold": gait.get('threshold', 0.50),
+                    "explainability": gait.get('explainability', []),
+                },
+            }
+
+        # 운동 로그 요약
+        exercise_logs = session.get('demo_exercise_logs', [])
+        total_min = sum(lg.get('duration_min', 0) for lg in exercise_logs)
+        exercise_summary = {
+            "present_days": len(exercise_logs),
+            "streak_days": len(exercise_logs),
+            "total_minutes": total_min,
+            "latest": exercise_logs[0] if exercise_logs else None,
+        }
+
+        demo_dashboard = {
+            "member": {
+                "id": None,
+                "name": "데모 어르신",
+                "care_type": care.get("code", "C"),
+                "care_type_name": care.get("name", "신체강화형"),
+                "member_code": "데모",
+                "phone_last4": "0000",
+            },
+            "cognitive_done": cog is not None,
+            "gait_done": gait is not None,
+            "latest_cognitive": latest_cognitive,
+            "latest_gait": latest_gait,
+            "exercise_summary": exercise_summary,
+            "assistant_profile": None,
+            "sensor_calibrations": {},
+            "recent_assessments": [],
+            "cheers": [],
+            "care_type": care,
+        }
+        return render_template('guardian.html', dashboard=demo_dashboard)
+
     parent_name = (request.args.get('parent_name') or request.args.get('parentName') or '').strip()
     member_phone = request.args.get('member_phone') or request.args.get('guardian_phone') or request.args.get('guardianPhone') or ''
     guardian_id = session.get('guardian_id')
@@ -2191,7 +2282,7 @@ def demo_mode():
         'serial7_stt': '100 93 86 79 72 65 58',
         'sentence1_stt': '오늘 나를 도와줄 사람은 철수 뿐이다',
         'sentence2_stt': '강아지가 방에 들어오면 고양이는 의자 밑에 숨는다',
-        'fluency_stt': '가방 가위 가지 가마 가을 가수 가정 가족 가방 가나다',
+        'fluency_stt': '사과 바나나 딸기 수박 양말 소고기 돼지고기 당근 배추 양파 감자 고구마',
         'abstraction_pair1_stt': '탈 것이다',
         'abstraction_pair2_stt': '숫자가 있다',
         'year_stt': '2026년',
