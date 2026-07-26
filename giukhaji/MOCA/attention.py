@@ -90,14 +90,45 @@ def score_serial_7(stt_text: str) -> int:
     연속 오류 허용: 92→85→78→71→64 (4개 정답 → 3점)
     0개: 0점 / 1개: 1점 / 2~3개: 2점 / 4~5개: 3점
     """
-    # 100과 93이 붙어 '193' 또는 '백구십삼'으로 오인식된 경우 분리
     text_clean = stt_text
+    # 100과 93이 붙어 '193' 또는 '10093', '백구십삼'으로 오인식된 경우 분리
+    text_clean = re.sub(r'\b10093\b', '100 93', text_clean)
     text_clean = re.sub(r'\b193\b', '100 93', text_clean)
     text_clean = text_clean.replace('백구십삼', '백 구십삼')
 
-    numbers = extract_numbers(text_clean)
+    # 공백이나 숫자 추출
+    arabic = re.findall(r'\d+', text_clean)
+    numbers = []
+    if arabic:
+        for item in arabic:
+            # 193 오인식 패턴 처리
+            if item == '193':
+                numbers.extend([100, 93])
+            elif item == '10093':
+                numbers.extend([100, 93])
+            elif len(item) > 2 and item.startswith('100'):
+                numbers.append(100)
+                rem = item[3:]
+                for i in range(0, len(rem), 2):
+                    if i + 2 <= len(rem):
+                        numbers.append(int(rem[i:i+2]))
+                    else:
+                        numbers.append(int(rem[i:]))
+            elif len(item) >= 4 and len(item) % 2 == 0:
+                # 9386797265 처럼 2자리씩 연속으로 들어온 경우
+                for i in range(0, len(item), 2):
+                    numbers.append(int(item[i:i+2]))
+            else:
+                numbers.append(int(item))
+    else:
+        numbers = extract_numbers(text_clean)
+
     if not numbers:
         return 0
+
+    # 만약 첫 번째 숫자가 100이면 100 제거 (기준점)
+    if numbers and numbers[0] == 100:
+        numbers = numbers[1:]
 
     numbers = numbers[:5]
     correct = 0
