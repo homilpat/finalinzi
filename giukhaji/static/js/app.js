@@ -502,10 +502,28 @@ function extractNavCommand(txt) {
   return { isNav: false, answer: txt };
 }
 
+// 인접 겹침(앞 문장의 접미 == 새 조각의 접두)을 최대로 병합한다.
+// 안드로이드 WebView STT는 continuous+interim 상태에서 같은 발화의 "누적 가설"을
+// isFinal로 여러 번 흘려보낸다("오늘" → "오늘 나를" → "오늘 나를 도와줄" …).
+// 무조건 이어붙이면 거대한 중복이 되므로, 겹치는 만큼 잘라내고 합친다.
+// (실제로 새 단어를 말했으면 겹침이 없어 그대로 이어붙는다.)
+function mergeSttWords(prev, next) {
+  const a = (prev || '').split(/\s+/).filter(Boolean);
+  const b = (next || '').split(/\s+/).filter(Boolean);
+  if (!a.length) return b.join(' ');
+  if (!b.length) return a.join(' ');
+  let overlap = 0;
+  const max = Math.min(a.length, b.length);
+  for (let k = max; k > 0; k--) {
+    if (a.slice(a.length - k).join(' ') === b.slice(0, k).join(' ')) { overlap = k; break; }
+  }
+  return a.concat(b.slice(overlap)).join(' ');
+}
+
 // 실제 발화가 있을 때만 답변 버퍼에 누적하고 현재 문항 key에 저장한다.
 function appendTestAnswer(t) {
   if (!t) return;
-  App.answerBuffer = (App.answerBuffer ? App.answerBuffer + ' ' : '') + t;
+  App.answerBuffer = mergeSttWords(App.answerBuffer, t);
   const key = getCurrentSTTKey();
   App.responses[key] = App.answerBuffer;
   App.multiAnswers[key] = App.answerBuffer;
@@ -519,19 +537,62 @@ function updateTranscriptDisplay(interim) {
   if (shown) { el.textContent = shown; el.classList.add('has-text'); }
 }
 
+// 답변 초기화 명령 — "지워줘/다시 말할게/취소/잘못 말했어" 류.
+// merge는 이전 단어를 지우지 않으므로, 오인식 복구용 음성 탈출구를 둔다.
+// (검사 답변엔 거의 안 나오는 표현이라 오판 위험 낮음.)
+const CLEAR_CMD_RE = /(지워\s*(줘|주세요)?|취소(해|할게|하고)?|처음부터\s*다시|다시\s*(말할|말하|말씀|할게)|잘못\s*(말|했)|틀렸어)/;
+
+// 검사 중 "펭트야" 웨이크류(오인식 변형 포함) 감지 — 답변 오염 방지 전용.
+// "펭트야"가 STT에 "텐트야" 등으로 잘못 들려 답변에 섞이는 문제(디버깅 스샷).
+// 트 앞 글자를 [펭팽펜텐뗀]으로 앵커링하고 호격 접미(야/아/님/씨/이)를 요구해
+// 실제 답변("텐트"·"요구르트 아이스크림" 등)은 건드리지 않는다.
+const WAKE_LIKE_RE = /[펭팽펜텐뗀]트\s*(야|아|님|씨|이)/;
+
 // 최종 인식 조각 처리: "다음" 류면 진행, 아니면 답변으로 누적(침묵으론 아무 것도 안 함).
 function handleFinalChunk(txt) {
   if (!txt || App.stepAdvancing) return;
-  // 검사 중에도 "펭트야" 호출을 놓치지 않는다: 마이크는 하나뿐이라 검사 STT가 점유 중이면
-  // 네이티브 웨이크 리스너가 마이크를 못 얻으므로, 검사 STT 트랜스크립트에서 웨이크워드를 함께 잡는다.
-  if (window.PengteuWake && typeof window.PengteuWake.isWakeWord === 'function'
-      && window.PengteuWake.isWakeWord(txt)) {
-    window.PengteuWake.activate();   // 검사 STT 정지(grantToPengteu) 후 펭트 청취로 전환
-    return;
-  }
+  // 검사 중 "펭트야" 음성 호출은 비활성한다: "펭트야"가 "텐트야" 등으로 오인식돼 답변을
+  // 오염시키므로, 웨이크류(오인식 포함)를 잡아 답변에서 조용히 버린다(activate 안 함).
+  // 검사 중 도움은 마이크가 필요 없는 능동 안내(proactiveSay)가 담당한다.
+  if (WAKE_LIKE_RE.test(txt)) return;
+  // "지워줘/다시 말할게" → 지금까지 누적된 답변을 비우고 처음부터 다시 듣기.
+  if (CLEAR_CMD_RE.test(txt)) { clearTestAnswer(); return; }
   const { isNav, answer } = extractNavCommand(txt);
   if (answer) appendTestAnswer(answer);
   if (isNav) submitItem();   // submitItem이 버퍼 저장 + 다음 단계/제출을 처리
+}
+
+// 답변 초기화: 잘못 인식됐을 때 버퍼를 비우고 처음부터 다시 말할 수 있게 한다.
+// 버튼(clearAnswerBtn)·음성명령 공용. 펭트가 "지웠어요"라고 확인해 노인이 안심하게 한다.
+function clearTestAnswer() {
+  if (App.stepAdvancing) return;
+  App.answerBuffer = '';
+  const key = getCurrentSTTKey();
+  App.responses[key] = '';
+  App.multiAnswers[key] = '';
+  const el = document.getElementById('transcriptText');
+  if (el) { el.textContent = '마이크 버튼을 누르고 말씀해 주세요'; el.classList.remove('has-text'); }
+  const box = document.getElementById('transcriptBox');
+  if (box) box.classList.remove('captured');
+  const submit = document.getElementById('submitBtn');
+  if (submit) submit.disabled = true;
+
+  const isVoice = !['drawing', 'clapping'].includes(App.itemType);
+  // 펭트 확인 발화 동안엔 마이크를 멈춰 에코를 막고(proactiveSay는 녹음 중이면 거절),
+  // 말이 끝나면 다시 청취를 시작한다. (advance-nudge와 동일 패턴)
+  stopTestMic();
+  const said = (window.PengteuProactive && window.PengteuProactive.say)
+    ? window.PengteuProactive.say('네, 지웠어요. 다시 말씀해 주세요.')
+    : false;
+  if (said) {
+    const resume = () => {
+      window.removeEventListener('pengteu-speaking-end', resume);
+      if (isVoice) autoStartMicSafe();   // 문항/펭트 음성 끝난 뒤에만 켜서 에코 방지
+    };
+    window.addEventListener('pengteu-speaking-end', resume);
+  } else if (isVoice) {
+    autoStartMicSafe();   // 확인 발화 생략(문항음성 재생 등) 시에도 audioBusy 끝날 때까지 대기
+  }
 }
 
 function initSpeech() {

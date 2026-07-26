@@ -2788,6 +2788,21 @@ body.pengteu-reduced-motion *::after {
 }
 .mic-status { font-size: 14px; color: var(--text-muted); }
 
+/* 답변 초기화(다시 말하기) — 오인식 시 처음부터 다시. 노인용으로 크고 명확하게. */
+.btn-clear-answer {
+  margin-top: 2px;
+  padding: 10px 20px;
+  min-height: 44px;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1.5px solid var(--border, #d0d0d0);
+  border-radius: 24px;
+  cursor: pointer;
+}
+.btn-clear-answer:active { transform: scale(0.96); background: rgba(0,0,0,0.04); }
+
 /* ── 제출 영역 ── */
 .submit-area { margin-top: auto; padding-top: 8px; }
 
