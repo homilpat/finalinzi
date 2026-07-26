@@ -233,39 +233,60 @@
         </div>
       </section>
 
-      <!-- Weekly Trend Card -->
+      <!-- Weekly Trend Card – 종합 건강 점수 7일 변화 -->
       <section class="bg-white rounded-[28px] p-6 card-shadow relative overflow-hidden">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="font-bold text-[#021d33] text-[16px]">📈 일주일 인지 리포트 변화</h3>
-          <span class="text-[#005da7] text-[12px] font-medium">실시간 데이터 연동</span>
+        <div class="flex justify-between items-center mb-2">
+          <h3 class="font-bold text-[#021d33] text-[16px]">📈 주간 종합 건강 점수</h3>
+          <span class="text-[#005da7] text-[12px] font-medium">최근 7일</span>
         </div>
-        <div class="chart-container mt-6">
-          <svg class="w-full h-full" viewBox="0 0 100 40">
-            <defs>
-              <linearGradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stop-color="#005da7" stop-opacity="0.3"></stop>
-                <stop offset="100%" stop-color="#005da7" stop-opacity="0"></stop>
-              </linearGradient>
-            </defs>
-            <path class="chart-area" d="M0,40 L0,32 L20,30 L40,35 L60,25 L80,20 L100,10 L100,40 Z"></path>
-            <path d="M0,32 L20,30 L40,35 L60,25 L80,20 L100,10" fill="none" stroke="#005da7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-            <circle cx="0" cy="32" fill="#005da7" r="1.5"></circle>
-            <circle cx="20" cy="30" fill="#005da7" r="1.5"></circle>
-            <circle cx="40" cy="35" fill="#005da7" r="1.5"></circle>
-            <circle cx="60" cy="25" fill="#005da7" r="1.5"></circle>
-            <circle cx="80" cy="20" fill="#005da7" r="1.5"></circle>
-            <circle cx="100" cy="10" fill="#005da7" r="2"></circle>
-          </svg>
-        </div>
-        <div class="flex justify-between mt-2 px-1">
-          <span class="text-[10px] text-[#6B7A8D]">월</span>
-          <span class="text-[10px] text-[#6B7A8D]">화</span>
-          <span class="text-[10px] text-[#6B7A8D]">수</span>
-          <span class="text-[10px] text-[#6B7A8D]">목</span>
-          <span class="text-[10px] text-[#6B7A8D]">금</span>
-          <span class="text-[10px] text-[#6B7A8D]">토</span>
-          <span class="text-[10px] font-bold text-[#005da7]">일</span>
-        </div>
+        {% if weekly_scores and weekly_scores | length > 0 %}
+          {% set max_s = namespace(v=1) %}
+          {% for ws in weekly_scores %}{% if ws.score > max_s.v %}{% set max_s.v = ws.score %}{% endif %}{% endfor %}
+          {% set max_val = [max_s.v, 1] | max %}
+          <div style="position: relative; width: 100%; height: 110px; margin-top: 8px;">
+            <svg width="100%" height="100%" viewBox="0 0 420 100" preserveAspectRatio="none" style="overflow: visible;">
+              <defs>
+                <linearGradient id="wkGrad" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#005da7" stop-opacity="0.25"/>
+                  <stop offset="100%" stop-color="#005da7" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              {# 포인트 계산 (x: 0~420 균등, y: 10~90 역전) #}
+              {% set pts = namespace(path="", area="M0,100 ") %}
+              {% set n = weekly_scores | length %}
+              {% for ws in weekly_scores %}
+                {% set xi = (loop.index0 / (n - 1) * 420) | round(1) if n > 1 else 210 %}
+                {% set yi = (90 - ws.score / max_val * 80) | round(1) %}
+                {% if loop.first %}
+                  {% set pts.path = pts.path ~ "M" ~ xi ~ "," ~ yi %}
+                  {% set pts.area = pts.area ~ "L" ~ xi ~ "," ~ yi %}
+                {% else %}
+                  {% set pts.path = pts.path ~ " L" ~ xi ~ "," ~ yi %}
+                  {% set pts.area = pts.area ~ " L" ~ xi ~ "," ~ yi %}
+                {% endif %}
+              {% endfor %}
+              {% set pts.area = pts.area ~ " L420,100 Z" %}
+              <path d="{{ pts.area }}" fill="url(#wkGrad)"/>
+              <path d="{{ pts.path }}" fill="none" stroke="#005da7" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              {% for ws in weekly_scores %}
+                {% set n = weekly_scores | length %}
+                {% set xi = (loop.index0 / (n - 1) * 420) | round(1) if n > 1 else 210 %}
+                {% set yi = (90 - ws.score / max_val * 80) | round(1) %}
+                <circle cx="{{ xi }}" cy="{{ yi }}" r="{{ '4' if loop.last else '3' }}"
+                        fill="{{ '#005da7' if ws.has_exercise else '#94a3b8' }}"
+                        stroke="white" stroke-width="1.5"/>
+                <text x="{{ xi }}" y="{{ yi - 7 }}" text-anchor="middle" font-size="9" fill="#005da7" font-weight="700">{{ ws.score }}</text>
+              {% endfor %}
+            </svg>
+          </div>
+          <div class="flex justify-between mt-1 px-0.5">
+            {% for ws in weekly_scores %}
+              <span class="text-[10px] {% if loop.last %}font-bold text-[#005da7]{% else %}text-[#6B7A8D]{% endif %}">{{ ws.label }}</span>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-center text-[#6B7A8D] text-[13px] py-6">아직 기록된 점수 데이터가 없습니다.</div>
+        {% endif %}
       </section>
 
       <!-- Cheering Input Box -->
