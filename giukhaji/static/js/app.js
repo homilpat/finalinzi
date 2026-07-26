@@ -522,6 +522,13 @@ function updateTranscriptDisplay(interim) {
 // 최종 인식 조각 처리: "다음" 류면 진행, 아니면 답변으로 누적(침묵으론 아무 것도 안 함).
 function handleFinalChunk(txt) {
   if (!txt || App.stepAdvancing) return;
+  // 검사 중에도 "펭트야" 호출을 놓치지 않는다: 마이크는 하나뿐이라 검사 STT가 점유 중이면
+  // 네이티브 웨이크 리스너가 마이크를 못 얻으므로, 검사 STT 트랜스크립트에서 웨이크워드를 함께 잡는다.
+  if (window.PengteuWake && typeof window.PengteuWake.isWakeWord === 'function'
+      && window.PengteuWake.isWakeWord(txt)) {
+    window.PengteuWake.activate();   // 검사 STT 정지(grantToPengteu) 후 펭트 청취로 전환
+    return;
+  }
   const { isNav, answer } = extractNavCommand(txt);
   if (answer) appendTestAnswer(answer);
   if (isNav) submitItem();   // submitItem이 버퍼 저장 + 다음 단계/제출을 처리
@@ -1986,10 +1993,9 @@ function redrawCanvas() {
       return;
     }
     // (a) 지정 페이지에 한해 짧은 안내를 한 번 말한다(겹치면 자동 생략).
-    let hint = (meta && meta.getAttribute('data-page-hint')) || '';
-    if (!hint && (window.location.pathname || '').startsWith('/gait')) {
-      hint = '보행 검사 화면이에요. 준비되시면 안내에 따라 편하게 걸어 주세요. 도움이 필요하면 저를 불러 주세요.';
-    }
+    //     /gait은 안내영상(gait_tutorial.mp4, 음성 포함)이 튜토리얼을 대신하므로
+    //     펭트 능동안내를 하지 않는다(소리 겹침 방지). data-page-hint 지정 페이지만 안내.
+    const hint = (meta && meta.getAttribute('data-page-hint')) || '';
     if (hint) setTimeout(() => proactiveSay(hint), 1200);
   }
   proactiveOnLoad();
