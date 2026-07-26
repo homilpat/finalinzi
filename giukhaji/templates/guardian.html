@@ -155,9 +155,10 @@
               ] %}
               {% for label, got, max_score in transformed_sections %}
                 {% set percent = ((got / max_score * 100) | int) if max_score > 0 else 0 %}
+                {% set score_color = '#16a34a' if percent >= 100 else '#dc2626' %}
                 <div class="flex flex-col items-center">
                   <span class="text-[#6B7A8D] text-[10px] leading-tight font-semibold">{{ label }}</span>
-                  <span class="font-bold text-[#021d33] text-[13px] mt-1">{{ percent }}%</span>
+                  <span class="font-bold text-[13px] mt-1" style="color: {{ score_color }};">{{ percent }}%</span>
                 </div>
               {% endfor %}
             {% else %}
@@ -207,14 +208,22 @@
           <!-- 3 Gait Features (Same as Senior Mode Detail Report) -->
           <div class="grid grid-cols-3 gap-2 bg-[#f8f9ff] p-3.5 rounded-xl text-center">
             {% if dashboard.latest_gait and dashboard.latest_gait.get('raw_json') %}
-              {% for item in dashboard.latest_gait.get('raw_json', {}).get('insights', []) %}
-                <div>
-                  <p class="text-[#6B7A8D] text-[10px] leading-tight mb-0.5 font-semibold">{{ item.label }}</p>
-                  <p class="font-bold text-[#021d33] text-[13px] mt-1">
-                    {{ '%.3f'|format(item.value) }}{{ item.unit }}
-                  </p>
+              {% set insights = dashboard.latest_gait.get('raw_json', {}).get('insights', []) %}
+              {% if insights %}
+                {% for item in insights %}
+                  {% set feat_color = '#dc2626' if item.get('is_problem') else '#16a34a' %}
+                  <div>
+                    <p class="text-[#6B7A8D] text-[10px] leading-tight mb-0.5 font-semibold">{{ item.label }}</p>
+                    <p class="font-bold text-[13px] mt-1" style="color: {{ feat_color }};">
+                      {{ '%.3f'|format(item.value) }}{{ item.get('unit', '') }}
+                    </p>
+                  </div>
+                {% endfor %}
+              {% else %}
+                <div class="col-span-3 text-[#6B7A8D] text-[12px] py-1">
+                  연동된 보행 검사 결과가 없습니다.
                 </div>
-              {% endfor %}
+              {% endif %}
             {% else %}
               <div class="col-span-3 text-[#6B7A8D] text-[12px] py-1">
                 연동된 보행 검사 결과가 없습니다.
