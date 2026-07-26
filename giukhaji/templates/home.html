@@ -144,23 +144,24 @@
         <span>
           <strong style="font-size: 22px;">신체기능검사</strong>
         </span>
-        <span class="mode-arrow" style="font-size: 22px; font-weight: 900; background: #005da7; color: #ffffff; padding: 10px 22px; border-radius: 14px;">시작</span>
+        <span class="mode-arrow" style="font-size: 22px; font-weight: 900; background: #005da7; color: #ffffff; padding: 10px 22px; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; min-width: 82px; box-sizing: border-box;">시작</span>
+      </button>
+
+      <button class="mode-card mode-card-secondary{% if cognitive_locked %} is-locked{% endif %}" type="button" id="cognitiveModeBtn"{% if cognitive_locked %} data-locked="1" aria-disabled="true"{% endif %} style="margin-top: 12px; flex-direction: row; justify-content: flex-start; text-align: left; min-height: 138px; padding: 20px; width: 100%;">
+        <span class="mode-icon" aria-hidden="true">
+          <svg viewBox="0 0 48 48" fill="none">
+            <rect x="8" y="8" width="32" height="32" rx="12" fill="rgba(255,255,255,0.22)"/>
+            <path d="M16 25h5l3-8 5 15 3-7h5" stroke="white" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <span style="flex: 1;">
+          <strong style="font-size: 22px;">인지기능검사</strong>
+          {% if cognitive_locked %}<small style="display:block; font-size:13px; font-weight:700; margin-top:4px; opacity:0.9;">최근 검사 완료 · {{ cognitive_unlock_date }}부터 가능</small>{% endif %}
+        </span>
+        <span class="mode-arrow" style="font-size: 22px; font-weight: 900; background: {% if cognitive_locked %}#94a3b8{% else %}#005da7{% endif %}; color: #ffffff; padding: 10px 22px; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; min-width: 82px; box-sizing: border-box;">{% if cognitive_locked %}완료{% else %}시작{% endif %}</span>
       </button>
 
       <div class="mode-grid">
-        <button class="mode-card mode-card-secondary{% if cognitive_locked %} is-locked{% endif %}" type="button" id="cognitiveModeBtn"{% if cognitive_locked %} data-locked="1" aria-disabled="true"{% endif %}>
-          <span class="mode-icon" aria-hidden="true">
-            <svg viewBox="0 0 48 48" fill="none">
-              <rect x="8" y="8" width="32" height="32" rx="12" fill="rgba(255,255,255,0.22)"/>
-              <path d="M16 25h5l3-8 5 15 3-7h5" stroke="white" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
-          <span>
-            <strong style="font-size: 20px;">인지기능검사</strong>
-            {% if cognitive_locked %}<small style="display:block; font-size:12px; font-weight:700; margin-top:3px; opacity:0.85;">최근 검사 완료 · {{ cognitive_unlock_date }}부터 가능</small>{% endif %}
-          </span>
-          <span class="mode-arrow" style="font-size: 22px; font-weight: 900; background: {% if cognitive_locked %}#94a3b8{% else %}#005da7{% endif %}; color: #ffffff; padding: 10px 22px; border-radius: 14px;">{% if cognitive_locked %}완료{% else %}시작{% endif %}</span>
-        </button>
 
         <a class="mode-card mode-card-secondary mode-card-link" href="/physical/guide">
           <span class="mode-icon" aria-hidden="true">
