@@ -645,6 +645,89 @@ def get_exercise_summary(member_id):
     }
 
 
+def get_weekly_health_scores(member_id):
+    """
+    최근 7일간 날짜별 종합 건강 점수 계산.
+    종합 건강 점수 = mean(최근 인지 점수, 최근 신체 점수, 해당일 운동 점수 평균)
+    반환: [{'date': 'YYYY-MM-DD', 'score': int, 'label': '월'}, ...] (오래된 날짜 순)
+    """
+    from datetime import timedelta
+    if not member_id:
+        return []
+
+    today = datetime.now().date()
+    seven_days = [(today - timedelta(days=i)) for i in range(6, -1, -1)]  # 6일 전 ~ 오늘
+    weekday_labels = ['월', '화', '수', '목', '금', '토', '일']
+
+    with get_conn() as conn:
+        # 최근 인지 점수 (final_score / 30 * 100)
+        cog_row = conn.execute(
+            """
+            SELECT final_score FROM assessments
+             WHERE member_id = ? AND completed_at IS NOT NULL AND final_score IS NOT NULL
+             ORDER BY completed_at DESC LIMIT 1
+            """,
+            (member_id,),
+        ).fetchone()
+        cog_score = int(cog_row["final_score"] / 30.0 * 100) if cog_row and cog_row["final_score"] else 0
+
+        # 최근 신체 점수 (gait_score)
+        phys_row = conn.execute(
+            """
+            SELECT gait_score FROM physical_results
+             WHERE member_id = ? AND gait_score IS NOT NULL
+             ORDER BY measured_at DESC LIMIT 1
+            """,
+            (member_id,),
+        ).fetchone()
+        phys_score = int(phys_row["gait_score"]) if phys_row and phys_row["gait_score"] else 0
+
+        # 날짜별 운동 점수 평균 (raw_json의 score 필드)
+        ex_rows = conn.execute(
+            """
+            SELECT completed_date, raw_json FROM exercise_records
+             WHERE member_id = ? AND completed_date >= ?
+             ORDER BY completed_date
+            """,
+            (member_id, seven_days[0].isoformat()),
+        ).fetchall()
+
+    # 날짜별 운동 점수 집계
+    ex_scores_by_date = {}
+    for row in ex_rows:
+        d = row["completed_date"]
+        try:
+            rj = json.loads(row["raw_json"]) if row["raw_json"] else {}
+            s = rj.get("score")
+            if s is not None:
+                ex_scores_by_date.setdefault(d, []).append(float(s))
+        except Exception:
+            pass
+
+    result = []
+    for day in seven_days:
+        ds = day.isoformat()
+        ex_list = ex_scores_by_date.get(ds, [])
+        ex_avg = int(sum(ex_list) / len(ex_list)) if ex_list else None
+
+        # 운동 기록 없는 날은 인지+신체 평균만
+        if ex_avg is not None:
+            day_score = int((cog_score + phys_score + ex_avg) / 3)
+        elif cog_score > 0 or phys_score > 0:
+            day_score = int((cog_score + phys_score) / 2) if (cog_score > 0 and phys_score > 0) else (cog_score or phys_score)
+        else:
+            day_score = 0
+
+        result.append({
+            "date": ds,
+            "score": day_score,
+            "label": weekday_labels[day.weekday()],
+            "has_exercise": ex_avg is not None,
+        })
+
+    return result
+
+
 def save_guardian_cheer(member_id, message, guardian_id=None):
     if not member_id:
         return None

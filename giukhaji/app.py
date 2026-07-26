@@ -58,6 +58,7 @@ from core.database import (
     get_or_create_guardian,
     get_recent_assessment_summaries,
     get_or_create_member,
+    get_weekly_health_scores,
     init_db,
     link_guardian_member,
     normalize_phone,
@@ -1194,6 +1195,28 @@ def report_detail_page():
         exercise_data['today']['type'] = 'C유형 맞춤'
 
     today_score = session.get('today_exercise_score', 95)
+
+    # ── 주간 종합 건강 점수 (데모 모드 시 세션의 공통 가상 데이터 연동) ──
+    if session.get('demo_mode') and session.get('demo_weekly_scores'):
+        weekly_scores = session.get('demo_weekly_scores')
+    elif session.get('demo_mode'):
+        cog_r = _get_cognitive_result()
+        gait_r = _get_gait_result()
+        cog_s = int(cog_r['score']['final_score'] / 30.0 * 100) if cog_r else 90
+        phys_s = max(0, min(100, round((1.0 - gait_r.get('probability', 0.68)) * 100))) if gait_r else 32
+        from datetime import timedelta
+        wl = ['월','화','수','목','금','토','일']
+        weekly_scores = []
+        import random, hashlib as _hs
+        for i in range(6, -1, -1):
+            d = (datetime.now() - timedelta(days=i)).date()
+            seed = int(_hs.md5(d.isoformat().encode()).hexdigest(), 16) % 100
+            ex_var = 80 + (seed % 15)  # 80~94 범위 운동 점수 변동
+            day_s = int((cog_s + phys_s + ex_var) / 3)
+            weekly_scores.append({'date': d.isoformat(), 'score': day_s, 'label': wl[d.weekday()], 'has_exercise': True})
+    else:
+        weekly_scores = get_weekly_health_scores(member_id) if member_id else []
+
     return render_template(
         'report_detail.html',
         exercise=exercise_data,
@@ -1203,7 +1226,8 @@ def report_detail_page():
         panel=request.args.get('panel', 'cognitive'),
         exercise_logs=logs,
         today_score=today_score,
-        datetime_now_str=datetime.now().strftime('%Y-%m-%d')
+        datetime_now_str=datetime.now().strftime('%Y-%m-%d'),
+        weekly_scores=weekly_scores,
     )
 
 
@@ -1976,6 +2000,33 @@ def guardian_page():
                 },
             }
 
+        # 데모용 가상 7일 주간 종합 건강 점수 + 운동 기록 (세션 공통 데이터 연동)
+        demo_weekly_scores = session.get('demo_weekly_scores', [])
+        demo_weekly_exercise_logs = session.get('demo_weekly_exercise_logs', [])
+        if not demo_weekly_scores:
+            from datetime import timedelta
+            import hashlib as _hs
+            wl = ['월','화','수','목','금','토','일']
+            demo_weekly_scores = []
+            demo_weekly_exercise_logs = list(session.get('demo_exercise_logs', []))
+            for i in range(6, -1, -1):
+                d = (datetime.now() - timedelta(days=i)).date()
+                seed = int(_hs.md5(d.isoformat().encode()).hexdigest(), 16) % 100
+                ex_var = 80 + (seed % 15)
+                day_s = int((cog_final + gait_score + ex_var) / 3)
+                demo_weekly_scores.append({
+                    'date': d.isoformat(), 'score': day_s,
+                    'label': wl[d.weekday()], 'has_exercise': True
+                })
+                if i > 0:
+                    demo_weekly_exercise_logs.append({
+                        'completed_date': d.isoformat(),
+                        'duration_min': 20,
+                        'exercise_name': 'C유형 맞춤 운동 (앉아서 무릎 펴기 + 글자 수 세기)',
+                        'exercise_type': 'C',
+                        'score': ex_var,
+                    })
+
         # 운동 로그 요약
         exercise_logs = session.get('demo_exercise_logs', [])
         total_min = sum(lg.get('duration_min', 0) for lg in exercise_logs)
@@ -2006,7 +2057,9 @@ def guardian_page():
             "cheers": [],
             "care_type": care,
         }
-        return render_template('guardian.html', dashboard=demo_dashboard)
+        return render_template('guardian.html', dashboard=demo_dashboard,
+                               weekly_scores=demo_weekly_scores,
+                               weekly_exercise_logs=demo_weekly_exercise_logs)
 
     parent_name = (request.args.get('parent_name') or request.args.get('parentName') or '').strip()
     member_phone = request.args.get('member_phone') or request.args.get('guardian_phone') or request.args.get('guardianPhone') or ''
@@ -2031,7 +2084,8 @@ def guardian_page():
             guardian_id = session.get('guardian_id')
 
     dashboard = get_guardian_dashboard(member_id=member_id, limit=5)
-    return render_template('guardian.html', dashboard=dashboard)
+    weekly_scores = get_weekly_health_scores(member_id) if member_id else []
+    return render_template('guardian.html', dashboard=dashboard, weekly_scores=weekly_scores)
 
 
 @app.route('/guardian/cheer', methods=['POST'])
@@ -2346,18 +2400,52 @@ def demo_mode():
         {
             'completed_date': datetime.now().strftime('%Y-%m-%d'),
             'duration_min': 20,
-            'exercise_name': 'C유형 맞춤 운동__1',
+            'exercise_name': 'C유형 맞춤 운동 (앉아서 무릎 펴기 + 글자 수 세기)',
             'exercise_type': 'C',
             'score': 88,
         },
         {
             'completed_date': datetime.now().strftime('%Y-%m-%d'),
             'duration_min': 20,
-            'exercise_name': 'C유형 맞춤 운동__2',
+            'exercise_name': 'C유형 맞춤 운동 (앉아서 무릎 펴기 + 글자 수 세기)',
             'exercise_type': 'C',
             'score': 82,
         },
     ]
+
+    # ── 공통 주간 종합 건강 점수 및 운동 로그 생성 (양쪽 화면 동기화) ──
+    from datetime import timedelta
+    import hashlib as _hs
+    wl = ['월','화','수','목','금','토','일']
+    demo_weekly_scores = []
+    demo_weekly_exercise_logs = list(session['demo_exercise_logs'])
+    
+    # C유형 기본 인지 90점, 보행 32점
+    cog_base = 90
+    phys_base = 32
+    
+    for i in range(6, -1, -1):
+        d = (datetime.now() - timedelta(days=i)).date()
+        seed = int(_hs.md5(d.isoformat().encode()).hexdigest(), 16) % 100
+        ex_var = 80 + (seed % 15)  # 80~94점 변동
+        day_s = int((cog_base + phys_base + ex_var) / 3)
+        demo_weekly_scores.append({
+            'date': d.isoformat(), 
+            'score': day_s,
+            'label': wl[d.weekday()], 
+            'has_exercise': True
+        })
+        if i > 0:
+            demo_weekly_exercise_logs.append({
+                'completed_date': d.isoformat(),
+                'duration_min': 20,
+                'exercise_name': 'C유형 맞춤 운동 (앉아서 무릎 펴기 + 글자 수 세기)',
+                'exercise_type': 'C',
+                'score': ex_var,
+            })
+            
+    session['demo_weekly_scores'] = demo_weekly_scores
+    session['demo_weekly_exercise_logs'] = demo_weekly_exercise_logs
 
     return redirect(url_for('home'))
 

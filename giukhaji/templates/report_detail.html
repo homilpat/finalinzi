@@ -194,9 +194,53 @@
         <span>최근 7일</span>
         <em>오늘 {{ total_score_val }}점</em>
       </div>
-      <div class="score-chart" aria-label="최근 7일 점수 변화 그래프">
-        <span class="chart-line"></span>
-        <span class="chart-dot"></span>
+      <div class="score-chart" aria-label="최근 7일 종합 건강 점수 변화 그래프" style="background: none !important; height: auto !important; margin-top: 18px; padding-bottom: 8px;">
+        {% if weekly_scores and weekly_scores | length > 0 %}
+          {% set max_s = namespace(v=1) %}
+          {% for ws in weekly_scores %}{% if ws.score > max_s.v %}{% set max_s.v = ws.score %}{% endif %}{% endfor %}
+          {% set max_val = [max_s.v, 1] | max %}
+          <div style="position: relative; width: 100%; height: 80px;">
+            <svg width="100%" height="100%" viewBox="0 0 380 60" preserveAspectRatio="none" style="overflow: visible; display: block;">
+              <defs>
+                <linearGradient id="rdGrad" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="#0A68B3" stop-opacity="0.25"/>
+                  <stop offset="100%" stop-color="#0A68B3" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              {% set pts = namespace(path="", area="M0,60 ") %}
+              {% set n = weekly_scores | length %}
+              {% for ws in weekly_scores %}
+                {% set xi = (loop.index0 / (n - 1) * 380) | round(1) if n > 1 else 190 %}
+                {% set yi = (50 - ws.score / max_val * 42) | round(1) %}
+                {% if loop.first %}
+                  {% set pts.path = pts.path ~ "M" ~ xi ~ "," ~ yi %}
+                  {% set pts.area = pts.area ~ "L" ~ xi ~ "," ~ yi %}
+                {% else %}
+                  {% set pts.path = pts.path ~ " L" ~ xi ~ "," ~ yi %}
+                  {% set pts.area = pts.area ~ " L" ~ xi ~ "," ~ yi %}
+                {% endif %}
+              {% endfor %}
+              {% set pts.area = pts.area ~ " L380,60 Z" %}
+              <path d="{{ pts.area }}" fill="url(#rdGrad)"/>
+              <path d="{{ pts.path }}" fill="none" stroke="#0A68B3" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+              {% for ws in weekly_scores %}
+                {% set xi = (loop.index0 / (n - 1) * 380) | round(1) if n > 1 else 190 %}
+                {% set yi = (50 - ws.score / max_val * 42) | round(1) %}
+                <circle cx="{{ xi }}" cy="{{ yi }}" r="{{ '5.5' if loop.last else '4.5' }}"
+                        fill="{{ '#D32222' if loop.last else ('#0A68B3' if ws.has_exercise else '#94a3b8') }}"
+                        stroke="white" stroke-width="2"/>
+                <text x="{{ xi }}" y="{{ yi - 9 }}" text-anchor="middle" font-size="10.5" fill="{{ '#D32222' if loop.last else '#0A68B3' }}" font-weight="900">{{ ws.score }}</text>
+              {% endfor %}
+            </svg>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-top: 10px; padding: 0 4px;">
+            {% for ws in weekly_scores %}
+              <span style="font-size: 14px; color: {% if loop.last %}#0A68B3{% else %}#64748B{% endif %}; font-weight: {% if loop.last %}900{% else %}700{% endif %};">{{ ws.label }}</span>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div style="text-align: center; color: #64748B; font-size: 15px; padding: 20px 0;">아직 점수 기록이 없습니다.</div>
+        {% endif %}
       </div>
     </section>
 

@@ -26,12 +26,33 @@
     border: 1px solid #eef2f6;
   }
   .trans-title {
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 800;
     color: #021d33;
-    line-height: 1.5;
-    margin-bottom: 24px;
+    line-height: 1.4;
+    margin-bottom: 20px;
+    white-space: nowrap;
     word-break: keep-all;
+  }
+  .trans-guide-img {
+    width: 100%;
+    max-width: 340px;
+    border-radius: 16px;
+    margin: 0 auto 20px auto;
+    display: block;
+  }
+  .trans-guide-text {
+    font-size: 18px;
+    color: #021d33;
+    font-weight: 700;
+    line-height: 1.6;
+    text-align: center;
+    word-break: keep-all;
+    background: #f0f5ff;
+    border-radius: 14px;
+    padding: 16px 18px;
+    border: 1px solid #dbe5ff;
+    margin-bottom: 24px;
   }
   .trans-desc-box {
     background: #f0f5ff;
@@ -121,17 +142,16 @@
     </div>
     
     <h2 class="trans-title">이제 인지기능 검사를 진행하겠습니다.</h2>
-    
-    <div class="trans-desc-box">
-      <div class="trans-desc-title">다음 검사에서는</div>
-      <ul class="trans-desc-list">
-        <li>화면을 손으로 터치하거나</li>
-        <li>그림을 따라 그리거나</li>
-        <li>질문에 말로 대답하는 문제가 나옵니다.</li>
-      </ul>
-      <p class="trans-desc-footer">안내에 따라 천천히 진행해 주세요.</p>
-    </div>
-    
+
+    <img src="{{ url_for('static', filename='images/cognitive_guide.png') }}"
+         alt="인지기능 검사 안내" class="trans-guide-img">
+
+    <p class="trans-guide-text">
+      다음 검사에서는 화면을 손으로 터치하거나, 그림을 그리거나,<br>
+      질문에 말로 대답하는 문제가 나옵니다.<br>
+      안내에 따라 천천히 진행해 주세요.
+    </p>
+
     <a href="/start_saved" class="trans-btn">검사 시작하기</a>
   </div>
 </div>
