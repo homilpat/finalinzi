@@ -1306,7 +1306,7 @@ def _predict_gait_from_payload(data):
     import pandas as pd
     frame = pd.DataFrame([values], columns=model_features)
     probability = float(model_artifact['pipeline'].predict_proba(frame)[:, 1][0])
-    threshold = float(model_artifact.get('threshold', 0.5))
+    threshold = float(model_artifact.get('threshold', 0.51))
     prediction = int(probability >= threshold)
     features = dict(zip(model_features, values))
     model_mode = model_artifact.get('model_mode', 'daily_subwindow_clinical_acc_only_3feat')
@@ -2002,7 +2002,7 @@ def guardian_page():
                 # guardian.html이 raw_json.insights 로 접근하므로 포함
                 "raw_json": {
                     "insights": gait.get('insights', []),
-                    "threshold": gait.get('threshold', 0.50),
+                    "threshold": gait.get('threshold', 0.51),
                     "explainability": gait.get('explainability', []),
                 },
             }
@@ -2382,7 +2382,7 @@ def demo_mode():
         'result_id': gait_result_id,
         'prediction': 1,
         'probability': 0.68,
-        'threshold': 0.50,
+        'threshold': 0.51,
         'label': '저하 위험',
         'model_mode': 'daily_gait',
         'insights': _gait_feature_insights(demo_features),

@@ -220,7 +220,7 @@
       {% set phys_threshold_100 = ((1.0 - gait.threshold) * 100) | int %}
     {% else %}
       {% set phys_score_100 = 0 %}
-      {% set phys_threshold_100 = 53 %}
+      {% set phys_threshold_100 = 49 %}
     {% endif %}
 
     {% set total_score_100 = ((cog_score_100 + phys_score_100) / 2) | int %}

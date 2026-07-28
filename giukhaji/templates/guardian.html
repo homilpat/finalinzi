@@ -42,7 +42,7 @@
 {% set overall_score = (((cog_score + (gait_score if dashboard.gait_done else 75)) / 2) | int) if dashboard.latest_cognitive else 0 %}
 {% set cog_bg_size = (10000.0 / cog_score) if cog_score > 0 else 100 %}
 {% set gait_bg_size = (10000.0 / gait_score) if gait_score > 0 else 100 %}
-{% set phys_threshold = ((1.0 - dashboard.latest_gait.get('raw_json', {}).get('threshold', 0.47)) * 100) | int if (dashboard.latest_gait and dashboard.latest_gait.get('raw_json', {}).get('threshold') is not none) else 53 %}
+{% set phys_threshold = ((1.0 - dashboard.latest_gait.get('raw_json', {}).get('threshold', 0.51)) * 100) | int if (dashboard.latest_gait and dashboard.latest_gait.get('raw_json', {}).get('threshold') is not none) else 49 %}
 
 <div class="relative w-full min-h-screen bg-[#F7FAFC] overflow-x-hidden flex flex-col pb-[100px]">
   
