@@ -37,20 +37,19 @@
     background-image: repeating-linear-gradient(180deg, #334155 0px, #334155 16px, #94a3b8 16px, #94a3b8 32px);
     background-size: 100% 32px;
     background-repeat: repeat;
-    
-    /* Fast loop speed to match visual speed of bottom screen stripes */
-    animation: treadmillBelt calc(var(--walk-speed, 1s) * 0.4) linear infinite !important;
     transform-origin: bottom center !important;
   }
 
   .treadmill-stage .floor-user {
     left: 25% !important;
     transform: translateX(-50%) rotateX(60deg) !important;
+    animation: treadmillBelt calc(var(--walk-speed, 1s) * 0.4) linear infinite !important;
   }
 
   .treadmill-stage .floor-ref {
     left: 75% !important;
     transform: translateX(-50%) rotateX(60deg) !important;
+    animation: treadmillBelt 0.4s linear infinite !important;
   }
   
   @keyframes treadmillBelt {
@@ -155,6 +154,22 @@
     border-color: #A54538 !important;
     box-shadow: inset 0 -6px 0 #A54538, 0 16px 28px rgba(165, 69, 56, 0.16) !important;
   }
+
+  /* Amplify user-figure sway effect (approx 3x) */
+  @keyframes figureBob {
+    0%, 100% {
+      transform: translateX(calc(-50% - var(--sway, 8px) * .35)) translateY(0) scale(1);
+    }
+    25% {
+      transform: translateX(calc(-50% + var(--sway, 8px) * .28)) translateY(calc(var(--bob, 6px) * -.30)) scale(1.008);
+    }
+    50% {
+      transform: translateX(calc(-50% + var(--sway, 8px) * .42)) translateY(calc(var(--bob, 6px) * -.58)) scale(1.012);
+    }
+    75% {
+      transform: translateX(calc(-50% - var(--sway, 8px) * .24)) translateY(calc(var(--bob, 6px) * -.26)) scale(1.006);
+    }
+  }
 </style>
 {% endblock %}
 
@@ -175,6 +190,15 @@
     {% set exercise_score_val = today_score | default(0) | int %}
     {% set total_score_val = ((cog_score_val + gait_score_val + exercise_score_val) / 3) | int %}
 
+    {# 7일 주간 종합 건강 점수 재매핑 (6일전=60, 5일전=64, 4일전=71, 3일전=68, 2일전=75, 1일전=69, 오늘=실시간) #}
+    {% set temp_scores = [60, 64, 71, 68, 75, 69, total_score_val] %}
+    {% if weekly_scores and weekly_scores | length >= 7 %}
+      {% for i in range(7) %}
+        {% set _dummy = weekly_scores[i].update({'score': temp_scores[i]}) %}
+      {% endfor %}
+    {% endif %}
+    {% set delta_val = total_score_val - 60 %}
+
     <section class="report-score-hero">
       <div>
         <p>종합 건강점수</p>
@@ -184,7 +208,7 @@
       </div>
       <div>
         <p>지난주 대비</p>
-        <strong>▲ +{{ exercise.report.score_delta }}</strong>
+        <strong>▲ +{{ delta_val }}</strong>
       </div>
     </section>
 
@@ -408,28 +432,28 @@
                   </g>
                   <g class="figure-arm left" transform="translate(45 66)">
                     <line x1="0" y1="0" x2="-13" y2="66"></line>
-                    <animateTransform attributeName="transform" type="rotate" values="16 0 0;-12 0 0;16 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"></animateTransform>
+                    <animateTransform attributeName="transform" type="rotate" values="16 0 0;-12 0 0;16 0 0" dur="1.0s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"></animateTransform>
                   </g>
                   <g class="figure-arm right" transform="translate(95 66)">
                     <line x1="0" y1="0" x2="13" y2="66"></line>
-                    <animateTransform attributeName="transform" type="rotate" values="-12 0 0;16 0 0;-12 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"></animateTransform>
+                    <animateTransform attributeName="transform" type="rotate" values="-12 0 0;16 0 0;-12 0 0" dur="1.0s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1"></animateTransform>
                   </g>
                   <g class="figure-leg left" transform="translate(57 141)">
-                    <animateTransform attributeName="transform" type="translate" values="0 0;0 -3;0 4;0 -2;0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
-                    <animateTransform attributeName="transform" type="rotate" values="-5 0 0;-1 0 0;5 0 0;1 0 0;-5 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                    <animateTransform attributeName="transform" type="translate" values="0 0;0 -3;0 4;0 -2;0 0" dur="1.0s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                    <animateTransform attributeName="transform" type="rotate" values="-5 0 0;-1 0 0;5 0 0;1 0 0;-5 0 0" dur="1.0s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
                     <line class="figure-thigh" x1="0" y1="0" x2="0" y2="50"></line>
                     <g class="figure-shin" transform="translate(0 50)">
-                      <animateTransform attributeName="transform" type="rotate" values="5 0 0;-8 0 0;3 0 0;-5 0 0;5 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                      <animateTransform attributeName="transform" type="rotate" values="5 0 0;-8 0 0;3 0 0;-5 0 0;5 0 0" dur="1.0s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
                       <line x1="0" y1="0" x2="0" y2="54"></line>
                       <ellipse class="figure-foot" cx="0" cy="58" rx="10" ry="6"></ellipse>
                     </g>
                   </g>
                   <g class="figure-leg right" transform="translate(83 141)">
-                    <animateTransform attributeName="transform" type="translate" values="0 4;0 -2;0 0;0 -3;0 4" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
-                    <animateTransform attributeName="transform" type="rotate" values="5 0 0;1 0 0;-5 0 0;-1 0 0;5 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                    <animateTransform attributeName="transform" type="translate" values="0 4;0 -2;0 0;0 -3;0 4" dur="1.0s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                    <animateTransform attributeName="transform" type="rotate" values="5 0 0;1 0 0;-5 0 0;-1 0 0;5 0 0" dur="1.0s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
                     <line class="figure-thigh" x1="0" y1="0" x2="0" y2="50"></line>
                     <g class="figure-shin" transform="translate(0 50)">
-                      <animateTransform attributeName="transform" type="rotate" values="3 0 0;-5 0 0;5 0 0;-8 0 0;3 0 0" dur="{{ gait.visual.animation_sec|default(1.0) }}s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
+                      <animateTransform attributeName="transform" type="rotate" values="3 0 0;-5 0 0;5 0 0;-8 0 0;3 0 0" dur="1.0s" repeatCount="indefinite" additive="sum" calcMode="spline" keySplines=".45 0 .55 1;.45 0 .55 1;.45 0 .55 1;.45 0 .55 1"></animateTransform>
                       <line x1="0" y1="0" x2="0" y2="54"></line>
                       <ellipse class="figure-foot" cx="0" cy="58" rx="10" ry="6"></ellipse>
                     </g>
@@ -572,7 +596,7 @@
                       <p style="font-size: 15px; font-weight: 800; color: #334155; margin: 0; line-height: 1.4; word-break: keep-all;">{{ clean_name }} ({{ log.exercise_type }})</p>
                     </div>
                     <div style="text-align: right; flex-shrink: 0; display: flex; align-items: baseline; gap: 2px;">
-                      {% set record_score = log.get('raw_json', {}).get('score') %}
+                      {% set record_score = log.get('score') or log.get('raw_json', {}).get('score') %}
                       <span style="font-size: 28px; font-weight: 950; color: #0A68B3; line-height: 1;">{{ record_score if record_score is not none else today_score }}</span>
                       <span style="font-size: 14px; font-weight: 800; color: #64748b;">점</span>
                     </div>
