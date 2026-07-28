@@ -118,6 +118,30 @@
       </div>
     </section>
 
+    <!-- 받은 응원 메시지 보관함 -->
+    <section class="mypage-section" style="background: #ffffff; border-radius: 24px; padding: 22px; box-shadow: 0 8px 24px rgba(31, 56, 89, 0.06); border: 1px solid #edf2f7; margin-top: 20px;">
+      <h3 style="font-size: 18px; font-weight: 900; color: #021d33; margin: 0 0 16px; display: flex; align-items: center; gap: 8px;">
+        <span>💌 받은 응원 메시지</span>
+        <span style="font-size: 12px; font-weight: 800; color: #005da7; background: #eef4ff; padding: 2px 7px; border-radius: 6px;">{{ read_cheers | length }}개</span>
+      </h3>
+      {% if read_cheers %}
+        <div style="display: flex; flex-direction: column; gap: 12px; max-height: 240px; overflow-y: auto; padding-right: 2px;">
+          {% for cheer in read_cheers %}
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px;">
+              <p style="font-size: 15px; font-weight: 800; color: #334155; margin: 0; line-height: 1.4; word-break: keep-all;">{{ cheer.message }}</p>
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #94a3b8; font-weight: 700;">
+                <span>보낸이: {{ cheer.guardian_name or '보호자' }}</span>
+                {% set date_only = cheer.created_at.split('T')[0] if 'T' in cheer.created_at else cheer.created_at.split(' ')[0] %}
+                <span>{{ date_only }}</span>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div style="text-align: center; padding: 30px 10px; color: #94a3b8; font-size: 14px; font-weight: 800;">보호자가 보낸 응원 메시지가 아직 없습니다.</div>
+      {% endif %}
+    </section>
+
     <!-- Spacer to prevent bottom nav from covering content -->
     <div style="height: 85px;"></div>
 
