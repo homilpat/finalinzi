@@ -342,7 +342,7 @@ def _gait_explainability(model_artifact, features):
 
     max_abs = max([abs(item["contribution"]) for item in raw] + [1.0])
     for item in raw:
-        item["direction"] = "risk" if item["contribution"] > 0 else "protective"
+        item["direction"] = "risk" if item["contribution"] > 0 else "normal"
         item["width"] = int(min(100, abs(item["contribution"]) / max_abs * 100))
     return raw
 
@@ -2391,9 +2391,9 @@ def demo_mode():
     # ── 보행 결과: C유형 = 신체 저하 ──
     gait_result_id = uuid4().hex
     demo_features = {
-        'v_jerk_rms_median': 0.85,
-        'v_jerk_rms_iqr': 1.15,
-        'v_harmonic_ratio_iqr': 0.25,
+        'v_jerk_rms_median': 0.852,
+        'v_jerk_rms_iqr': 0.149,
+        'v_harmonic_ratio_iqr': 0.084,
     }
     demo_gait = {
         'result_id': gait_result_id,
@@ -2404,9 +2404,9 @@ def demo_mode():
         'model_mode': 'daily_gait',
         'insights': _gait_feature_insights(demo_features),
         'explainability': [
-            {'label': '수직 추진/충격 크기', 'value': 0.85, 'direction': 'risk', 'description': '충격 크기가 낮아 주의 판정에 기여'},
-            {'label': '수직 움직임 변동성', 'value': 1.15, 'direction': 'risk', 'description': '변동성이 높아 주의 판정에 기여'},
-            {'label': '보행 리듬 변동성', 'value': 0.25, 'direction': 'risk', 'description': '리듬 변동성이 높아 주의 판정에 기여'},
+            {'label': '수직 추진/충격 크기', 'value': 0.852, 'direction': 'risk', 'width': 65, 'description': '충격 크기가 낮아 주의 판정에 기여'},
+            {'label': '수직 움직임 변동성', 'value': 0.149, 'direction': 'normal', 'width': 100, 'description': '변동성이 낮아 안정적임'},
+            {'label': '보행 리듬 변동성', 'value': 0.084, 'direction': 'risk', 'width': 40, 'description': '리듬 변동성이 높아 주의 판정에 기여'},
         ],
         'visual': {
             'animation_sec': 1.8,
