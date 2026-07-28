@@ -68,10 +68,18 @@ from core.database import (
     save_exercise_record,
     save_guardian_cheer,
     save_physical_result,
+    save_guardian_cheer,
+    get_unread_cheers,
+    mark_cheers_as_shown,
+    mark_cheer_as_read,
+    get_read_cheers,
     save_sensor_calibration,
     update_assessment_location,
     update_assistant_profile,
 )
+
+# Global memory storage for demo-mode cheers (synchronized real-time across user/guardian sessions)
+_demo_cheers = []
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'moca-demo-2026-dev')
@@ -1240,6 +1248,16 @@ def report_detail_page():
 
 @app.route('/mypage')
 def mypage_page():
+    member_id = _current_member_id()
+    is_demo = session.get('demo_mode') or str(member_id) == 'demo_user' or session.get('uid') == 'demo_user'
+    
+    if is_demo:
+        global _demo_cheers
+        read_cheers = [c for c in _demo_cheers if c.get("is_read") == 1]
+        read_cheers.reverse()
+    else:
+        read_cheers = get_read_cheers(member_id) if member_id else []
+
     cog = _get_cognitive_result()
     gait_res = _get_gait_result()
     return render_template(
@@ -1249,7 +1267,8 @@ def mypage_page():
         cognitive=cog,
         gait=gait_res,
         care_type=_classify_care_type(cog, gait_res),
-        panel=request.args.get('panel', 'cognitive')
+        panel=request.args.get('panel', 'cognitive'),
+        read_cheers=read_cheers
     )
 
 
@@ -2117,16 +2136,76 @@ def guardian_cheer():
     data = request.get_json(silent=True) or {}
     message = (data.get('message') or '').strip()
     member_id = _current_member_id() or session.get("guardian_member_id")
-    if not member_id:
-        dashboard = get_guardian_dashboard(limit=1)
-        member = dashboard.get("member")
-        member_id = member.get("id") if member else None
-    if not member_id:
-        return jsonify({"ok": False, "error": "member_not_found"}), 400
-
-    cheer = save_guardian_cheer(member_id, message, guardian_id=session.get('guardian_id'))
-    cheers = get_guardian_cheers(member_id, limit=5)
+    is_demo = session.get('demo_mode') or str(member_id) == 'demo_user' or session.get('uid') == 'demo_user'
+    
+    if is_demo:
+        member_id = 'demo_user'
+        import uuid
+        cheer = {
+            "id": int(uuid.uuid4().int % 10000000),
+            "member_id": "demo_user",
+            "message": message or "오늘도 정말 잘하고 있어요. 천천히 같이 해봐요!",
+            "created_at": datetime.now().isoformat(),
+            "popup_shown": 0,
+            "is_read": 0,
+            "guardian_name": "보호자"
+        }
+        global _demo_cheers
+        _demo_cheers.append(cheer)
+        cheers = list(_demo_cheers[-5:])
+        cheers.reverse()
+    else:
+        if not member_id:
+            dashboard = get_guardian_dashboard(limit=1)
+            member = dashboard.get("member")
+            member_id = member.get("id") if member else None
+        if not member_id:
+            return jsonify({"ok": False, "error": "member_not_found"}), 400
+        cheer = save_guardian_cheer(member_id, message, guardian_id=session.get('guardian_id'))
+        cheers = get_guardian_cheers(member_id, limit=5)
+        
     return jsonify({"ok": True, "message": cheer["message"], "count": len(cheers), "cheers": cheers})
+
+
+@app.route('/api/cheer/unread', methods=['GET'])
+def api_cheer_unread():
+    member_id = _current_member_id()
+    is_demo = session.get('demo_mode') or str(member_id) == 'demo_user' or session.get('uid') == 'demo_user'
+    
+    if is_demo:
+        global _demo_cheers
+        unread = [c for c in _demo_cheers if c["popup_shown"] == 0]
+        # 즉시 노출 완료 처리
+        for c in unread:
+            c["popup_shown"] = 1
+    else:
+        if not member_id:
+            return jsonify({"ok": True, "cheers": []})
+        unread = get_unread_cheers(member_id)
+        if unread:
+            mark_cheers_as_shown([c["id"] for c in unread])
+            
+    return jsonify({"ok": True, "cheers": unread})
+
+
+@app.route('/api/cheer/read', methods=['POST'])
+def api_cheer_read():
+    data = request.get_json(silent=True) or {}
+    cheer_id = data.get("cheer_id")
+    member_id = _current_member_id()
+    is_demo = session.get('demo_mode') or str(member_id) == 'demo_user' or session.get('uid') == 'demo_user'
+    
+    if is_demo:
+        global _demo_cheers
+        for c in _demo_cheers:
+            if str(c["id"]) == str(cheer_id):
+                c["is_read"] = 1
+                c["popup_shown"] = 1
+    else:
+        if cheer_id:
+            mark_cheer_as_read(cheer_id)
+            
+    return jsonify({"ok": True})
 
 
 @app.route('/assistant/profile', methods=['GET', 'POST'])

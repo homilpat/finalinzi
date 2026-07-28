@@ -238,6 +238,16 @@ def init_db():
                     "UPDATE members SET member_code = ? WHERE id = ?",
                     (_format_member_code(row["id"]), row["id"]),
                 )
+        # guardian_cheers columns migration
+        columns_cheers = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(guardian_cheers)").fetchall()
+        }
+        if "popup_shown" not in columns_cheers:
+            conn.execute("ALTER TABLE guardian_cheers ADD COLUMN popup_shown INTEGER DEFAULT 0")
+        if "is_read" not in columns_cheers:
+            conn.execute("ALTER TABLE guardian_cheers ADD COLUMN is_read INTEGER DEFAULT 0")
+
         conn.execute(
             "CREATE UNIQUE INDEX IF NOT EXISTS idx_members_member_code ON members(member_code)"
         )
@@ -739,9 +749,9 @@ def save_guardian_cheer(member_id, message, guardian_id=None):
         cur = conn.execute(
             """
             INSERT INTO guardian_cheers (
-                guardian_id, member_id, message, created_at
+                guardian_id, member_id, message, created_at, popup_shown, is_read
             )
-            VALUES (?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, 0, 0)
             """,
             (guardian_id, member_id, clean, stamp),
         )
@@ -762,6 +772,60 @@ def get_guardian_cheers(member_id, limit=5):
              LIMIT ?
             """,
             (member_id, int(limit)),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_unread_cheers(member_id):
+    if not member_id:
+        return []
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, message, created_at
+              FROM guardian_cheers
+             WHERE member_id = ? AND popup_shown = 0
+             ORDER BY created_at ASC
+            """,
+            (member_id,),
+        ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def mark_cheers_as_shown(cheer_ids):
+    if not cheer_ids:
+        return
+    placeholders = ",".join("?" for _ in cheer_ids)
+    with get_conn() as conn:
+        conn.execute(
+            f"UPDATE guardian_cheers SET popup_shown = 1 WHERE id IN ({placeholders})",
+            tuple(cheer_ids),
+        )
+
+
+def mark_cheer_as_read(cheer_id):
+    if not cheer_id:
+        return
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE guardian_cheers SET is_read = 1, popup_shown = 1 WHERE id = ?",
+            (int(cheer_id),),
+        )
+
+
+def get_read_cheers(member_id):
+    if not member_id:
+        return []
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT gc.id, gc.message, gc.created_at, g.name AS guardian_name
+              FROM guardian_cheers gc
+              LEFT JOIN guardians g ON g.id = gc.guardian_id
+             WHERE gc.member_id = ? AND gc.is_read = 1
+             ORDER BY gc.created_at DESC, gc.id DESC
+            """,
+            (member_id,),
         ).fetchall()
     return [dict(row) for row in rows]
 

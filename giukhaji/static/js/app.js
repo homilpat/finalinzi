@@ -1052,9 +1052,15 @@ function initClapping() {
   App.tappedIndices = [];
   App.clapCurrentIdx = -1;
 
-  // TAP 이벤트: 화면 어디든 탭
-  document.getElementById('itemScreen')?.addEventListener('click', onClap);
-  document.getElementById('itemScreen')?.addEventListener('touchstart', onClap, { passive: true });
+  // TAP 이벤트: 화면 어디든 탭 (모바일 터치/클릭 중복 이벤트 방지)
+  const screen = document.getElementById('itemScreen');
+  if (screen) {
+    if (window.PointerEvent) {
+      screen.addEventListener('pointerdown', onClap);
+    } else {
+      screen.addEventListener('click', onClap);
+    }
+  }
 }
 
 function onClap() {
