@@ -77,15 +77,17 @@ from core.database import (
     update_assessment_location,
     update_assistant_profile,
 )
+from core.runtime_config import SECRET_KEY
 
 # Global memory storage for demo-mode cheers (synchronized real-time across user/guardian sessions)
 _demo_cheers = []
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'moca-demo-2026-dev')
+app.secret_key = SECRET_KEY
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SECURE=os.environ.get('RENDER', '').lower() == 'true',
     MAX_CONTENT_LENGTH=8 * 1024 * 1024,
 )
 init_db()
@@ -100,7 +102,7 @@ def require_access_password():
     password = _access_password()
     if not password:
         return None
-    if request.endpoint in ('login', 'api_mobile_remember_login'):
+    if request.endpoint in ('login', 'api_mobile_remember_login', 'health'):
         return None
     if session.get('access_granted') is True:
         return None
@@ -112,6 +114,11 @@ def require_access_password():
 @app.route('/pengt.png')
 def pengteu_image():
     return send_from_directory(app.root_path, 'pengt.png')
+
+
+@app.get('/health')
+def health():
+    return jsonify({'ok': True, 'service': 'finalinzi'})
 
 # 메모리 세션 저장소 (시연용)
 _store = {}  # uid → { 'sess': MoCASession, 'raw': dict, 'location': str, 'sigungu': str }

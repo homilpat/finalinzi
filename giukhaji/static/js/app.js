@@ -596,6 +596,7 @@ function clearTestAnswer() {
 }
 
 function initSpeech() {
+  if (window.AndroidBridge && typeof window.AndroidBridge.startTestStt === 'function') return null;
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { console.warn('SpeechRecognition 미지원'); return null; }
   const r = new SR();
@@ -638,17 +639,63 @@ function initSpeech() {
   return r;
 }
 
+window.TestSpeechNative = {
+  onStart: () => {
+    App.recording = true;
+    const btn = document.getElementById('micBtn');
+    if (btn) btn.classList.add('recording');
+    const status = document.getElementById('micStatus');
+    if (status) status.textContent = '듣는 중...';
+  },
+  onResult: (text) => {
+    const finalText = String(text || '').trim();
+    if (!finalText) return;
+    handleFinalChunk(finalText);
+    updateTranscriptDisplay('');
+    scheduleAnswerIdle();
+  },
+  onEnd: () => {
+    if (App.recording && !App.micStopRequested) {
+      setTimeout(() => {
+        if (App.recording && window.AndroidBridge) window.AndroidBridge.startTestStt();
+      }, 250);
+      return;
+    }
+    App.recording = false;
+    App.micStopRequested = false;
+    const btn = document.getElementById('micBtn');
+    if (btn) btn.classList.remove('recording');
+    const status = document.getElementById('micStatus');
+    if (status) status.textContent = '완료';
+  },
+  onError: (message) => {
+    const status = document.getElementById('micStatus');
+    if (status) status.textContent = message || '음성 인식 오류';
+  },
+};
+
 // ── 마이크 시작/정지 (자동·수동 공용) ──
 function startTestMic() {
   if (['drawing', 'clapping'].includes(App.itemType)) return;
-  if (!App.recognition) App.recognition = initSpeech();
-  if (!App.recognition || App.recording) return;
+  if (App.recording) return;
   // 마이크 회수: 펭트가 쓰고 있으면 멈추고 검사 STT가 마이크를 가져간다.
   if (window.PengteuAssistant && typeof window.PengteuAssistant.stop === 'function') {
     window.PengteuAssistant.stop();
   }
   MicBus.owner = 'test';
   App.micStopRequested = false;
+  if (window.AndroidBridge && typeof window.AndroidBridge.startTestStt === 'function') {
+    App.recording = true;
+    window.AndroidBridge.startTestStt();
+    const btn = document.getElementById('micBtn');
+    if (btn) btn.classList.add('recording');
+    const status = document.getElementById('micStatus');
+    if (status) status.textContent = '듣는 중...';
+    scheduleAnswerIdle();
+    return;
+  }
+  if (!App.recognition) App.recognition = initSpeech();
+  if (!App.recognition) return;
   try {
     App.recognition.start();
   } catch (e) {
@@ -665,10 +712,14 @@ function startTestMic() {
 
 function stopTestMic() {
   clearTimeout(App.answerIdleTimer);
-  if (!App.recognition || !App.recording) { App.recording = false; return; }
+  if (!App.recording) return;
   App.micStopRequested = true;
   App.recording = false;
-  try { App.recognition.stop(); } catch (e) {}
+  if (window.AndroidBridge && typeof window.AndroidBridge.stopTestStt === 'function') {
+    window.AndroidBridge.stopTestStt();
+  } else if (App.recognition) {
+    try { App.recognition.stop(); } catch (e) {}
+  }
   const btn = document.getElementById('micBtn');
   if (btn) btn.classList.remove('recording');
   const status = document.getElementById('micStatus');
