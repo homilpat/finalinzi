@@ -65,8 +65,13 @@ assert phone.encode() not in open(database.DB_PATH, 'rb').read()
         self.assertIn("PHONE_HASH_SALT", render)
         self.assertIn("https://finalinzi.onrender.com/", gradle)
         self.assertIn("fun startTestStt()", kotlin)
+        self.assertIn("fun stopPengteuStt()", kotlin)
+        self.assertIn("stopTestStt()\n        stopPengteuTts()", kotlin)
+        self.assertIn("override fun onStop(utteranceId", kotlin)
         self.assertIn("window.TestSpeechNative", javascript)
         self.assertIn("window.AndroidBridge.startTestStt()", javascript)
+        self.assertIn("window.AndroidBridge.stopTestStt()", javascript)
+        self.assertIn("window.AndroidBridge.stopPengteuStt()", javascript)
 
 
 if __name__ == "__main__":

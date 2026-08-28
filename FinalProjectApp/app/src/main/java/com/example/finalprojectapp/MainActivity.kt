@@ -69,6 +69,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
     private var wakeWantsRun = false        // 웨이크 리스너를 계속 돌려야 하는 상태
     private var isWakeListening = false      // 현재 실제로 듣고 있는지
     private var isPengteuSttActive = false   // 명령 STT 중(마이크 점유) → 웨이크 정지
+    private var pengteuSttStopRequested = false
     private var isTestSttActive = false      // 인지검사 답변 STT 중
     private var testSttStopRequested = false
     private var isTtsSpeaking = false        // 펭트/보행 TTS 발화 중 → 자기목소리 오탐 방지
@@ -305,6 +306,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
             }
 
             override fun onDone(utteranceId: String?) {
+                isTtsSpeaking = false
+                if (utteranceId?.startsWith("pengteu-") == true) {
+                    notifyPengteuNative("onTtsEnd")
+                }
+                mainHandler.post { resumeWake() }
+            }
+
+            override fun onStop(utteranceId: String?, interrupted: Boolean) {
                 isTtsSpeaking = false
                 if (utteranceId?.startsWith("pengteu-") == true) {
                     notifyPengteuNative("onTtsEnd")
@@ -580,8 +589,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
         }
         if (isTestSttActive) return
         stopPengteuTts()
-        runCatching { pengteuRecognizer?.cancel() }
-        isPengteuSttActive = false
+        stopPengteuStt()
         pauseWakeForOther()
         testSttStopRequested = false
 
@@ -647,7 +655,10 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
             notifyPengteuNative("onSttError", "이 기기에서는 음성 인식을 사용할 수 없어요. 글자로 입력해 주세요.")
             return
         }
+        if (isPengteuSttActive) return
+        stopTestStt()
         stopPengteuTts()
+        pengteuSttStopRequested = false
         val recognizer = pengteuRecognizer ?: SpeechRecognizer.createSpeechRecognizer(this).also {
             pengteuRecognizer = it
             it.setRecognitionListener(object : RecognitionListener {
@@ -663,8 +674,11 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
                 }
 
                 override fun onError(error: Int) {
+                    val requested = pengteuSttStopRequested
                     notifyPengteuNative("onSttEnd")
-                    notifyPengteuNative("onSttError", "음성을 잘 듣지 못했어요. 마이크를 다시 눌러 말해 주세요.")
+                    if (!requested) {
+                        notifyPengteuNative("onSttError", "음성을 잘 듣지 못했어요. 마이크를 다시 눌러 말해 주세요.")
+                    }
                     isPengteuSttActive = false
                     resumeWake()
                 }
@@ -696,6 +710,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
         isPengteuSttActive = true
         pauseWakeForOther()
         recognizer.startListening(intent)
+    }
+
+    private fun stopPengteuStt() {
+        pengteuSttStopRequested = true
+        isPengteuSttActive = false
+        runCatching { pengteuRecognizer?.cancel() }
+        notifyPengteuNative("onSttEnd")
+        resumeWake()
     }
 
     // ── "펭트야" always-on 웨이크워드 (네이티브 엔진) ─────────────
@@ -1057,7 +1079,12 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
 
         @JavascriptInterface
         fun startPengteuStt() {
-            this@MainActivity.startPengteuStt()
+            mainHandler.post { this@MainActivity.startPengteuStt() }
+        }
+
+        @JavascriptInterface
+        fun stopPengteuStt() {
+            mainHandler.post { this@MainActivity.stopPengteuStt() }
         }
 
         @JavascriptInterface
