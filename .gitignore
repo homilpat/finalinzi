@@ -76,6 +76,8 @@ gaitsensorapp/
 mobile_sensor_app/.expo/
 mobile_sensor_app/.expo-home/
 FinalProjectApp/.gradle-user/
+FinalProjectApp/.android-user/
+.android-sdk/
 app-debug.apk
 
 # Assessment source PDFs should not be uploaded unless explicitly cleared.

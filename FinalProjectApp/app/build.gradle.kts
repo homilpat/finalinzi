@@ -18,7 +18,7 @@ val serverUrl: String = run {
 
 android {
     namespace = "com.example.finalprojectapp"
-    compileSdk = 37
+    compileSdk = 36
 
     buildFeatures {
         buildConfig = true
