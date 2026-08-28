@@ -52,6 +52,7 @@ MOCA/cookies.txt
 *.exe
 
 # Generated render/temp outputs
+tmp/
 tmp_render/
 docx_render_check/
 MOCA/tmp_render/
@@ -77,6 +78,7 @@ mobile_sensor_app/.expo/
 mobile_sensor_app/.expo-home/
 FinalProjectApp/.gradle-user/
 FinalProjectApp/.android-user/
+FinalProjectApp/.android-build/
 .android-sdk/
 app-debug.apk
 
