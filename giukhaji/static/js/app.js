@@ -45,10 +45,14 @@ const MicBus = {
   // 펭트가 마이크를 가져감: 문항 TTS 일시정지(타이머 유지) + 검사 STT 정지
   grantToPengteu() {
     if (App.activeAudio) { try { App.activeAudio.pause(); } catch (e) {} }
-    if (App.recognition && App.recording) {
+    if (App.recording) {
       App.micStopRequested = true;
       App.recording = false;
-      try { App.recognition.stop(); } catch (e) {}
+      if (window.AndroidBridge && typeof window.AndroidBridge.stopTestStt === 'function') {
+        try { window.AndroidBridge.stopTestStt(); } catch (e) {}
+      } else if (App.recognition) {
+        try { App.recognition.stop(); } catch (e) {}
+      }
     }
     this.owner = 'pengteu';
     this.audioBusy = false;  // 문항 음성을 멈췄으므로 게이트 해제 (펭트가 말하면 직후 다시 true)
@@ -669,6 +673,8 @@ window.TestSpeechNative = {
     if (status) status.textContent = '완료';
   },
   onError: (message) => {
+    App.recording = false;
+    App.micStopRequested = true;
     const status = document.getElementById('micStatus');
     if (status) status.textContent = message || '음성 인식 오류';
   },
@@ -2017,6 +2023,9 @@ function redrawCanvas() {
     stopPengteuAudio();
     if (window.AndroidBridge && typeof window.AndroidBridge.stopPengteuTts === 'function') {
       try { window.AndroidBridge.stopPengteuTts(); } catch (e) {}
+    }
+    if (window.AndroidBridge && typeof window.AndroidBridge.stopPengteuStt === 'function') {
+      try { window.AndroidBridge.stopPengteuStt(); } catch (e) {}
     }
     if (pengteuRecognition && pengteuListening) {
       try { pengteuRecognition.stop(); } catch (e) {}
