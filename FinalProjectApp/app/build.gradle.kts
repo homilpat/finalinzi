@@ -6,13 +6,14 @@ plugins {
 
 // 서버 주소는 리포에 커밋하지 않는다. local.properties(gitignore됨)의
 //   serverUrl=http://<내 서버 IP>:5000/
-// 값을 빌드 시 BuildConfig.SERVER_URL로 주입한다. 없으면 에뮬레이터 기본값.
+// 값을 빌드 시 BuildConfig.SERVER_URL로 주입한다. 없으면 운영 서버를 사용한다.
 val serverUrl: String = run {
     val props = Properties()
     rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { props.load(it) }
     props.getProperty("serverUrl")
         ?: (project.findProperty("serverUrl") as String?)
-        ?: "http://10.0.2.2:5000/"
+        ?: System.getenv("FINALINZI_SERVER_URL")
+        ?: "https://finalinzi.onrender.com/"
 }
 
 android {
@@ -57,4 +58,12 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
+}
+
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    doFirst {
+        check(serverUrl.startsWith("https://")) {
+            "Release serverUrl must use HTTPS"
+        }
+    }
 }

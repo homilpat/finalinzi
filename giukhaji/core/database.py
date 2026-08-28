@@ -5,6 +5,8 @@ import re
 import sqlite3
 from datetime import datetime
 
+from core.runtime_config import PHONE_HASH_SALT
+
 
 DB_PATH = os.environ.get(
     "MOCA_DB_PATH",
@@ -33,8 +35,7 @@ def normalize_phone(phone):
 
 def phone_hash(phone):
     normalized = normalize_phone(phone)
-    salt = os.environ.get("PHONE_HASH_SALT", "moca-demo-phone-salt")
-    return hashlib.sha256(f"{salt}:{normalized}".encode("utf-8")).hexdigest()
+    return hashlib.sha256(f"{PHONE_HASH_SALT}:{normalized}".encode("utf-8")).hexdigest()
 
 
 def phone_last4(phone):

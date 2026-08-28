@@ -18,7 +18,7 @@ const G = 9.80665;
 const SAMPLE_INTERVAL_MS = 10;
 const UI_SAMPLE_INTERVAL_MS = 250;
 
-const DEFAULT_SERVER_URL = 'http://192.168.0.2:5000';
+const DEFAULT_SERVER_URL = process.env.EXPO_PUBLIC_SERVER_URL ?? 'https://finalinzi.onrender.com';
 
 const SESSION_TYPES = [
   {
@@ -443,6 +443,11 @@ export default function App() {
 
   async function uploadToServer() {
     if (!csvPath) return;
+    const baseUrl = serverUrl.trim().replace(/\/+$/, '');
+    if (!/^https?:\/\//i.test(baseUrl)) {
+      Alert.alert('서버 주소 확인', 'http:// 또는 https://로 시작하는 서버 주소를 입력해 주세요.');
+      return;
+    }
     setUploading(true);
     setGaitResult(null);
     try {
@@ -450,7 +455,6 @@ export default function App() {
       const formData = new FormData();
       formData.append('file', { uri: csvPath, name: filename, type: 'text/csv' });
       if (memberPhone.trim()) formData.append('member_phone', memberPhone.trim());
-      const baseUrl = serverUrl.replace(/\/+$/, '');
       const res = await fetch(`${baseUrl}/gait/upload-csv`, {
         method: 'POST',
         body: formData,
