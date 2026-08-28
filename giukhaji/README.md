@@ -110,7 +110,7 @@
 ## 빠른 시작
 
 ```bash
-cd C:\Users\whdgu\Desktop\MOCA
+cd giukhaji
 python app.py
 # → http://localhost:5000
 ```
