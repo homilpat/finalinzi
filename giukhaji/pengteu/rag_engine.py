@@ -18,6 +18,9 @@ class RagChunk:
     source: str
     title: str
     text: str
+    citation: str = ""
+    pages: str = ""
+    doi: str = ""
 
 
 class LocalRagEngine:
@@ -44,8 +47,17 @@ class LocalRagEngine:
 
         def flush():
             body = "\n".join(buffer).strip()
-            if body:
-                yield RagChunk(source=source, title=current_title, text=body)
+            normalized_title = current_title.lower().strip()
+            if body and normalized_title not in {"references", "참고문헌", "bibliography"}:
+                metadata = _extract_metadata(body)
+                yield RagChunk(
+                    source=source,
+                    title=current_title,
+                    text=body,
+                    citation=metadata.get("source", ""),
+                    pages=metadata.get("pages", ""),
+                    doi=metadata.get("doi", ""),
+                )
 
         for line in text.splitlines():
             if line.startswith("#"):
@@ -102,6 +114,9 @@ class LocalRagEngine:
                 {
                     "source": chunk.source,
                     "title": chunk.title,
+                    "citation": chunk.citation,
+                    "pages": chunk.pages,
+                    "doi": chunk.doi,
                     "score": round(score, 4),
                     "text": _compact(chunk.text),
                 }
@@ -114,6 +129,15 @@ def _compact(text: str, max_chars: int = 650) -> str:
     if len(normalized) <= max_chars:
         return normalized
     return normalized[: max_chars - 1].rstrip() + "…"
+
+
+def _extract_metadata(text: str) -> dict[str, str]:
+    metadata = {}
+    for line in text.splitlines():
+        match = re.match(r"^(Source|Pages|DOI):\s*(.+)$", line.strip(), re.IGNORECASE)
+        if match:
+            metadata[match.group(1).lower()] = match.group(2).strip()
+    return metadata
 
 
 rag_engine = LocalRagEngine()
