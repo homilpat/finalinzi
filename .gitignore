@@ -34,6 +34,11 @@ giukhaji/data/
 MOCA_16Jun2026.csv
 MOCA/MOCA_16Jun2026.csv
 *.csv
+*.xls
+*.xlsx
+*.keystore
+*.jks
+local.properties
 
 # Large model/checkpoint files
 *.pth
