@@ -62,12 +62,15 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
     private var gaitTts: TextToSpeech? = null
     private var gaitTtsReady = false
     private var pengteuRecognizer: SpeechRecognizer? = null
+    private var testRecognizer: SpeechRecognizer? = null
 
     // "펭트야" always-on 웨이크워드 (네이티브 전용 — WebView엔 Web Speech 없음)
     private var wakeRecognizer: SpeechRecognizer? = null
     private var wakeWantsRun = false        // 웨이크 리스너를 계속 돌려야 하는 상태
     private var isWakeListening = false      // 현재 실제로 듣고 있는지
     private var isPengteuSttActive = false   // 명령 STT 중(마이크 점유) → 웨이크 정지
+    private var isTestSttActive = false      // 인지검사 답변 STT 중
+    private var testSttStopRequested = false
     private var isTtsSpeaking = false        // 펭트/보행 TTS 발화 중 → 자기목소리 오탐 방지
     private val wakeRestartToken = Any()     // 웨이크 재시작 예약 취소용 핸들러 토큰
 
@@ -557,6 +560,84 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
         webView.post { webView.evaluateJavascript(script, null) }
     }
 
+    private fun notifyTestSpeech(functionName: String, argument: String? = null) {
+        val script = if (argument == null) {
+            "window.TestSpeechNative && window.TestSpeechNative.$functionName()"
+        } else {
+            "window.TestSpeechNative && window.TestSpeechNative.$functionName(${JSONObject.quote(argument)})"
+        }
+        webView.post { webView.evaluateJavascript(script, null) }
+    }
+
+    private fun startTestStt() {
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), TEST_AUDIO_PERMISSION_REQUEST)
+            return
+        }
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            notifyTestSpeech("onError", "이 기기에서는 음성 인식을 사용할 수 없어요.")
+            return
+        }
+        if (isTestSttActive) return
+        stopPengteuTts()
+        runCatching { pengteuRecognizer?.cancel() }
+        isPengteuSttActive = false
+        pauseWakeForOther()
+        testSttStopRequested = false
+
+        val recognizer = testRecognizer ?: SpeechRecognizer.createSpeechRecognizer(this).also {
+            testRecognizer = it
+            it.setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) = notifyTestSpeech("onStart")
+                override fun onBeginningOfSpeech() {}
+                override fun onRmsChanged(rmsdB: Float) {}
+                override fun onBufferReceived(buffer: ByteArray?) {}
+                override fun onEndOfSpeech() {}
+
+                override fun onError(error: Int) {
+                    val requested = testSttStopRequested
+                    isTestSttActive = false
+                    notifyTestSpeech("onEnd")
+                    if (!requested) {
+                        notifyTestSpeech("onError", "음성을 잘 듣지 못했어요. 다시 말씀해 주세요.")
+                    }
+                    resumeWake()
+                }
+
+                override fun onResults(results: Bundle?) {
+                    val text = results
+                        ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        ?.firstOrNull()
+                        .orEmpty()
+                    isTestSttActive = false
+                    if (text.isNotBlank()) notifyTestSpeech("onResult", text)
+                    else notifyTestSpeech("onError", "음성을 잘 듣지 못했어요. 다시 말씀해 주세요.")
+                    notifyTestSpeech("onEnd")
+                    resumeWake()
+                }
+
+                override fun onPartialResults(partialResults: Bundle?) {}
+                override fun onEvent(eventType: Int, params: Bundle?) {}
+            })
+        }
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ko-KR")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+        isTestSttActive = true
+        recognizer.startListening(intent)
+    }
+
+    private fun stopTestStt() {
+        testSttStopRequested = true
+        isTestSttActive = false
+        runCatching { testRecognizer?.cancel() }
+        notifyTestSpeech("onEnd")
+        resumeWake()
+    }
+
     private fun startPengteuStt() {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), AUDIO_PERMISSION_REQUEST)
@@ -671,7 +752,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
     }
 
     private fun pumpWake() {
-        if (!wakeWantsRun || isWakeListening || isPengteuSttActive || isTtsSpeaking) return
+        if (!wakeWantsRun || isWakeListening || isPengteuSttActive || isTestSttActive || isTtsSpeaking) return
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return
         val recognizer = ensureWakeRecognizer() ?: return
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -722,7 +803,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
     }
 
     private fun resumeWake() {
-        if (!wakeWantsRun || isPengteuSttActive || isTtsSpeaking) return
+        if (!wakeWantsRun || isPengteuSttActive || isTestSttActive || isTtsSpeaking) return
         scheduleWakeRestart()
     }
 
@@ -889,6 +970,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
         gaitTts?.stop()
         gaitTts?.shutdown()
         pengteuRecognizer?.destroy()
+        testRecognizer?.destroy()
         wakeRecognizer?.destroy()
         sensorManager.unregisterListener(this)
         super.onDestroy()
@@ -905,6 +987,14 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
                 startPengteuStt()
             } else {
                 notifyPengteuNative("onSttError", "마이크 권한이 필요해요. 앱 설정에서 마이크 권한을 허용해 주세요.")
+            }
+            return
+        }
+        if (requestCode == TEST_AUDIO_PERMISSION_REQUEST) {
+            if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+                startTestStt()
+            } else {
+                notifyTestSpeech("onError", "마이크 권한이 필요해요. 앱 설정에서 허용해 주세요.")
             }
             return
         }
@@ -971,6 +1061,16 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
         }
 
         @JavascriptInterface
+        fun startTestStt() {
+            mainHandler.post { this@MainActivity.startTestStt() }
+        }
+
+        @JavascriptInterface
+        fun stopTestStt() {
+            mainHandler.post { this@MainActivity.stopTestStt() }
+        }
+
+        @JavascriptInterface
         fun startWakeWord() {
             mainHandler.post { this@MainActivity.startWakeWord() }
         }
@@ -1004,6 +1104,7 @@ class MainActivity : AppCompatActivity(), SensorEventListener, TextToSpeech.OnIn
         private const val PREF_EDUCATION_LEVEL = "education_level"
         private const val AUDIO_PERMISSION_REQUEST = 1101
         private const val WAKE_AUDIO_PERMISSION_REQUEST = 1102
+        private const val TEST_AUDIO_PERMISSION_REQUEST = 1103
         private const val LOCATION_PERMISSION_REQUEST = 1201
         private val GAIT_STOP_TOKEN = Any()
     }

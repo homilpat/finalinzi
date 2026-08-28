@@ -30,7 +30,7 @@ server.err.log
 *.sqlite
 *.sqlite3
 *.db
-MOCA/data/
+giukhaji/data/
 MOCA_16Jun2026.csv
 MOCA/MOCA_16Jun2026.csv
 *.csv
@@ -43,8 +43,8 @@ MOCA/MOCA_16Jun2026.csv
 *.hdf5
 *.keras
 *.joblib
-!MOCA/models/*.joblib
-MOCA/Clock Drawing Test.v6i.yolov8/
+!giukhaji/models/*.joblib
+giukhaji/MOCA/Clock Drawing Test.v6i.yolov8/
 
 # Local/browser/private files
 cookies.txt
@@ -75,10 +75,11 @@ external_data/
 gaitsensorapp/
 mobile_sensor_app/.expo/
 mobile_sensor_app/.expo-home/
+FinalProjectApp/.gradle-user/
 app-debug.apk
 
 # Assessment source PDFs should not be uploaded unless explicitly cleared.
-MOCA/*.pdf
+giukhaji/*.pdf
 
 # OS/editor noise
 .DS_Store
