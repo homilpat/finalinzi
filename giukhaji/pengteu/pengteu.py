@@ -23,7 +23,9 @@ def _basic_pengteu_reply(message, context, knowledge=None):
     if knowledge:
         titles = []
         for item in knowledge[:2]:
-            title = item.get("title") or item.get("source") or ""
+            title = item.get("citation") or item.get("title") or item.get("source") or ""
+            if item.get("pages"):
+                title = f"{title} {item['pages']}"
             if title and title not in titles:
                 titles.append(title)
         if titles:
@@ -40,7 +42,7 @@ def _basic_pengteu_reply(message, context, knowledge=None):
         if gait_prediction == 1:
             return f"{name}가 볼 때 {member_code}의 최근 보행 결과는 신체기능 관리가 필요한 신호가 있어요. 오늘은 빠르게 걷기보다 허리에 스마트폰을 잘 고정하고, 천천히 균형을 지키는 운동부터 해볼게요.{evidence_hint}"
         if gait_prediction == 0:
-            return f"{name}가 확인했어요. {member_code}의 최근 보행 결과는 정상 범위 가능성이 높아요. 그래도 매일 조금씩 걷기와 균형 운동을 이어가면 좋아요.{evidence_hint}"
+            return f"{name}가 확인했어요. {member_code}의 이번 보행 선별에서는 주의 신호가 낮게 나타났어요. 증상이 지속되거나 나빠지면 결과와 관계없이 의료진과 상담하고, 무리하지 않는 걷기와 균형 운동을 이어가세요.{evidence_hint}"
         return f"{name}가 아직 최신 보행 결과를 찾지 못했어요. 스마트폰을 허리에 고정하고 20초 이상 평소처럼 걸어서 먼저 측정해볼게요.{evidence_hint}"
 
     if "인지" in message or "moca" in lowered or "점수" in message:
@@ -106,6 +108,9 @@ def _compact_pengteu_context(context, knowledge=None):
             {
                 "source": item.get("source"),
                 "title": item.get("title"),
+                "citation": item.get("citation"),
+                "pages": item.get("pages"),
+                "doi": item.get("doi"),
                 "text": (item.get("text") or "")[:700],
             }
             for item in (knowledge or [])[:3]
@@ -137,6 +142,7 @@ def _openai_pengteu_fallback(message, context, knowledge=None):
         "진단을 확정하지 말고 선별/주의 표현을 사용한다. "
         "답변은 한국어로 2~4문장, 쉽고 따뜻하게 말한다. "
         "사용자 기록과 검색 지식 안에서만 개인 결과를 설명하고, 모르는 것은 모른다고 말한다. "
+        "검색 지식을 근거로 사용하면 답변 마지막에 논문 출처와 해당 페이지를 표시한다. "
         "인지검사(MoCA) 진행 중에는 문항의 정답, 기억 단어, 그림·시계 정답, 힌트를 "
         "절대 알려주지 않는다. 정답을 물으면 '검사 중에는 답을 알려드릴 수 없어요'라고 "
         "부드럽게 거절하고, 대신 편하게 검사에 집중하도록 격려만 한다."
@@ -183,9 +189,7 @@ def _clean_pengteu_reply(reply, message=""):
     text = (reply or "").strip()
     blocked = (
         "질문과 가까운 자료를 찾아봤어요",
-        "이 내용을 바탕으로",
         "retrieved_knowledge",
-        "RAG",
         "/static/audio",
         "`/static/audio`",
     )
