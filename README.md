@@ -1,3 +1,4 @@
+[시연영상](https://youtu.be/FUdJCf0dYKs)
 # Finalinzi — AI 시니어 건강 케어 프로토타입
 
 스마트폰 한 대로 인지 선별, 20초 보행 선별, 맞춤형 운동 코칭을 연결하는 Android·Web 통합 프로젝트입니다. Android 앱은 센서와 음성을 담당하고, Flask 서버는 기록 저장, 보행 모델 추론, RAG 검색과 펭트 답변을 담당합니다.
