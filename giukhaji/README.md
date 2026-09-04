@@ -46,7 +46,7 @@
 
 | 기능 | 기술 |
 |---|---|
-| Agentic AI 코치 | LLM API + Function Calling — 대화 응답과 앱 제어 동시 실행 |
+| Agentic AI 코치 | LTool Use → Android 네이티브 API — 대화 응답과 앱 제어 동시 실행 |
 | 실시간 UI 동적 제어 | Tool Use → Android 네이티브 API (TTS 속도·글자 크기 자동 조절) |
 | 맥락 인식 자동 대응 | Context-aware — 무응답·발화 감지 → 즉각 처리 or LLM 분기 |
 | 지식 검색·주입 | RAG (문항 설명·보행 가이드 청크) |
