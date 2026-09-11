@@ -294,7 +294,7 @@ def _gait_feature_insights(features):
     checks = [
         {
             "key": "v_jerk_rms_median",
-            "label": "수직 추진/충격 크기",
+            "label": "움직임 충격 대표값",
             "value": _safe_float(features.get("v_jerk_rms_median")),
             "unit": " g/s",
             "problem": "걸을 때 위아래 추진과 발 디딤 충격이 낮게 나타났어요. 걸음 힘이나 보폭이 줄었을 수 있어요.",
@@ -304,7 +304,7 @@ def _gait_feature_insights(features):
         },
         {
             "key": "v_jerk_rms_iqr",
-            "label": "수직 움직임 변동성",
+            "label": "움직임 충격 변동성",
             "value": _safe_float(features.get("v_jerk_rms_iqr")),
             "unit": " g/s",
             "problem": "걸음 중 위아래 움직임의 차이가 커요. 보행이 일정하지 않았을 수 있어요.",
@@ -314,11 +314,11 @@ def _gait_feature_insights(features):
         },
         {
             "key": "v_harmonic_ratio_iqr",
-            "label": "보행 리듬 변동성",
+            "label": "좌우 보행 대칭성 변동성",
             "value": _safe_float(features.get("v_harmonic_ratio_iqr")),
             "unit": "",
-            "problem": "걸음 리듬이 구간마다 달라지는 폭이 커요. 일정한 리듬 유지가 어려웠을 수 있어요.",
-            "ok": "걸음 리듬 변동이 작아 비교적 일정하게 걸은 편이에요.",
+            "problem": "좌우 걸음의 대칭성이 구간마다 달라지는 폭이 커요. 좌우 걸음을 고르게 유지하기 어려웠을 수 있어요.",
+            "ok": "좌우 걸음의 대칭성 변동이 작아 비교적 고르게 걸은 편이에요.",
             "risk_when": "high",
             "cut": 0.10,
         },
@@ -339,9 +339,9 @@ def _gait_explainability(model_artifact, features):
             {
                 "key": name,
                 "label": {
-                    "v_jerk_rms_median": "수직 추진/충격 크기",
-                    "v_jerk_rms_iqr": "수직 움직임 변동성",
-                    "v_harmonic_ratio_iqr": "보행 리듬 변동성",
+                    "v_jerk_rms_median": "움직임 충격 대표값",
+                    "v_jerk_rms_iqr": "움직임 충격 변동성",
+                    "v_harmonic_ratio_iqr": "좌우 보행 대칭성 변동성",
                 }.get(name, name),
                 "value": float(features[name]),
                 "contribution": float(coef * val),
@@ -2490,9 +2490,9 @@ def demo_mode():
         'model_mode': 'daily_gait',
         'insights': _gait_feature_insights(demo_features),
         'explainability': [
-            {'label': '수직 추진/충격 크기', 'value': 0.852, 'direction': 'risk', 'width': 65, 'description': '충격 크기가 낮아 주의 판정에 기여'},
-            {'label': '수직 움직임 변동성', 'value': 0.149, 'direction': 'normal', 'width': 100, 'description': '변동성이 낮아 안정적임'},
-            {'label': '보행 리듬 변동성', 'value': 0.084, 'direction': 'risk', 'width': 40, 'description': '리듬 변동성이 높아 주의 판정에 기여'},
+            {'label': '움직임 충격 대표값', 'value': 0.852, 'direction': 'risk', 'width': 65, 'description': '충격 크기가 낮아 주의 판정에 기여'},
+            {'label': '움직임 충격 변동성', 'value': 0.149, 'direction': 'normal', 'width': 100, 'description': '변동성이 낮아 안정적임'},
+            {'label': '좌우 보행 대칭성 변동성', 'value': 0.084, 'direction': 'risk', 'width': 40, 'description': '대칭성 변동이 커 주의 판정에 기여'},
         ],
         'visual': {
             'animation_sec': 1.8,

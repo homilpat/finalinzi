@@ -4,7 +4,7 @@
 
 최종 라벨은 낙상이력 자체가 아니라 임상 운동기능 저하를 선별하는 확장 OR 기준이다. 기준은 `TUG >= 12s OR FSST >= 15s OR BERG < 52 OR DGI <= 19 OR base_velocity < 1.0 m/s OR s3_velocity < 1.0 m/s`이다.
 
-최종 입력 피처는 acc-only 3개다. `v_jerk_rms_median`은 수직 jerk RMS의 대표 수준, `v_jerk_rms_iqr`은 보행 중 jerk 변동성, `v_harmonic_ratio_iqr`은 수직 리듬 일관성 변동성을 본다. 보행속도는 라벨에만 사용하고 모델 입력 피처에는 넣지 않아 직접 데이터누수를 피한다.
+최종 입력 피처는 acc-only 3개다. `v_jerk_rms_median`은 움직임 충격(V Jerk RMS)의 대표값, `v_jerk_rms_iqr`은 움직임 충격의 변동성, `v_harmonic_ratio_iqr`은 좌우 보행 대칭성(V ACF Symmetry)의 변동성을 본다. 보행속도는 라벨에만 사용하고 모델 입력 피처에는 넣지 않아 직접 데이터누수를 피한다.
 
 서비스 입력은 피처 추출 전에 V/ML/AP 가속도 시계열 전체에 동일한 단일 진폭 보정계수 `α = 1.9705`를 곱한다. 이 값은 스마트폰 정상 보행 수직축 대역통과 RMS 중앙값 `0.098382`에 대한 PhysioNet 허리 IMU 정상 보행 중앙값 `0.193863`의 비율이다. 최대·최소값을 맞추는 Min-Max 정규화나 축마다 서로 다른 계수를 적용하는 방식이 아니라, 두 센서 도메인의 진폭 분포 차이를 줄이기 위한 신호 레벨 보정이다.
 

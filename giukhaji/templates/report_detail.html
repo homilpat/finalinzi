@@ -532,7 +532,7 @@
               <img src="/pengt.png" alt="" aria-hidden="true">
               <p>펭트가 보기엔 이 표는 이번 보행 결과를 설명하는 3개 지표가 주의 쪽인지, 안정 쪽인지 쉽게 정리한 내용이에요.</p>
             </div>
-            <p class="xai-note" style="font-size: 12px; color: #718096; margin-bottom: 12px;">최종 보행 모델은 수직 추진/충격 크기, 수직 움직임 변동성, 보행 리듬 변동성 3개 지표를 함께 봅니다.</p>
+            <p class="xai-note" style="font-size: 12px; color: #718096; margin-bottom: 12px;">최종 보행 모델은 움직임 충격 대표값, 움직임 충격 변동성, 좌우 보행 대칭성 변동성 3개 지표를 함께 봅니다.</p>
             {% for item in gait.explainability %}
               <div class="xai-row {{ item.direction }}">
                 <span>{{ item.label }}</span>
