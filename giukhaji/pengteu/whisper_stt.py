@@ -1,10 +1,11 @@
 """
 노인 발화를 고려한 Whisper STT + Silero VAD 모듈 (로컬 설계)
 
-노인 발화의 긴 멈춤과 낮은 음성 에너지를 고려해 무음 판정 기준, VAD 묵음 구간,
-문항별 프롬프트를 조정했다. 배포 앱은 서버 자원 제약으로 Android 기본 STT를
-사용하며 이 모듈은 앱에 연결되어 있지 않다. 노인 음성 데이터로 기본 설정 대비
-효과를 검증하는 것은 다음 과제다.
+노인 발화의 긴 멈춤과 낮은 음성 에너지를 고려해 Silero VAD 임계값·묵음 길이·
+앞뒤 여유 구간을 조정하고, 단답형 문항에 맞춰 Whisper 이전 문맥 참조를 껐다.
+문항별 initial_prompt는 정답 단어 없이 문항 맥락만 준다. 배포 앱은 서버 자원
+제약으로 Android 기본 STT를 사용하며 이 모듈은 앱에 연결되어 있지 않다.
+노인 음성 데이터로 기본 설정 대비 효과를 검증하는 것은 다음 과제다.
 
 참고 문헌 (노인 음성 ASR 문제 배경):
 - Challenges in ASR for Adults with Cognitive Impairment (2025)
@@ -43,9 +44,10 @@ WHISPER_ELDERLY_PARAMS = {
     # temperature 폴백: Whisper 기본값 그대로
     "temperature": (0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
 
-    # no_speech_threshold: 기본 0.6 → 0.3 (조정)
-    # 노인 잦은 멈춤 → 음성을 묵음으로 오인식하는 것을 줄이려는 의도
-    "no_speech_threshold": 0.3,
+    # no_speech_threshold: Whisper 기본값 그대로
+    # no_speech_prob가 이 값을 넘고 avg_logprob가 logprob_threshold 이하이면 구간을 건너뛴다.
+    # 값을 낮추면 무음으로 버리는 구간이 늘어나므로 조정하지 않았다 (묵음은 앞단 VAD가 처리)
+    "no_speech_threshold": 0.6,
 
     # Whisper 기본값 그대로
     "compression_ratio_threshold": 2.4,
@@ -58,12 +60,13 @@ WHISPER_ELDERLY_PARAMS = {
 }
 
 # 항목별 initial_prompt (문항 맥락 힌트 제공, 효과 미검증)
+# 정답 단어는 넣지 않는다: 프롬프트에 정답이 있으면 틀린 응답도 정답으로 전사될 수 있다
 ITEM_PROMPTS = {
     "forward_digits":  "숫자를 순서대로 말합니다.",
     "backward_digits": "숫자를 거꾸로 말합니다.",
-    "serial_7":        "백에서 칠을 뺍니다. 구십삼, 팔십육.",
-    "naming":          "동물 이름. 사자, 코뿔소, 낙타.",
-    "memory":          "단어. 얼굴, 비단, 교회, 진달래, 빨강.",
+    "serial_7":        "백에서 칠을 계속 빼서 숫자를 말합니다.",
+    "naming":          "그림 속 동물 이름을 말합니다.",
+    "memory":          "들은 단어를 따라 말합니다.",
     "sentence_repeat": "문장을 따라 말합니다.",
     "fluency":         "시장 물건 이름.",
     "abstraction":     "공통점을 말합니다.",

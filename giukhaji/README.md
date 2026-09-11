@@ -50,7 +50,7 @@
 | 실시간 UI 동적 제어 | Tool Use → Android 네이티브 API (TTS 속도·글자 크기 자동 조절) |
 | 맥락 인식 자동 대응 | Context-aware — 무응답·발화 감지 → 즉각 처리 or LLM 분기 |
 | 지식 검색·주입 | RAG (문항 설명·보행 가이드 청크) |
-| 노인 발화용 STT 모듈 (로컬) | Whisper 무음 판정·VAD 묵음 구간·문항별 프롬프트 조정 — 배포 앱은 Android 기본 STT 사용, 효과 미검증 |
+| 노인 발화용 STT 모듈 (로컬) | Silero VAD 임계값·묵음 길이·앞뒤 여유 구간 조정 + Whisper 이전 문맥 참조 비활성화 — 배포 앱은 Android 기본 STT 사용, 효과 미검증 |
 | 음성 입출력 | Android STT / TTS |
 | GPS 위치 연동 | 스마트폰 GPS → 카카오 좌표→행정구역 API → 지남력 '장소·시군구' 정답 자동 설정 (실패 시 클라이언트/수동 폴백) |
 | 버전 자동 로테이션 | MoCA-K ↔ K-MoCA 6개월 주기 (학습효과 차단) |
@@ -72,13 +72,15 @@
 
 **② 노인 발화용 STT 모듈 (로컬 설계)** — `pengteu/whisper_stt.py` `ElderlySTT`
 
-노인 발화의 긴 멈춤과 낮은 음성 에너지를 고려해 무음 판정 기준, VAD 묵음 구간, 문항별 프롬프트를 조정한 Whisper STT 모듈을 설계·구현했습니다. 배포 앱은 서버 자원 제약으로 Android 기본 STT를 사용했고, 노인 음성 데이터로 효과를 검증하는 것은 다음 과제로 남겨 두었습니다.
+노인 발화의 긴 멈춤과 낮은 음성 에너지를 고려해 Silero VAD의 발화 판단 임계값(0.5→0.3)과 최소 묵음 길이(100ms→1500ms), 발화 앞뒤 여유 구간(30ms→600ms)을 조정하고, 단답형 문항에 맞춰 이전 문맥 참조를 끈 Whisper STT 모듈을 설계·구현했습니다. 배포 앱은 서버 자원 제약으로 Android 기본 STT를 사용했고, 노인 음성 데이터로 효과를 검증하는 것은 다음 과제로 남겨 두었습니다.
 
-| 조정 항목 | 값 |
-|---|---|
-| 무음 판정 기준 | `no_speech_threshold` 0.6 → 0.3 |
-| VAD 묵음 구간 | Silero VAD `threshold=0.3`, `min_silence_duration_ms=1500`, `speech_pad_ms=600` |
-| 문항별 프롬프트 | MoCA 문항 유형별 `initial_prompt` (`ITEM_PROMPTS`) |
+| 조정 항목 | 기본값 → 설정값 | 의도 |
+|---|---|---|
+| VAD 발화 판단 임계값 | `threshold` 0.5 → 0.3 | 작은 목소리 감지 |
+| VAD 최소 묵음 길이 | `min_silence_duration_ms` 100 → 1500 | 말 사이 멈춤에서 발화가 끊기지 않게 |
+| VAD 발화 앞뒤 여유 | `speech_pad_ms` 30 → 600 | 발화 시작·끝 잘림 방지 |
+| VAD 최소 발화 길이 | `min_speech_duration_ms` 250 → 100 | "네", "사자" 같은 짧은 응답 감지 |
+| Whisper 이전 문맥 참조 | `condition_on_previous_text` True → False | 단답형 문항이라 이전 문맥 불필요 |
 
 **③ 음성 출력·호출 (TTS / 웨이크워드)**
 
