@@ -1,16 +1,17 @@
 """
-노인 대상 Whisper STT + Silero VAD 통합 모듈
-논문 근거:
+노인 발화를 고려한 Whisper STT + Silero VAD 모듈 (로컬 설계)
+
+노인 발화의 긴 멈춤과 낮은 음성 에너지를 고려해 무음 판정 기준, VAD 묵음 구간,
+문항별 프롬프트를 조정했다. 배포 앱은 서버 자원 제약으로 Android 기본 STT를
+사용하며 이 모듈은 앱에 연결되어 있지 않다. 노인 음성 데이터로 기본 설정 대비
+효과를 검증하는 것은 다음 과제다.
+
+참고 문헌 (노인 음성 ASR 문제 배경):
 - Challenges in ASR for Adults with Cognitive Impairment (2025)
-  → beam_size=5, no_speech_threshold=0.3
 - Out of the Box, into the Clinic (2025)
-  → 노인 음성 VAD 적용 필수
-- Silero VAD (2024): github.com/snakers4/silero-vad
-  → 다국어 지원, 경량(1~2MB), 한국어 포함
 - MOPSA (2025)
-  → 노인 음성 느린 말속도/불명확한 발음 고려
 - Can speech foundation models identify languages in aging populations (2025)
-  → 노인 음성 ASR 성능 저하 문제 확인
+- Silero VAD: github.com/snakers4/silero-vad
 """
 
 import numpy as np
@@ -29,34 +30,34 @@ import os
 
 
 # ────────────────────────────────────────────
-# Whisper 노인 최적화 파라미터
+# Whisper 디코딩 설정 (노인 발화 고려, 효과 미검증)
 # ────────────────────────────────────────────
 WHISPER_ELDERLY_PARAMS = {
     "model_size": "small",       # 244M params, 서버 추론 권장
     "language":   "ko",          # 한국어 고정 (자동감지 비활성화)
 
-    # beam_size=5: 노인 불명확 발음 → 더 많은 후보 탐색
-    # (Challenges in ASR for Cognitive Impairment, 2025)
+    # beam_size/best_of=5: Whisper CLI 기본값과 동일 (Python API 기본은 greedy)
     "beam_size":  5,
     "best_of":    5,
 
-    # temperature: 0.0 시작 → 실패 시 0.2씩 증가
+    # temperature 폴백: Whisper 기본값 그대로
     "temperature": (0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
 
-    # no_speech_threshold=0.3: 기본 0.6 → 낮춤
-    # 노인 잦은 멈춤 → 음성을 묵음으로 오인식 방지
+    # no_speech_threshold: 기본 0.6 → 0.3 (조정)
+    # 노인 잦은 멈춤 → 음성을 묵음으로 오인식하는 것을 줄이려는 의도
     "no_speech_threshold": 0.3,
 
+    # Whisper 기본값 그대로
     "compression_ratio_threshold": 2.4,
     "logprob_threshold": -1.0,
 
-    # False: MoCA 단답형 항목 → 이전 컨텍스트 불필요
+    # 기본 True → False (조정): MoCA 단답형 항목 → 이전 컨텍스트 불필요
     "condition_on_previous_text": False,
 
     "fp16": torch.cuda.is_available(),
 }
 
-# 항목별 initial_prompt (맥락 힌트 → 인식률↑)
+# 항목별 initial_prompt (문항 맥락 힌트 제공, 효과 미검증)
 ITEM_PROMPTS = {
     "forward_digits":  "숫자를 순서대로 말합니다.",
     "backward_digits": "숫자를 거꾸로 말합니다.",
@@ -72,10 +73,9 @@ ITEM_PROMPTS = {
 
 
 # ────────────────────────────────────────────
-# Silero VAD 파라미터 (노인 최적화)
+# Silero VAD 파라미터 (노인 발화 고려, 효과 미검증)
 # ────────────────────────────────────────────
-# 논문: Silero VAD (2024) - 다국어 지원, 한국어 포함
-# 노인 음성 특성 반영하여 파라미터 조정
+# 기본값은 silero-vad get_speech_timestamps 기준
 VAD_ELDERLY_PARAMS = {
     # 발화 판단 임계값: 기본 0.5 → 0.3으로 낮춤
     # 노인 낮은 음성 에너지 → 임계값 낮춰야 음성 감지 가능
@@ -89,7 +89,7 @@ VAD_ELDERLY_PARAMS = {
     # 노인 말 사이 긴 멈춤 허용 → 발화 중간에 잘리지 않게
     "min_silence_duration_ms": 1500,
 
-    # 발화 앞뒤 여유(ms): 기본 400ms → 600ms
+    # 발화 앞뒤 여유(ms): 기본 30ms → 600ms
     # 노인 발화 시작/끝 부분 잘림 방지
     "speech_pad_ms": 600,
 
@@ -128,7 +128,7 @@ def apply_vad(audio: np.ndarray,
               params: dict = None) -> np.ndarray:
     """
     Silero VAD로 음성 구간만 추출
-    노인 묵음/멈춤 구간 제거 → Whisper 환각 감소
+    노인 묵음/멈춤 구간 제거 (Whisper 환각을 줄이려는 의도)
 
     Args:
         audio: 16000Hz numpy array
@@ -168,8 +168,8 @@ def apply_vad(audio: np.ndarray,
 # ────────────────────────────────────────────
 class ElderlySTT:
     """
-    노인 최적화 Whisper STT + Silero VAD 통합
-    MoCA-K 항목별 최적화
+    노인 발화를 고려한 설정의 Whisper STT + Silero VAD
+    MoCA-K 문항별 initial_prompt 적용
     """
 
     def __init__(self, model_size: str = None, use_vad: bool = True):
@@ -307,7 +307,7 @@ if __name__ == "__main__":
     for k, v in WHISPER_ELDERLY_PARAMS.items():
         print(f"  {k}: {v}")
 
-    print("\n[Silero VAD 노인 최적화 파라미터]")
+    print("\n[Silero VAD 파라미터]")
     for k, v in VAD_ELDERLY_PARAMS.items():
         print(f"  {k}: {v}")
 

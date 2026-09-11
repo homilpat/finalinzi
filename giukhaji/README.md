@@ -50,7 +50,7 @@
 | 실시간 UI 동적 제어 | Tool Use → Android 네이티브 API (TTS 속도·글자 크기 자동 조절) |
 | 맥락 인식 자동 대응 | Context-aware — 무응답·발화 감지 → 즉각 처리 or LLM 분기 |
 | 지식 검색·주입 | RAG (문항 설명·보행 가이드 청크) |
-| 노인 음성 특화 STT | Whisper 파인튜닝 — AI Hub 노인 음성 200h → WER 48%→22% |
+| 노인 발화용 STT 모듈 (로컬) | Whisper 무음 판정·VAD 묵음 구간·문항별 프롬프트 조정 — 배포 앱은 Android 기본 STT 사용, 효과 미검증 |
 | 음성 입출력 | Android STT / TTS |
 | GPS 위치 연동 | 스마트폰 GPS → 카카오 좌표→행정구역 API → 지남력 '장소·시군구' 정답 자동 설정 (실패 시 클라이언트/수동 폴백) |
 | 버전 자동 로테이션 | MoCA-K ↔ K-MoCA 6개월 주기 (학습효과 차단) |
@@ -70,14 +70,15 @@
 | 안전 가드 | 검사 중 정답·힌트 거절, 진단 확정 금지(선별/주의 표현), RAG 누출 토큰 필터 + 320자 제한 | `_basic_pengteu_reply`, `_clean_pengteu_reply` |
 | 대화 로그 | 사용자·어시스턴트 메시지를 맥락과 함께 저장 | `save_assistant_message` |
 
-**② 노인 특화 음성 인식 (STT)** — `whisper_stt.py` `ElderlySTT`
+**② 노인 발화용 STT 모듈 (로컬 설계)** — `pengteu/whisper_stt.py` `ElderlySTT`
 
-| 기능 | 기술 / 파라미터 | 근거 |
-|---|---|---|
-| Whisper 노인 최적화 | `small` 모델, `beam_size=5`, `no_speech_threshold=0.3`, temperature 폴백, 이전맥락 비참조 | ASR for Cognitive Impairment (2025) |
-| Silero VAD 전처리 | `threshold=0.3`, `min_silence=1500ms`, `speech_pad=600ms` — 묵음 제거로 환각 감소 | Silero VAD (2024) |
-| 항목별 프롬프트 | MoCA 문항 유형별 `initial_prompt`로 인식률 보정 | `ITEM_PROMPTS` |
-| 후처리 정규화 | 한글 숫자 → 아라비아 숫자, 구두점·공백 정리 | `_normalize_numbers` |
+노인 발화의 긴 멈춤과 낮은 음성 에너지를 고려해 무음 판정 기준, VAD 묵음 구간, 문항별 프롬프트를 조정한 Whisper STT 모듈을 설계·구현했습니다. 배포 앱은 서버 자원 제약으로 Android 기본 STT를 사용했고, 노인 음성 데이터로 효과를 검증하는 것은 다음 과제로 남겨 두었습니다.
+
+| 조정 항목 | 값 |
+|---|---|
+| 무음 판정 기준 | `no_speech_threshold` 0.6 → 0.3 |
+| VAD 묵음 구간 | Silero VAD `threshold=0.3`, `min_silence_duration_ms=1500`, `speech_pad_ms=600` |
+| 문항별 프롬프트 | MoCA 문항 유형별 `initial_prompt` (`ITEM_PROMPTS`) |
 
 **③ 음성 출력·호출 (TTS / 웨이크워드)**
 
@@ -128,7 +129,7 @@ python app.py
         ▼
    [Flask 웹앱 app.py]
         │
-        ├─ STT (Whisper) ──────────────── 음성 → 텍스트
+        ├─ STT (Android / Web Speech) ─── 음성 → 텍스트
         ├─ 캔버스 이미지 (base64)
         └─ 터치 좌표 리스트
         │
@@ -173,7 +174,7 @@ MOCA/
 ├─ 보조 모듈
 │  ├─ version_manager.py     MoCA-K / K-MoCA 버전 설정 (단일 진실 공급원)
 │  ├─ session_manager.py     검사 흐름 + 5분 대기 관리
-│  └─ whisper_stt.py         Whisper STT 래퍼
+│  └─ whisper_stt.py         노인 발화용 Whisper STT 모듈 (로컬 설계, 앱 미연결)
 │
 ├─ CNN 관련
 │  ├─ clock_cnn_inference.py DeepC / DeepH / DeepN 추론
@@ -277,7 +278,7 @@ MNIST 기반 DeepN이 10/11/12 인식 불가 → 30° 섹터 분포로 대체.
 | 항목 | 우선순위 | 비고 |
 |---|---|---|
 | CNN 재학습 (DeepC/DeepH) | 높음 | 원본 26장 → 증강으로 300~500장 확보 후 재학습 |
-| Whisper 파인튜닝 | 중간 | AI Hub 노인 음성 200시간, WER 48%→22% 기대 |
+| Whisper STT 모듈 효과 검증 | 중간 | 노인 음성 데이터로 기본 설정 대비 인식 오류율 비교 |
 | cube_model.pth 재학습 | 중간 | QuickDraw + 실제 손그림 데이터 확보 필요 |
 | market_whitelist 보완 | 낮음 | 운영 중 `unknown` 필드 모니터링 |
 | DB 확장 | 낮음 | 시연용 SQLite 저장 이후, 운영 환경용 DB와 평가 이력 조회 기능 확장 |
@@ -298,7 +299,7 @@ opencv-python
 torch
 numpy
 difflib (표준라이브러리)
-openai-whisper        # STT (없으면 STT 기능 비활성)
+openai-whisper        # 선택: whisper_stt.py 로컬 모듈용 (배포 앱 미사용)
 anthropic             # use_llm=True 시 단어유창성 검증용
 python-docx           # generate_doc.py
 gTTS                  # generate_tts.py
