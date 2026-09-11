@@ -49,6 +49,8 @@ Flask / Render
 
 운영 모델은 `giukhaji/models/gait_daily_clinical_3feat.joblib`입니다. Android 형식의 20초 CSV를 100 Hz로 리샘플링하고 축 정렬·대역통과 필터·10초 서브윈도우 집계를 수행합니다.
 
+스마트폰과 PhysioNet 허리 IMU 사이의 진폭 분포 차이를 줄이기 위해 피처 추출 전에 V/ML/AP 가속도 시계열 전체에 동일한 단일 보정계수 `α = 1.9705`를 곱합니다. `α`는 정상 보행 수직축 대역통과 RMS 중앙값의 비율(`0.193863 / 0.098382`)로 산출했습니다. 센서의 최대·최소값을 맞추는 Min-Max 정규화나 축마다 서로 다른 값을 적용하는 축별 보정이 아닙니다.
+
 - `v_jerk_rms_median`: 수직 움직임 충격 크기의 중앙값
 - `v_jerk_rms_iqr`: 수직 움직임 충격의 변동성
 - `v_harmonic_ratio_iqr`: 보행 리듬 일관성의 변동성
