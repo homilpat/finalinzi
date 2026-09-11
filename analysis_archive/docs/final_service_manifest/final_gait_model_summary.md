@@ -1,5 +1,8 @@
 # Final Gait Model Summary
 
+> [!WARNING]
+> **Archived historical snapshot.** The model described below is not the current deployment. The current service uses `giukhaji/models/gait_daily_clinical_3feat.joblib`, three vertical-axis features, a single signal-amplitude factor `alpha = 1.9705`, and threshold `0.50`.
+
 ## Final Model
 
 - Model artifact: `MOCA/models/gait_axis_aligned_physionet_youden.joblib`
