@@ -53,7 +53,7 @@ Flask / Render
 - `v_jerk_rms_iqr`: 수직 움직임 충격의 변동성
 - `v_harmonic_ratio_iqr`: 보행 리듬 일관성의 변동성
 
-결과는 질병 확률이나 확진 결과가 아니라 운동기능 저하 위험군 선별 보조 점수로 사용합니다. 재현 코드는 `analysis_scripts/`, 최종 검증 실행 코드는 `final__2026/`에 있습니다.
+결과는 질병 확률이나 확진 결과가 아니라 운동기능 저하 위험군 선별 보조 점수로 사용합니다. 최종 모델의 학습·검증 재현 코드는 `analysis_scripts/`에 있고, 최종 모델에 쓰이지 않은 탐색 실험과 이전 모델 코드는 `analysis_archive/`에 보관했습니다.
 
 ## 펭트 RAG
 
@@ -109,9 +109,8 @@ cd FinalProjectApp
 ```text
 FinalProjectApp/       통합 Android 앱
 giukhaji/              Flask 서비스, UI, 런타임 모델, RAG
-analysis_scripts/      최종 보행 모델 분석·재현 스크립트
-final__2026/           최종 전처리·모델링·검증 실행 코드
-docs/                  최종 모델 방법 요약
+analysis_scripts/      최종 보행 모델 학습·검증 재현 스크립트
+analysis_archive/      최종 모델에 쓰이지 않은 탐색 실험, 이전 모델 코드·문서
 tests/                 배포·통합 회귀 테스트
 render.yaml            Render 배포 설정
 DEPLOYMENT.md           배포 절차
