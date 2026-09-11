@@ -47,13 +47,15 @@ Flask / Render
 
 ## 보행 모델
 
-운영 모델은 `giukhaji/models/gait_daily_clinical_3feat.joblib`입니다. Android 형식의 20초 CSV를 100 Hz로 리샘플링하고 축 정렬·대역통과 필터·10초 서브윈도우 집계를 수행합니다.
+운영 모델은 `giukhaji/models/gait_daily_clinical_3feat.joblib`입니다. Android 형식의 20초 CSV를 해부학적 축(V/ML/AP)으로 정렬해 100 Hz로 리샘플링하고, 스마트폰–허리 IMU 진폭 차이를 고정 계수 `α = 1.9705`로 보정한 뒤 0.6–3.0 Hz 대역통과 필터와 10초 서브윈도우(2초 스텝) Median·IQR 집계를 수행합니다.
 
 스마트폰과 PhysioNet 허리 IMU 사이의 진폭 분포 차이를 줄이기 위해 피처 추출 전에 V/ML/AP 가속도 시계열 전체에 동일한 단일 보정계수 `α = 1.9705`를 곱합니다. `α`는 정상 보행 수직축 대역통과 RMS 중앙값의 비율(`0.193863 / 0.098382`)로 산출했습니다. 센서의 최대·최소값을 맞추는 Min-Max 정규화나 축마다 서로 다른 값을 적용하는 축별 보정이 아닙니다.
 
-- `v_jerk_rms_median`: 수직 움직임 충격 크기의 중앙값
-- `v_jerk_rms_iqr`: 수직 움직임 충격의 변동성
-- `v_harmonic_ratio_iqr`: 보행 리듬 일관성의 변동성
+- `v_jerk_rms_median`: 움직임 충격(V Jerk RMS)의 대표값
+- `v_jerk_rms_iqr`: 움직임 충격의 변동성
+- `v_harmonic_ratio_iqr`: 좌우 보행 대칭성(V ACF Symmetry)의 변동성
+
+피험자 단위 5-fold × 100회 반복 검증(각 학습 fold 안에서 "민감도 0.80 이상 중 특이도 최대" 기준으로 임계값 결정)에서 AUC 0.873 ± 0.007, 민감도 0.835, 특이도 0.731입니다. 서비스 배포 임계값은 0.50으로 고정합니다.
 
 결과는 질병 확률이나 확진 결과가 아니라 운동기능 저하 위험군 선별 보조 점수로 사용합니다. 최종 모델의 학습·검증 재현 코드는 `analysis_scripts/`에 있고, 최종 모델에 쓰이지 않은 탐색 실험과 이전 모델 코드는 `analysis_archive/`에 보관했습니다.
 
