@@ -56,7 +56,7 @@ def _basic_pengteu_reply(message, context, knowledge=None):
         return f"{name}가 오늘 운동을 같이 도와드릴게요. 먼저 현재 유형에 맞는 운동을 시작하고, 센서 기준값이 준비되면 동작 성공 여부도 자동으로 확인할 수 있어요.{evidence_hint}"
 
     if "기여도" in message or "판단 근거" in message or "xai" in lowered or "shap" in lowered:
-        return f"{name}가 쉽게 말해드릴게요. 이번 보행 판단은 수직 추진/충격 크기, 수직 움직임 변동성, 보행 리듬 변동성 세 가지를 함께 본 결과예요. 막대는 각 지표가 이번 결과를 주의 쪽으로 설명하는지, 안정 쪽으로 설명하는지 쉽게 보여주는 자료예요.{evidence_hint}"
+        return f"{name}가 쉽게 말해드릴게요. 이번 보행 판단은 움직임 충격 대표값, 움직임 충격 변동성, 좌우 보행 대칭성 변동성 세 가지를 함께 본 결과예요. 막대는 각 지표가 이번 결과를 주의 쪽으로 설명하는지, 안정 쪽으로 설명하는지 쉽게 보여주는 자료예요.{evidence_hint}"
 
     if "스펙트럼" in message or "주파수" in message:
         return f"{name}가 설명해드릴게요. 스펙트럼은 허리 가속도 원신호가 시간에 따라 어떤 리듬과 주파수 패턴을 보였는지 보여주는 보조 그림이에요. 모델은 최종 3개 보행 피처로 판단하고, 스펙트럼은 그 판단을 이해하기 쉽게 돕는 시각 자료예요.{evidence_hint}"
