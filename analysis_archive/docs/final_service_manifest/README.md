@@ -1,5 +1,8 @@
 # Final Service Manifest
 
+> [!WARNING]
+> **Archived historical snapshot.** This document describes an earlier four-feature axis-aligned model and the former `MOCA/` layout. The current service deploys `giukhaji/models/gait_daily_clinical_3feat.joblib`, applies one signal-amplitude factor `alpha = 1.9705` before feature extraction, and uses threshold `0.50`.
+
 This folder documents which files are used by the Flask service and which files are analysis-only.
 It does not move runtime files out of `MOCA/`, because Flask imports them from that location.
 
