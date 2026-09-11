@@ -15,7 +15,11 @@ Runtime gait files:
 - `models/gait_daily_clinical_3feat.joblib`: final acc-only daily gait model
 - `models/gait_daily_clinical_3feat_metadata.json`: final gait metadata
 
-`modeling/gait_axis_aligned_processor.py` deploys `gait_daily_clinical_3feat.joblib`.
+`app.py` calls `predict_daily_gait_csv()` in `modeling/gait_axis_aligned_processor.py`, which deploys
+`gait_daily_clinical_3feat.joblib`. Pipeline: anatomical V/ML/AP axis alignment → 100 Hz resampling →
+signal-level amplitude correction → 20-second segment / 10-second subwindow (2-second step) median·IQR
+feature extraction.
+
 Before feature extraction, `predict_daily_gait_csv()` applies the single fixed signal-amplitude
 factor `alpha = 1.9705093832241642` stored in the model artifact. The same scalar is multiplied
 across the V/ML/AP acceleration time series. It is the ratio of the PhysioNet normal vertical
@@ -35,11 +39,13 @@ OR s3_velocity < 1.0 m/s
 
 Final input features:
 
-- `v_jerk_rms_median`
-- `v_jerk_rms_iqr`
-- `v_harmonic_ratio_iqr`
+- `v_jerk_rms_median` (movement impact, V Jerk RMS)
+- `v_jerk_rms_iqr` (variability of movement impact)
+- `v_harmonic_ratio_iqr` (variability of left-right gait symmetry, V ACF Symmetry)
 
-The deployed threshold is fixed at `0.50`.
+Validation: subject-level 5-fold × 100 repeats, threshold chosen inside each training fold by 3-fold OOF
+("sensitivity ≥ 0.80, then maximum specificity"): AUC `0.873 ± 0.007`, sensitivity `0.835`, specificity `0.731`.
+The deployed service threshold is fixed at `0.50`.
 
 Historical axis-wise harmonization experiment, not part of the deployed daily-model path:
 
