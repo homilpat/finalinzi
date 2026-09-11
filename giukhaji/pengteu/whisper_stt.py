@@ -102,6 +102,27 @@ VAD_ELDERLY_PARAMS = {
 
 
 # ────────────────────────────────────────────
+# 한글 숫자 표기 (숫자 문항 후처리용)
+# ────────────────────────────────────────────
+SINO_DIGITS = {"영": 0, "공": 0, "일": 1, "이": 2, "삼": 3, "사": 4,
+               "오": 5, "육": 6, "칠": 7, "팔": 8, "구": 9}
+NATIVE_DIGITS = {"하나": 1, "둘": 2, "셋": 3, "넷": 4, "다섯": 5,
+                 "여섯": 6, "일곱": 7, "여덟": 8, "아홉": 9}
+
+
+def _sino_to_int(word: str) -> int:
+    """'구십삼' → 93, '백' → 100 (앞 숫자가 없으면 1로 본다)"""
+    total = 0
+    for unit, mult in (("백", 100), ("십", 10)):
+        if unit in word:
+            head, word = word.split(unit, 1)
+            total += (SINO_DIGITS[head] if head else 1) * mult
+    if word:
+        total += SINO_DIGITS[word]
+    return total
+
+
+# ────────────────────────────────────────────
 # Silero VAD 로드
 # ────────────────────────────────────────────
 def load_silero_vad():
@@ -287,17 +308,17 @@ class ElderlySTT:
 
     def _normalize_numbers(self, text: str) -> str:
         """한글 숫자 → 아라비아 숫자"""
-        mapping = {
-            "영": "0", "일": "1", "이": "2", "삼": "3", "사": "4",
-            "오": "5", "육": "6", "칠": "7", "팔": "8", "구": "9",
-            "하나": "1", "둘": "2", "셋": "3", "넷": "4", "다섯": "5",
-            "여섯": "6", "일곱": "7", "여덟": "8", "아홉": "9",
-            "구십삼": "93", "팔십육": "86", "칠십구": "79",
-            "칠십이": "72", "육십오": "65",
-        }
-        for kor, num in mapping.items():
-            text = text.replace(kor, num)
-        return text
+        import re
+        # 고유어를 먼저 바꾼다: '일곱'의 '일'이 한자어 1로 먼저 바뀌지 않게
+        native = "|".join(sorted(NATIVE_DIGITS, key=len, reverse=True))
+        text = re.sub(native, lambda m: str(NATIVE_DIGITS[m.group()]), text)
+
+        # 한자어는 백·십 단위까지 한 덩어리로 읽는다: '구십삼' → 93, '일이삼' → 1 2 3
+        d = "[" + "".join(SINO_DIGITS) + "]"
+        pattern = f"(?:{d}?백)?(?:{d}?십)?{d}?"
+        return re.sub(pattern,
+                      lambda m: str(_sino_to_int(m.group())) if m.group() else "",
+                      text)
 
 
 # ────────────────────────────────────────────
