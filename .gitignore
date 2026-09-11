@@ -64,18 +64,17 @@ MOCA/tmp_render/
 *.tmp
 ~$*
 
-# Keep final project code/docs, but skip generated data/model outputs.
-final__2026/**
-!final__2026/
-!final__2026/README_FINAL_2026.md
-!final__2026/03_code/
-!final__2026/03_code/**
-final__2026/03_code/**/__pycache__/
-final__2026/03_code/**/*.pyc
+# Keep archived previous-model code/docs, but skip generated data/model outputs.
+analysis_archive/final__2026/**
+!analysis_archive/final__2026/
+!analysis_archive/final__2026/README_FINAL_2026.md
+!analysis_archive/final__2026/03_code/
+!analysis_archive/final__2026/03_code/**
+analysis_archive/final__2026/03_code/**/__pycache__/
+analysis_archive/final__2026/03_code/**/*.pyc
 
 # Analysis/runtime separation
 analysis_outputs/
-analysis_archive/
 external_data/
 보행SAMPLE/
 gaitsensorapp/
