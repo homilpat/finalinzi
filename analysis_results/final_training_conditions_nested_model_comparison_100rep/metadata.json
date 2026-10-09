@@ -1,0 +1,19 @@
+{
+  "status": "experimental_comparison_deployed_model_unchanged",
+  "features": [
+    "v_jerk_rms_median",
+    "v_jerk_rms_iqr",
+    "v_harmonic_ratio_iqr"
+  ],
+  "subjects": 71,
+  "normal_subjects": 31,
+  "impaired_subjects": 40,
+  "source_segments": 7061,
+  "aggregation_for_ml": "median of all available 20s segment-level final3 rows per subject",
+  "sequence_for_dl": "up to 100 chronological 20s segment-level final3 rows per subject",
+  "outer_cv": "subject-level StratifiedKFold(5) x 100 repeats",
+  "inner_threshold_cv": "3-fold OOF within each outer-training fold; sensitivity >= 0.80 then maximum specificity",
+  "preprocessing": "fit within each training fold only",
+  "reporting_plots": "subject consensus: one row per subject; ROC uses mean OOF probability over 100 repeats and confusion matrix uses majority vote of training-only-threshold predictions",
+  "deployed_model_modified": false
+}
