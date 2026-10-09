@@ -12,6 +12,7 @@ README와 포트폴리오에 적은 보행 모델 수치의 출처입니다. 원
 | `final_training_conditions_nested_model_comparison_100rep/` | `analysis_scripts/compare_final_training_conditions_nested_100rep.py` | LR·RF·GBM·XGBoost·SVM·Voting·Stacking·1D-CNN·LSTM 9개 모델 비교. 임계값 규칙은 fold 안 민감도 0.80 이상 중 특이도 최대 |
 | `with_s3_lr_optuna_paired_nested_100rep/` | `analysis_scripts/validate_optuna_lr_no_s3_nested.py`의 입력(`final_training_conditions_nested_model_comparison_100rep`)과 출력 경로를 with_s3로 바꾸고 `--trials 15`로 실행 | 기본 설정 vs Optuna(C·penalty·class_weight, 목표 inner-CV AUC). 임계값 규칙은 위와 동일 |
 | `with_s3_lr_optuna_maxiter_paired_nested_100rep/` | `analysis_scripts/validate_optuna_lr_with_s3_maxiter_nested.py` | 위 Optuna 비교를 max_iter 조정 후 재실행 |
+| `s3_exhaustive_feature_combinations_100rep/` | `analysis_scripts/exhaustive_feature_combinations_no_s3_100rep.py --label-mode s3` (입력 `subject_candidate_table.csv`는 `nested_feature_selection_final10_100rep.py`가 생성) | 후보 피처 10개의 1~4개 조합 385개를 같은 5-fold × 100회 분할에서 LR로 비교 |
 
 ## README에 쓰는 수치
 
@@ -42,3 +43,17 @@ README와 포트폴리오에 적은 보행 모델 수치의 출처입니다. 원
 | SVM | 0.839 ± 0.015 | 0.802 | 0.708 |
 | XGBoost | 0.838 ± 0.012 | 0.757 | 0.744 |
 | LSTM | 0.779 ± 0.032 | 0.800 | 0.607 |
+
+## 피처 조합 비교 (1~4개 조합 385개, 같은 5-fold × 100회 분할)
+
+출처: `s3_exhaustive_feature_combinations_100rep/all_1_to_4_feature_combinations.csv`. 같은 교차검증으로 순위를 매긴 개발용 비교라 수치가 다소 낙관적입니다(`metadata.json`의 warning).
+
+| 단계 | 조합 | AUC | 비고 |
+|---|---|---|---|
+| 1 | V Jerk RMS Median | 0.854 | 단일 피처 10개 중 1위 |
+| 2 | + V Jerk RMS IQR | 0.871 | V Jerk Median을 포함한 2개 조합 중 1위 |
+| 3 | + V ACF Symmetry IQR (배포 조합) | 0.873 | 385개 중 8위, VIF 2.17 |
+| 참고 | 같은 두 피처 + AP Spectral Entropy IQR | 0.876 | 세 번째 후보 중 1위, VIF 3.21 |
+| 참고 | 전체 1위 (V ACF IQR + V SF Median + AP Ent IQR + V Jerk IQR) | 0.879 | 4개 피처 |
+
+세 번째 피처는 Jerk 두 개만으로는 충격 특성만 설명할 수 있어, 설명 가능성을 위해 좌우 대칭성의 변동성을 추가했습니다. 서비스의 축 정렬(`align_to_vmlap`)은 앞뒤·좌우 축을 회전 보정 없이 정하므로, 위아래 축 피처가 폰 방향의 영향을 덜 받습니다.

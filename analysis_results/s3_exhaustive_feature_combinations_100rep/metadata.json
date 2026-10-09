@@ -1,0 +1,32 @@
+{
+  "status": "development_screen_not_nested_selection_performance",
+  "subjects": 71,
+  "normal_subjects": 31,
+  "impaired_subjects": 40,
+  "candidate_features": [
+    "v_acf_step_stride_symmetry_median",
+    "v_acf_step_stride_symmetry_iqr",
+    "ap_acf_step_stride_symmetry_median",
+    "ap_acf_step_stride_symmetry_iqr",
+    "v_stride_freq_hz_median",
+    "v_stride_freq_hz_iqr",
+    "ap_spec_entropy_median",
+    "ap_spec_entropy_iqr",
+    "v_jerk_rms_median",
+    "v_jerk_rms_iqr"
+  ],
+  "combination_sizes": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "total_combinations": 385,
+  "two_to_four_combinations": 375,
+  "evaluation": "StratifiedKFold(5) x 100 identical subject-level splits",
+  "preprocessing": "RobustScaler fit on each training fold only",
+  "model": "LogisticRegression(C=1, L2, lbfgs)",
+  "label": "TUG>=12 OR FSST>=15 OR BERG<52 OR DGI<=19 OR base_velocity<1.0 OR s3_velocity<1.0",
+  "final_three_screen_auc_mean": 0.8734354838709677,
+  "warning": "Ranking all combinations and reporting the winner on the same CV is optimistic. Use the separate nested feature-selection audit for selection-process performance."
+}
