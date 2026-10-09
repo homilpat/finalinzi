@@ -43,9 +43,10 @@ Final input features:
 - `v_jerk_rms_iqr` (variability of movement impact)
 - `v_harmonic_ratio_iqr` (variability of left-right gait symmetry, V ACF Symmetry)
 
-Validation: subject-level 5-fold × 100 repeats, threshold chosen inside each training fold by 3-fold OOF
-("sensitivity ≥ 0.80, then maximum specificity"): AUC `0.873 ± 0.007`, sensitivity `0.835`, specificity `0.731`.
-The deployed service threshold is fixed at `0.50`.
+Validation: subject-level 5-fold × 100 repeats at the deployed fixed threshold `0.50`:
+AUC `0.873 ± 0.007`, sensitivity `0.835`, specificity `0.731`.
+With the threshold re-chosen inside each training fold by 3-fold OOF ("sensitivity ≥ 0.80, then maximum specificity"):
+AUC `0.873 ± 0.008`, sensitivity `0.811`, specificity `0.746`.
 
 Historical axis-wise harmonization experiment, not part of the deployed daily-model path:
 

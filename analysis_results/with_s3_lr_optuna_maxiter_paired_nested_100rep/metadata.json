@@ -1,0 +1,34 @@
+{
+  "features": [
+    "v_jerk_rms_median",
+    "v_jerk_rms_iqr",
+    "v_acf_step_stride_symmetry_iqr"
+  ],
+  "subjects": 71,
+  "normal_subjects": 31,
+  "impaired_subjects": 40,
+  "outer_cv": "StratifiedKFold(5) x 100 paired repeats",
+  "inner_cv": "3-fold StratifiedKFold within each outer-training fold",
+  "optuna_trials_per_outer_fold": 30,
+  "optuna_search_space": {
+    "C": "log-uniform [1e-4, 1e3]",
+    "penalty": [
+      "l1",
+      "l2"
+    ],
+    "class_weight": [
+      null,
+      "balanced"
+    ],
+    "max_iter": [
+      500,
+      1000,
+      3000,
+      5000
+    ]
+  },
+  "optuna_objective": "mean inner-CV ROC AUC",
+  "threshold_selection": "inner OOF sensitivity >= 0.80, then maximum specificity",
+  "paired_auc_mean_difference": -0.03721774193548389,
+  "note": "Wilcoxon p-values are exploratory because repeated CV estimates are correlated."
+}
