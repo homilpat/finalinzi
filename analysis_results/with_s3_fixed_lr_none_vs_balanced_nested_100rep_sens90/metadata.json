@@ -1,0 +1,16 @@
+{
+  "subjects": 71,
+  "normal": 31,
+  "impaired": 40,
+  "label": "with-s3 clinical OR label",
+  "outer_cv": "StratifiedKFold(5) x 100 paired repeats",
+  "inner_cv": "3-fold OOF within each outer-training fold",
+  "threshold": "sensitivity >= 0.90, then maximum specificity",
+  "fixed_parameters": {
+    "C": 1.0,
+    "penalty": "l2",
+    "solver": "lbfgs",
+    "max_iter": 1000
+  },
+  "compared_parameter": "class_weight=None versus balanced"
+}

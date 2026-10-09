@@ -95,3 +95,6 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+
+# 검증 수치 근거로 커밋하는 요약 결과
+!analysis_results/**/*.csv
