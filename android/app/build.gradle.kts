@@ -36,6 +36,21 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // online: Render 서버 화면을 띄우는 기본 앱
+    // offline: 네트워크 없이 폰 안의 화면·보행 분석·Vosk 호출어로 동작하는 베타
+    flavorDimensions += "mode"
+    productFlavors {
+        create("online") {
+            dimension = "mode"
+        }
+        create("offline") {
+            dimension = "mode"
+            applicationId = "com.giukhaji.beta"
+            versionCode = 7
+            versionName = "0.1.0-offline-beta"
+        }
+    }
+
     buildTypes {
         release {
             optimization {
@@ -50,8 +65,8 @@ android {
 }
 
 dependencies {
-    implementation("net.java.dev.jna:jna:5.18.1@aar")
-    implementation("com.alphacephei:vosk-android:0.3.75@aar")
+    "offlineImplementation"("net.java.dev.jna:jna:5.18.1@aar")
+    "offlineImplementation"("com.alphacephei:vosk-android:0.3.75@aar")
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.constraintlayout)

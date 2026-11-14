@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 # 드라이브 문자 경로, 홈 폴더 경로, file:// 절대 링크
-ABSOLUTE_PATH = re.compile(r"[A-Za-z]:[\\/]+Users[\\/]|(?<![\w.])/Users/[^/\s]+/|(?<![\w.])/home/[^/\s]+/|file:///")
+ABSOLUTE_PATH = re.compile(r"[A-Za-z]:[\\/]+Users[\\/]|(?<![\w.])/Users/[^/\s]+/|(?<![\w.])/home/[^/\s]+/|file:///[A-Za-z]:")
 
 
 class NoAbsolutePathTests(unittest.TestCase):

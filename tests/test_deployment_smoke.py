@@ -57,7 +57,7 @@ assert phone.encode() not in open(database.DB_PATH, 'rb').read()
         gradle = (ROOT / "android/app/build.gradle.kts").read_text(
             encoding="utf-8"
         )
-        kotlin = (ROOT / "android/app/src/main/java/com/example/finalprojectapp/MainActivity.kt").read_text(
+        kotlin = (ROOT / "android/app/src/online/java/com/example/finalprojectapp/MainActivity.kt").read_text(
             encoding="utf-8"
         )
         javascript = (ROOT / "frontend/static/js/app.js").read_text(encoding="utf-8")
