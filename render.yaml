@@ -2,10 +2,9 @@ services:
   - type: web
     name: moca-demo
     runtime: python
-    rootDir: giukhaji
     pythonVersion: "3.10.6"
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: gunicorn --chdir backend app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120
     healthCheckPath: /health
     autoDeploy: true
     envVars:

@@ -30,7 +30,7 @@ server.err.log
 *.sqlite
 *.sqlite3
 *.db
-giukhaji/data/
+backend/data/
 MOCA_16Jun2026.csv
 MOCA/MOCA_16Jun2026.csv
 *.csv
@@ -48,8 +48,8 @@ local.properties
 *.hdf5
 *.keras
 *.joblib
-!giukhaji/models/*.joblib
-giukhaji/MOCA/Clock Drawing Test.v6i.yolov8/
+!backend/models/*.joblib
+backend/MOCA/Clock Drawing Test.v6i.yolov8/
 
 # Local/browser/private files
 cookies.txt
@@ -65,13 +65,12 @@ MOCA/tmp_render/
 ~$*
 
 # Keep archived previous-model code/docs, but skip generated data/model outputs.
-analysis_archive/final__2026/**
-!analysis_archive/final__2026/
-!analysis_archive/final__2026/README_FINAL_2026.md
-!analysis_archive/final__2026/03_code/
-!analysis_archive/final__2026/03_code/**
-analysis_archive/final__2026/03_code/**/__pycache__/
-analysis_archive/final__2026/03_code/**/*.pyc
+analysis/archive/final__2026/**
+!analysis/archive/final__2026/
+!analysis/archive/final__2026/03_code/
+!analysis/archive/final__2026/03_code/**
+analysis/archive/final__2026/03_code/**/__pycache__/
+analysis/archive/final__2026/03_code/**/*.pyc
 
 # Analysis/runtime separation
 analysis_outputs/
@@ -80,14 +79,14 @@ external_data/
 gaitsensorapp/
 mobile_sensor_app/.expo/
 mobile_sensor_app/.expo-home/
-FinalProjectApp/.gradle-user/
-FinalProjectApp/.android-user/
-FinalProjectApp/.android-build/
+android/.gradle-user/
+android/.android-user/
+android/.android-build/
 .android-sdk/
 app-debug.apk
 
 # Assessment source PDFs should not be uploaded unless explicitly cleared.
-giukhaji/*.pdf
+backend/*.pdf
 
 # OS/editor noise
 .DS_Store
@@ -97,4 +96,4 @@ desktop.ini
 .idea/
 
 # 검증 수치 근거로 커밋하는 요약 결과
-!analysis_results/**/*.csv
+!analysis/results/**/*.csv

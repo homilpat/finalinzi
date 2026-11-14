@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-APP_DIR = ROOT / "giukhaji"
+APP_DIR = ROOT / "backend"
 
 
 class DeploymentSmokeTests(unittest.TestCase):
@@ -54,13 +54,13 @@ assert phone.encode() not in open(database.DB_PATH, 'rb').read()
 
     def test_cloud_and_native_microphone_configuration(self):
         render = (ROOT / "render.yaml").read_text(encoding="utf-8")
-        gradle = (ROOT / "FinalProjectApp/app/build.gradle.kts").read_text(
+        gradle = (ROOT / "android/app/build.gradle.kts").read_text(
             encoding="utf-8"
         )
-        kotlin = (ROOT / "FinalProjectApp/app/src/main/java/com/example/finalprojectapp/MainActivity.kt").read_text(
+        kotlin = (ROOT / "android/app/src/online/java/com/example/finalprojectapp/MainActivity.kt").read_text(
             encoding="utf-8"
         )
-        javascript = (ROOT / "giukhaji/static/js/app.js").read_text(encoding="utf-8")
+        javascript = (ROOT / "frontend/static/js/app.js").read_text(encoding="utf-8")
         self.assertIn("healthCheckPath: /health", render)
         self.assertIn("PHONE_HASH_SALT", render)
         self.assertIn("https://finalinzi.onrender.com/", gradle)

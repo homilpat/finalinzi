@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#0b6b62">
+  <title>기욱하지</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <button class="icon-button hidden" id="backButton" aria-label="뒤로">‹</button>
+      <div class="brand-mark" aria-hidden="true">기</div>
+      <div class="brand-copy"><strong>기욱하지</strong><span>온디바이스 베타</span></div>
+      <div class="offline-badge"><i></i> 오프라인</div>
+    </header>
+
+    <section class="screen active" id="homeScreen">
+      <div class="hero">
+        <p class="eyebrow">내 손안의 건강 선별</p>
+        <h1>오늘의 걸음,<br><em>휴대폰 안에서</em> 확인해요.</h1>
+        <p>측정 데이터는 서버로 전송되지 않고 이 기기에서 바로 분석됩니다.</p>
+      </div>
+
+      <section class="profile-card">
+        <div><span>사용자</span><strong id="memberSummary">등록 전</strong></div>
+        <button id="profileButton">정보 입력</button>
+      </section>
+
+      <button class="feature-card gait" id="openGaitButton">
+        <div class="feature-icon">〽</div>
+        <div><span>온디바이스 보행 선별</span><strong>20초 걷기 검사</strong><small>가속도 센서 · 로컬 AI 분석</small></div>
+        <b>›</b>
+      </button>
+
+      <section class="last-result hidden" id="lastResultCard">
+        <span>최근 측정</span>
+        <div><strong id="lastResultLabel"></strong><b id="lastResultProbability"></b></div>
+        <small id="lastResultTime"></small>
+      </section>
+
+      <p class="notice">본 결과는 건강 선별을 위한 참고 정보이며 의료적 진단을 대신하지 않습니다.</p>
+    </section>
+
+    <section class="screen" id="profileScreen">
+      <div class="page-title"><p>로컬 프로필</p><h2>검사할 분의 정보를<br>입력해 주세요.</h2></div>
+      <form id="profileForm" class="form-card">
+        <label>이름 또는 별칭<input id="memberName" maxlength="20" placeholder="예: 홍길동" required></label>
+        <label>연령대<select id="memberAge"><option value="">선택 안 함</option><option>50대</option><option>60대</option><option>70대</option><option>80대 이상</option></select></label>
+        <p>입력 정보는 이 휴대폰 내부 저장소에만 보관됩니다.</p>
+        <button class="primary" type="submit">저장하기</button>
+      </form>
+    </section>
+
+    <section class="screen" id="gaitScreen">
+      <div class="page-title"><p>보행 선별</p><h2>휴대폰을 허리에<br>단단히 고정해 주세요.</h2></div>
+      <div class="guide-visual"><div class="phone">기</div><div class="waist-line"></div></div>
+      <ol class="steps"><li><b>1</b><span>휴대폰 화면이 바깥쪽을 향하게 고정</span></li><li><b>2</b><span>안전한 직선 공간에서 평소 속도로 걷기</span></li><li><b>3</b><span>준비 10초 후 보행을 20초 동안 측정</span></li></ol>
+      <div class="safety">넘어질 위험이 있으면 보호자와 함께 진행하세요.</div>
+      <button class="primary" id="startButton">측정 시작</button>
+    </section>
+
+    <section class="screen measure-screen" id="measureScreen">
+      <p class="eyebrow" id="measureEyebrow">측정 준비</p>
+      <h2 id="measureTitle">휴대폰을 고정해 주세요</h2>
+      <div class="timer" id="timer"><svg viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="52"></circle><circle class="progress" id="timerProgress" cx="60" cy="60" r="52"></circle></svg><div><strong id="timerNumber">7</strong><span>초</span></div></div>
+      <p class="measure-help" id="measureHelp">아직 걷지 않아도 됩니다.</p>
+      <button class="secondary" id="cancelButton">측정 취소</button>
+    </section>
+
+    <section class="screen result-screen" id="resultScreen">
+      <div class="result-symbol" id="resultSymbol">✓</div>
+      <p class="eyebrow">온디바이스 분석 완료</p>
+      <h2 id="resultLabel">안정 범위</h2>
+      <div class="probability"><span>운동기능 저하 가능성</span><strong id="resultProbability">0%</strong><div><i id="probabilityBar"></i></div></div>
+      <div class="metric-grid"><div><span>Jerk 중앙값</span><strong id="metricJerk">-</strong></div><div><span>Jerk 변동성</span><strong id="metricIqr">-</strong></div><div><span>리듬 변동성</span><strong id="metricRhythm">-</strong></div></div>
+      <p class="result-copy" id="resultCopy"></p>
+      <button class="primary" id="homeButton">홈으로</button>
+      <button class="text-button" id="retryButton">다시 측정</button>
+    </section>
+
+    <section class="screen error-screen" id="errorScreen">
+      <div class="error-symbol">!</div><h2>측정을 완료하지 못했어요.</h2><p id="errorMessage">센서 상태를 확인한 뒤 다시 시도해 주세요.</p>
+      <button class="primary" id="errorRetryButton">다시 시도</button><button class="text-button" id="errorHomeButton">홈으로</button>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

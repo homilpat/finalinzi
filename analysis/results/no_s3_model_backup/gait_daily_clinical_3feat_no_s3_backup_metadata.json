@@ -1,0 +1,69 @@
+{
+  "features": [
+    "v_jerk_rms_median",
+    "v_jerk_rms_iqr",
+    "v_acf_step_stride_symmetry_iqr"
+  ],
+  "threshold": 0.4172410815062886,
+  "threshold_strategy": "median of training-only nested thresholds; sensitivity_ge_0.80_max_specificity",
+  "model_mode": "daily_3feat_acconly_no_s3",
+  "label_source": "TUG >= 12 OR FSST >= 15 OR BERG < 52 OR DGI <= 19 OR base_velocity < 1.0",
+  "excluded_label_rule": "s3_velocity < 1.0 m/s is not used as a standalone criterion",
+  "clinical_label_criteria": {
+    "TUG": ">= 12 seconds",
+    "FSST": ">= 15 seconds",
+    "BERG": "< 52",
+    "DGI": "<= 19",
+    "base_velocity": "< 1.0 m/s"
+  },
+  "train_n_subjects": 71,
+  "train_n_normal": 37,
+  "train_n_impaired": 34,
+  "feature_summary_by_label": {
+    "v_jerk_rms_median": {
+      "normal_median": 1.688257932662964,
+      "impaired_median": 1.0551508665084839,
+      "difference": -0.6331070661544802
+    },
+    "v_jerk_rms_iqr": {
+      "normal_median": 0.1089130640029907,
+      "impaired_median": 0.0720608681440353,
+      "difference": -0.0368521958589554
+    },
+    "v_acf_step_stride_symmetry_iqr": {
+      "normal_median": 0.0560441873967647,
+      "impaired_median": 0.0735214874148368,
+      "difference": 0.0174773000180721
+    }
+  },
+  "feature_aliases": {
+    "v_harmonic_ratio_iqr": "v_acf_step_stride_symmetry_iqr"
+  },
+  "feature_definition_note": "The third feature is the IQR across subwindows of the vertical acceleration ACF step-peak/stride-peak ratio (Ad1/Ad2), not a Fourier harmonic ratio.",
+  "validation": {
+    "outer_cv": "subject-level StratifiedKFold(5) x 100 repeats",
+    "inner_threshold_cv": "3-fold OOF within each outer-training fold; sensitivity >= 0.80 then maximum specificity",
+    "auc_mean": 0.800516693163752,
+    "auc_std": 0.0115704475548316,
+    "auc_95ci": [
+      0.7720389507154213,
+      0.8199721780604132
+    ],
+    "sensitivity_mean": 0.8032352941176469,
+    "specificity_mean": 0.6445945945945947,
+    "precision_mean": 0.6752139330063547,
+    "accuracy_mean": 0.7205633802816901,
+    "f1_mean": 0.7334211404976785,
+    "threshold_median": 0.4172410815062886,
+    "aggregation_condition": "median of all available 20-second segment-level final3 rows per subject"
+  },
+  "training_source": "analysis_outputs/final_training_conditions_no_s3_nested_model_comparison_100rep/subject_feature_table.csv",
+  "signal_correction": {
+    "alpha": 1.9705093832241642,
+    "tau": 1.0,
+    "description": "sensor-level v_bp_rms ratio: OUR vs PhysioNet raw reference",
+    "our_v_bp_rms_median": 0.09838236440400697,
+    "pn_v_bp_rms_median": 0.19386337220187475,
+    "n_our_normals": 6
+  }
+}

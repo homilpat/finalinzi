@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-APP_DIR = ROOT / "giukhaji"
+APP_DIR = ROOT / "backend"
 sys.path.insert(0, str(APP_DIR))
 
 from modeling.gait_axis_aligned_processor import predict_daily_gait_csv
