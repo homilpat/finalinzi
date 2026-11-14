@@ -55,7 +55,7 @@ Flask / Render
 
 ## 보행 모델
 
-운영 모델은 `giukhaji/models/gait_daily_clinical_3feat.joblib`입니다. Android 형식의 20초 CSV를 해부학적 축(V/ML/AP)으로 정렬해 100 Hz로 리샘플링하고, 스마트폰–허리 IMU 진폭 차이를 고정 계수 `α = 1.9705`로 보정한 뒤 0.6–3.0 Hz 대역통과 필터와 10초 서브윈도우(2초 스텝) Median·IQR 집계를 수행합니다.
+운영 모델은 `backend/models/gait_daily_clinical_3feat.joblib`입니다. Android 형식의 20초 CSV를 해부학적 축(V/ML/AP)으로 정렬해 100 Hz로 리샘플링하고, 스마트폰–허리 IMU 진폭 차이를 고정 계수 `α = 1.9705`로 보정한 뒤 0.6–3.0 Hz 대역통과 필터와 10초 서브윈도우(2초 스텝) Median·IQR 집계를 수행합니다.
 
 스마트폰과 PhysioNet 허리 IMU 사이의 진폭 분포 차이를 줄이기 위해 피처 추출 전에 V/ML/AP 가속도 시계열 전체에 동일한 단일 보정계수 `α = 1.9705`를 곱합니다. `α`는 정상 보행 수직축 대역통과 RMS 중앙값의 비율(`0.193863 / 0.098382`)로 산출했습니다. 센서의 최대·최소값을 맞추는 Min-Max 정규화나 축마다 서로 다른 값을 적용하는 축별 보정이 아닙니다.
 
@@ -69,13 +69,13 @@ Flask / Render
 
 각 학습 fold 안에서 Optuna로 로지스틱 회귀의 C·penalty·class_weight를 inner-CV AUC 기준으로 탐색하고 같은 임계값 규칙(fold 안 3-fold OOF, 민감도 0.80 이상 중 특이도 최대)으로 비교한 결과, 기본 설정 AUC 0.873 ± 0.008 · 민감도 0.811 · 특이도 0.746 대비 Optuna는 AUC 0.833 ± 0.034 · 민감도 0.816 · 특이도 0.702였습니다. 100회 반복 중 90회에서 AUC가 낮았고 fold 간 편차도 커서, 71명 규모에서는 기본 설정을 유지했습니다.
 
-모델과 임계값도 같은 조건에서 비교해 골랐습니다. LR·RF·GBM·XGBoost·SVM·Voting·Stacking·1D-CNN·LSTM 9개 모델을 같은 피처와 같은 임계값 규칙으로 5-fold × 100회 비교했을 때 LR의 AUC가 0.873 ± 0.008로 가장 높고 편차도 가장 작았습니다(다음은 Voting 0.864, RF 0.858). 임계값은 민감도 0.80 이상을 만족하는 후보(고정 0.50, fold 안 민감도 0.80·0.85·0.90 규칙) 중 고정 0.50의 정확도가 0.790으로 가장 높고 F1도 0.817로 가장 높아 배포 임계값으로 정했습니다. class_weight balanced(민감도 0.789)와 Youden 임계값(민감도 0.730)은 민감도 기준에 못 미쳐 제외했습니다. 수치별 출처는 `analysis_results/README.md`에 정리했습니다.
+모델과 임계값도 같은 조건에서 비교해 골랐습니다. LR·RF·GBM·XGBoost·SVM·Voting·Stacking·1D-CNN·LSTM 9개 모델을 같은 피처와 같은 임계값 규칙으로 5-fold × 100회 비교했을 때 LR의 AUC가 0.873 ± 0.008로 가장 높고 편차도 가장 작았습니다(다음은 Voting 0.864, RF 0.858). 임계값은 민감도 0.80 이상을 만족하는 후보(고정 0.50, fold 안 민감도 0.80·0.85·0.90 규칙) 중 고정 0.50의 정확도가 0.790으로 가장 높고 F1도 0.817로 가장 높아 배포 임계값으로 정했습니다. class_weight balanced(민감도 0.789)와 Youden 임계값(민감도 0.730)은 민감도 기준에 못 미쳐 제외했습니다. 수치별 출처는 `docs/analysis/results.md`에 정리했습니다.
 
-결과는 질병 확률이나 확진 결과가 아니라 운동기능 저하 위험군 선별 보조 점수로 사용합니다. 최종 모델의 학습·검증 재현 코드는 `analysis_scripts/`에 있고, 최종 모델에 쓰이지 않은 탐색 실험과 이전 모델 코드는 `analysis_archive/`에 보관했습니다.
+결과는 질병 확률이나 확진 결과가 아니라 운동기능 저하 위험군 선별 보조 점수로 사용합니다. 최종 모델의 학습·검증 재현 코드는 `analysis/scripts/`에 있고, 최종 모델에 쓰이지 않은 탐색 실험과 이전 모델 코드는 `analysis/archive/`에 보관했습니다.
 
 ## 펭트 RAG
 
-`giukhaji/pengteu/knowledge/`의 문서를 제목 단위로 분할해 검색합니다. 논문 본문 근거를 우선하고 `References`·`참고문헌` 절은 검색 청크에서 제외합니다. 결과에는 출처, 원문 페이지와 DOI가 포함됩니다.
+`backend/pengteu/knowledge/`의 문서를 제목 단위로 분할해 검색합니다. 논문 본문 근거를 우선하고 `References`·`참고문헌` 절은 검색 청크에서 제외합니다. 결과에는 출처, 원문 페이지와 DOI가 포함됩니다.
 
 현재 MoCA 선별, 고령자 모바일 보행 측정, 이중과제 균형·보행훈련, 낙상위험 고령자 보행훈련 근거가 포함됩니다. `OPENAI_API_KEY`가 있으면 검색 근거와 사용자 기록을 LLM에 전달하며, 키가 없거나 호출이 실패하면 규칙 기반 안전 답변으로 전환합니다. 검사 중에는 MoCA 정답이나 힌트를 제공하지 않습니다.
 
@@ -92,9 +92,9 @@ Python 3.11 환경을 권장합니다.
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install -r giukhaji\requirements.txt
-Copy-Item giukhaji\.env.example giukhaji\.env
-python giukhaji\app.py
+python -m pip install -r backend\requirements.txt
+Copy-Item backend\.env.example backend\.env
+python backend\app.py
 ```
 
 필수 환경변수:
@@ -110,9 +110,9 @@ PHONE_HASH_SALT=<전화번호 해시용 별도 임의 문자열>
 
 ```powershell
 python -m unittest discover -s tests -v
-python -m compileall -q giukhaji tests
-node --check giukhaji\static\js\app.js
-node --check giukhaji\static\js\exercise.js
+python -m compileall -q backend tests
+node --check frontend\static\js\app.js
+node --check frontend\static\js\exercise.js
 ```
 
 통합 테스트는 Android 형식 합성 보행 CSV 추론, Flask 업로드, RAG 메타데이터, 참고문헌 제외, 펭트 안전 문구, 마이크 브리지와 개인정보 해시 저장을 검증합니다.
@@ -122,24 +122,34 @@ node --check giukhaji\static\js\exercise.js
 Android SDK 36과 Java 11 이상이 필요합니다.
 
 ```powershell
-cd FinalProjectApp
+cd android
 .\gradlew.bat assembleDebug
 ```
 
-산출물은 `FinalProjectApp/app/build/outputs/apk/debug/app-debug.apk`에 생성됩니다. 디버그 APK는 시연용이며 스토어 배포에는 별도 릴리스 서명이 필요합니다.
+산출물은 `android/app/build/outputs/apk/debug/app-debug.apk`에 생성됩니다. 디버그 APK는 시연용이며 스토어 배포에는 별도 릴리스 서명이 필요합니다.
 
 ## 저장소 구성
 
 ```text
-FinalProjectApp/       통합 Android 앱
-giukhaji/              Flask 서비스, UI, 런타임 모델, RAG
-analysis_scripts/      최종 보행 모델 학습·검증 재현 스크립트
-analysis_archive/      최종 모델에 쓰이지 않은 탐색 실험, 이전 모델 코드·문서
-tests/                 배포·통합 회귀 테스트
-render.yaml            Render 배포 설정
-DEPLOYMENT.md           배포 절차
-DEVELOPMENT_ROADMAP.md  변경 이력, 검증 결과와 제한점
-SECURITY.md             보안 및 개인정보 처리 원칙
+backend/                Flask 서버 (기능별 패키지)
+  app.py                라우트·앱 진입점
+  MOCA/                 인지 선별(MoCA) 채점
+  modeling/             보행·운동 센서 처리와 추론
+  models/               배포 보행 모델·보정값
+  pengteu/              펭트 AI 코치 (RAG, STT, 지식 문서)
+  core/                 DB, 세션, 설정 공통 모듈
+frontend/               웹 화면
+  templates/            Jinja 화면 템플릿
+  static/               CSS·JS·이미지·영상
+  assets/tts/           안내 음성 파일
+android/                통합 Android 앱
+analysis/
+  scripts/              최종 보행 모델 학습·검증 재현 스크립트
+  results/              재현 실험 결과 표
+  archive/              최종 모델에 쓰이지 않은 탐색 실험, 이전 모델 코드
+docs/                   모든 문서 (배포, 로드맵, 보안, 화면 디자인, 분석 기록)
+tests/                  배포·통합 회귀 테스트
+render.yaml             Render 배포 설정
 ```
 
 ## 검증 상태와 제한점
@@ -159,4 +169,4 @@ SECURITY.md             보안 및 개인정보 처리 원칙
 - HTTPS 운영 주소와 보안 세션 쿠키를 사용합니다.
 - 테스트 전화번호와 테스트 키 문자열은 실제 개인정보나 운영 비밀값이 아닙니다.
 
-자세한 변경 및 검증 기록은 [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md)를 참고하세요.
+자세한 변경 및 검증 기록은 [docs/roadmap.md](docs/roadmap.md)를 참고하세요.
