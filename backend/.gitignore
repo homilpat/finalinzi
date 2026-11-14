@@ -31,3 +31,7 @@ clock_cnn_train.py
 cube_cnn_train_v2.py
 cube_cnn_inference_v2.py
 clock_cnn_inference.py
+
+# run_https.py 로컬 인증서
+.https/
+*.pem
